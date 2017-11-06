@@ -1129,7 +1129,9 @@ var (
 
 //@router /:flow_id/stages/:stage_id/builds/:stage_build_id/log [GET]
 func (cf *CiFlowsController) GetStageBuildLogsFromES() {
-	method := "CiFlowsController.GetStageBuildLogsFromES"
+
+	method := "CiFlowsController/GetStageBuildLogsFromES"
+
 	flowId := cf.Ctx.Input.Param(":flow_id")
 	namespace := cf.Namespace
 	if namespace == "" {
@@ -1143,7 +1145,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	build, err := GetValidStageBuild(flowId, stageId, stageBuildId)
 	if err != nil {
 		glog.Errorf("%s get log from ES failed:===>%v\n", method, err)
-		cf.ResponseErrorAndCode(err, http.StatusForbidden)
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>`))
 		return
 	}
 
@@ -1151,8 +1153,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
 		if err != nil || podName == "" {
 			glog.Errorf("%s get job name=[%s] pod name failed from kubernetes:======>%v\n", method, build.JobName, err)
-			cf.ResponseErrorAndCode(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或已经被删除</font>`, http.StatusNotFound)
-			return
 		}
 		models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
 		build.PodName = podName
@@ -1170,10 +1170,11 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	if err != nil {
 		if errno == sqlstatus.SQLErrNoRowFound {
 			glog.Errorln(method, "cluster", client.ClusterID, "not found")
-			cf.ErrorNotFound("not found "+client.ClusterID, "cluster")
+			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 找不到构建集群的信息</font>`))
+			return
 		}
 		glog.Errorln(method, "get cluster info from database failed", err)
-		cf.ResponseErrorAndCode("not found the cluster info",http.StatusNotFound)
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 找不到构建集群的信息</font>`))
 		return
 	}
 	// get logs from kubernetes client function
@@ -1188,20 +1189,34 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	logClient := log.NewLoggingClient(cluster.APIProtocol, cluster.APIHost, PluginNamespace,
 		LoggingService+":"+strconv.Itoa(LoggingServicePort), cluster.APIToken)
 
-	//get cicd logs SCM_CONTAINER_NAME
-	response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME, startTime, client.ClusterID)
+	response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME,models.BUILDER_CONTAINER_NAME, startTime, client.ClusterID)
 	if err != nil {
 		logsData := getLogFromK8S()
 		glog.Infof(" log info  [%s]\n", logsData)
 		glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
 		if logsData == "" {
-			cf.ResponseErrorAndCode(`<font color="red">[Enn Flow API Error] 构建任务不存在或者日志信息已过期!</font>`, http.StatusNotFound)
+			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 			return
 		}
-
-		cf.ResponseErrorAndCode(logsData, http.StatusOK)
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 		return
 	}
+
+	if response!=nil{
+		hits := response.Hits.Hits
+
+		if len(hits) != 0 {
+			for _, hit := range hits {
+				if hit.Source.Kubernetes["pod_name"] == build.PodName {
+					LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
+				}
+			}
+
+		}
+
+		//glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
+	}
+
 
 	//for {
 	//	LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
@@ -1220,111 +1235,54 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	//	}
 	//}
 
-	// get log from BUILDER_CONTAINER_NAME
-	response, err = logClient.GetEnnFlowLog(namespace, build.PodName, models.BUILDER_CONTAINER_NAME, startTime, client.ClusterID)
-	if err != nil {
-		glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
 
-		glog.Infof("will get log from kubernetes  \n")
-		logsData := getLogFromK8S()
-		if logsData == "" {
-			cf.ResponseErrorAndCode(`<font color="red">[Enn Flow API Error] 初始化成功，但是没有执行容器运行成功!</font>`, http.StatusNotFound)
-			return
-		}
-		glog.Infof("will get log from kubernetes  [%s]\n", logsData)
-		cf.ResponseErrorAndCode(logsData, http.StatusOK)
-		return
-	}
-	//
-	//for {
-	//	LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
-	//	cf.Ctx.ResponseWriter.Write([]byte(LogData))
-	//
-	//	if response.ScrollId != "" {
-	//		response, err := logClient.ScrollRestLogs(response.ScrollId, build.PodName)
-	//		if err != nil {
-	//			glog.Errorf("%s ScrollRestLogs failed:==> %v\n", method, err)
-	//		}
-	//		LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
-	//		cf.Ctx.ResponseWriter.Write([]byte(LogData))
-	//		logClient.ClearScroll(response.ScrollId)
-	//	}
-	//	if response.ScrollId == "" {
-	//		break
-	//	}
-	//}
-
-	//TODO
 	if startTime.Format("2006.01.02") != endTime.Format("2006.01.02") {
 
-		//get cicd logs SCM_CONTAINER_NAME
-		response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME, endTime, client.ClusterID)
+		response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME,models.BUILDER_CONTAINER_NAME, endTime, client.ClusterID)
 		if err != nil {
-
-			glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
-
-			glog.Infof("will get log from kubernetes  \n")
 			logsData := getLogFromK8S()
+			glog.Infof(" log info  [%s]\n", logsData)
+			glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
 			if logsData == "" {
-				cf.ResponseErrorAndCode(`<font color="red">[Enn Flow API Error] 构建任务不存在或者日志信息已过期!</font>`, http.StatusNotFound)
+				cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 				return
 			}
-			glog.Infof("will get log from kubernetes  [%s]\n", logsData)
-			cf.ResponseErrorAndCode(logsData, http.StatusOK)
+			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 			return
 		}
 
-		for {
-			LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
-			cf.Ctx.ResponseWriter.Write([]byte(LogData))
+		if response!=nil{
+			hits := response.Hits.Hits
 
-			if response.ScrollId != "" {
-				response, err := logClient.ScrollRestLogs(response.ScrollId, build.PodName)
-				if err != nil {
-					glog.Errorf("%s ScrollRestLogs failed:==> %v\n", method, err)
+			if len(hits) != 0 {
+				for _, hit := range hits {
+					if hit.Source.Kubernetes["pod_name"] == build.PodName {
+						LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
+					}
 				}
-				LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
-				cf.Ctx.ResponseWriter.Write([]byte(LogData))
-				logClient.ClearScroll(response.ScrollId)
+
 			}
-			if response.ScrollId == "" {
-				break
-			}
+
+			glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
 		}
 
-		// get log from BUILDER_CONTAINER_NAME
-		response, err = logClient.GetEnnFlowLog(namespace, build.PodName, models.BUILDER_CONTAINER_NAME, endTime, client.ClusterID)
-		if err != nil {
-			glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
-
-			glog.Infof("will get log from kubernetes  \n")
-			logsData := getLogFromK8S()
-			if logsData == "" {
-				cf.ResponseErrorAndCode(`<font color="red">[Enn Flow API Error] 初始化成功，但是没有执行容器运行成功!</font>`, http.StatusNotFound)
-				return
-			}
-			glog.Infof("will get log from kubernetes  [%s]\n", logsData)
-			cf.ResponseErrorAndCode(logsData, http.StatusOK)
-			return
-		}
-
-		for {
-			LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
-			cf.Ctx.ResponseWriter.Write([]byte(LogData))
-
-			if response.ScrollId != "" {
-				response, err := logClient.ScrollRestLogs(response.ScrollId, build.PodName)
-				if err != nil {
-					glog.Errorf("%s ScrollRestLogs failed:==> %v\n", method, err)
-				}
-				LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
-				cf.Ctx.ResponseWriter.Write([]byte(LogData))
-				logClient.ClearScroll(response.ScrollId)
-			}
-			if response.ScrollId == "" {
-				break
-			}
-		}
+		//for {
+		//	LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
+		//	cf.Ctx.ResponseWriter.Write([]byte(LogData))
+		//
+		//	if response.ScrollId != "" {
+		//		response, err := logClient.ScrollRestLogs(response.ScrollId, build.PodName)
+		//		if err != nil {
+		//			glog.Errorf("%s ScrollRestLogs failed:==> %v\n", method, err)
+		//		}
+		//		LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
+		//		cf.Ctx.ResponseWriter.Write([]byte(LogData))
+		//		logClient.ClearScroll(response.ScrollId)
+		//	}
+		//	if response.ScrollId == "" {
+		//		break
+		//	}
+		//}
 
 	}
 	//如果创建失败
@@ -1335,12 +1293,17 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 		data, _ := json.Marshal(eventlist.Items)
 		cf.Ctx.ResponseWriter.Write(data)
-
 	}
+
+
 	if LogData==""{
 		glog.Infof("getLogFromK8S():%s\n",getLogFromK8S())
 		LogData = getLogFromK8S()
 
+	}
+	if LogData==""{
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志已被删除，paas平台只保留7天之内的日志信息</font>`))
+		return
 	}
 	cf.Ctx.ResponseWriter.Write([]byte(LogData))
 	return

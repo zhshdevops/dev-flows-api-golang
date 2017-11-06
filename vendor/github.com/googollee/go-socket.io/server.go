@@ -101,10 +101,10 @@ func (s *Server) loop() {
 			return
 		}
 		soc := newSocket(conn, s.baseHandler)
-		//go func(s *socket) {
-		//	s.loop()
-		//}(soc)
+		go func(s *socket) {
+			s.loop()
+		}(soc)
 
-		soc.loop()
+		//soc.loop()
 	}
 }

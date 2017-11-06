@@ -65,7 +65,7 @@ var (
 	logCiCdRequest =`{
       "from" : 0,
       "sort": [
-        {"time_nano"  : {"order" : "asc"}}
+        {"time_nano"  : {"order" : "desc"}}
       ],
       "query": {
         "bool": {
@@ -89,6 +89,24 @@ var (
              {
                  "match": {
                    "kubernetes.labels.ClusterID": {
+                     "query": "%s",
+                     "type": "phrase"
+                   }
+                 }
+             }
+          ],
+          "should": [
+          	{
+                 "match": {
+                   "kubernetes.container_name": {
+                     "query": "%s",
+                     "type": "phrase"
+                   }
+                 }
+             },
+             {
+                 "match": {
+                   "kubernetes.container_name": {
                      "query": "%s",
                      "type": "phrase"
                    }
@@ -217,7 +235,7 @@ func (lc *LoggingClient) QueryGetLog(indexes, indices, names []string, namespace
 
 
 // QueryGetLog returns log of certain
-func (lc *LoggingClient) QueryGetEnnFLowLog(namespace, podName,containerName string, date time.Time,clusterID string) (*ESResponse, error) {
+func (lc *LoggingClient) QueryGetEnnFLowLog(namespace, podName,scmContainerName,buildContainerName string, date time.Time,clusterID string) (*ESResponse, error) {
 	method := "QueryGetEnnFLowLog"
 
 	// 1. Build request url
@@ -227,7 +245,7 @@ func (lc *LoggingClient) QueryGetEnnFLowLog(namespace, podName,containerName str
 
 
 	// 2. build request body
-	requestBody := fmt.Sprintf(logCiCdRequest, podName, namespace, clusterID, defaultLogSize)
+	requestBody := fmt.Sprintf(logCiCdRequest, podName, namespace, clusterID,scmContainerName,buildContainerName, defaultLogSize)
 
 	glog.V(2).Infoln(method, "url:", url)
 	glog.V(4).Infoln(method, "body:", requestBody)
@@ -250,13 +268,13 @@ func (lc *LoggingClient) QueryGetEnnFLowLog(namespace, podName,containerName str
 		return nil, err
 	}
 
-	glog.V(1).Info(string(rawBytes))
+	//glog.V(1).Info(string(rawBytes))
 	// unmarshal response
 	response := &ESResponse{}
 	if err := json.Unmarshal(rawBytes, response); err != nil {
 		errInfo := strings.Trim(string(rawBytes), "\n \t")
 		glog.Errorln(method, "Unmarshal response failed, data:", errInfo, ", error:", err)
-		return nil, fmt.Errorf("%s", rawBytes)
+		return nil, err
 	}
 	if response.Status != 0 {
 		return nil, fmt.Errorf("invalid keyword: %s", err)

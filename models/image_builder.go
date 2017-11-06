@@ -652,10 +652,10 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 	if err != nil {
 		glog.Errorf("%s label parse failed: %v\n", method, err)
 		status.Phase = PodUnknown
-		status.Message="label Parse failed"
-		status.Reason="label Parse failed"
-		status.Type=PodReasonUnschedulable
-		status.Status=ConditionUnknown
+		status.Message = "label Parse failed"
+		status.Reason = "label Parse failed"
+		status.Type = PodReasonUnschedulable
+		status.Status = ConditionUnknown
 		return status, err
 	}
 	podName := ""
@@ -668,10 +668,10 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 	if err != nil {
 		glog.Errorf("%s get pod watchInterface failed: %v\n", method, err)
 		status.Phase = PodUnknown
-		status.Message="get pod watchInterface failed"
-		status.Reason="get pod watchInterface failed"
-		status.Type=PodReasonUnschedulable
-		status.Status=ConditionUnknown
+		status.Message = "get pod watchInterface failed"
+		status.Reason = "get pod watchInterface failed"
+		status.Type = PodReasonUnschedulable
+		status.Status = ConditionUnknown
 		return status, err
 	}
 	for {
@@ -680,10 +680,10 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 			if !isOpen {
 				glog.Warningf("the pod watch the chan is closed\n")
 				status.Phase = PodUnknown
-				status.Message="the pod watch the chan is closed"
-				status.Reason="the pod watch the chan is closed"
-				status.Type=PodReasonUnschedulable
-				status.Status=ConditionUnknown
+				status.Message = "the pod watch the chan is closed"
+				status.Reason = "the pod watch the chan is closed"
+				status.Type = PodReasonUnschedulable
+				status.Status = ConditionUnknown
 				break
 			}
 			glog.Infof("the pod event type=%s\n", event.Type)
@@ -691,10 +691,10 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 			if !parseIsOk {
 				glog.Errorf("get pod event failed:断言失败\n")
 				status.Phase = PodUnknown
-				status.Message="get pod event failed 断言失败"
-				status.Reason="get pod event failed 断言失败"
-				status.Type=PodReasonUnschedulable
-				status.Status=ConditionUnknown
+				status.Message = "get pod event failed 断言失败"
+				status.Reason = "get pod event failed 断言失败"
+				status.Type = PodReasonUnschedulable
+				status.Status = ConditionUnknown
 				continue
 			}
 			//保存首次收到的事件所属的pod名称
@@ -734,18 +734,18 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 			//成功
 			if pod.Status.Phase == apiv1.PodSucceeded {
 				status.Phase = PodUnknown
-				status.Message="get pod event failed 断言失败"
-				status.Reason="get pod event failed 断言失败"
-				status.Type=PodReasonUnschedulable
-				status.Status=ConditionUnknown
+				status.Message = "get pod event failed 断言失败"
+				status.Reason = "get pod event failed 断言失败"
+				status.Type = PodReasonUnschedulable
+				status.Status = ConditionUnknown
 				break
 			} else if pod.Status.Phase == apiv1.PodFailed {
 				//创建失败
 				status.Phase = PodUnknown
-				status.Message="get pod event failed 断言失败"
-				status.Reason="get pod event failed 断言失败"
-				status.Type=PodReasonUnschedulable
-				status.Status=ConditionUnknown
+				status.Message = "get pod event failed 断言失败"
+				status.Reason = "get pod event failed 断言失败"
+				status.Type = PodReasonUnschedulable
+				status.Status = ConditionUnknown
 				break
 			}
 
@@ -830,29 +830,29 @@ func TranslatePodStatus(status apiv1.PodStatus) StatusMessage {
 			if BUILDER_CONTAINER_NAME == s.Name {
 				if s.State.Running != nil {
 					glog.Infof("method=%s,Message=The builder container is still running [%s]\n", method, s.State.Running)
-					statusMess.Phase=PodRunning
+					statusMess.Phase = PodRunning
 
 					return statusMess
 				}
 
 				if s.State.Waiting != nil {
 					glog.Infof("method=%s,Message=The builder container is still waiting [%s]\n", method, s.State.Waiting)
-					statusMess.Phase=PodPending
+					statusMess.Phase = PodPending
 					return statusMess
 				}
 
 				if s.State.Terminated.ExitCode != 0 {
-					statusMess.Phase=PodFailed
+					statusMess.Phase = PodFailed
 					glog.Infof("method=%s,Message=The builder container is exit abnormally [%s]\n", method, s.State.Terminated)
 					return statusMess
 				}
-				statusMess.Phase=PodSucceeded
+				statusMess.Phase = PodSucceeded
 				return statusMess
 
 			}
 		}
 	}
-	statusMess.Phase=PodUnknown
+	statusMess.Phase = PodUnknown
 	return statusMess
 }
 
@@ -1061,7 +1061,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		Follow:     follow,
 		Timestamps: true,
 	}
-		readCloser, err := builder.Client.Pods(namespace).GetLogs(podName, opt).Stream()
+	readCloser, err := builder.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 	if err != nil {
 		glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
 
@@ -1074,13 +1074,14 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		if nil != err {
 			if err == io.EOF {
 				glog.Infof("%s [Enn Flow API ] finish get log of %s.%s!\n", method, podName, containerName)
-				glog.Infof("==========>>Get log successfully from kubernetes .!!<<============\n")
+				glog.Infof("Get log successfully from kubernetes\n")
 				return completeLogs
 			}
 
-			glog.Errorf("get log from kubernetes failed: err:%v,",err)
+			glog.Errorf("get log from kubernetes failed: err:%v,", err)
 			return ""
 		}
+
 
 		completeLogs += template.HTMLEscapeString(string(data[:n]))
 
@@ -1089,18 +1090,19 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 	return completeLogs
 
 }
+
 func FormatLog(data string) (buildLogs string) {
-	glog.Infof("log data :=======>%s\n",data)
+	glog.Infof("log data :=======>%s\n", data)
 	var logdataHtml []string
 	if data != "" {
 		dataLine := strings.Split(data, "\n")
-		dataLineLne:=len(dataLine)
-		for index,d := range dataLine {
-			if index==dataLineLne-1{
+		dataLineLne := len(dataLine)
+		for index, d := range dataLine {
+			if index == dataLineLne-1 {
 				break
 			}
-			logdataHtml=strings.Split(d," ")
-			buildLogs += `<font color="#ffc20e">['` + logdataHtml[0] + `']</font> ` +logdataHtml[1]+ `<br/>`
+			logdataHtml = strings.Split(d, " ")
+			buildLogs += `<font color="#ffc20e">['` + logdataHtml[0] + `']</font> ` + logdataHtml[1] + `<br/>`
 		}
 
 	}

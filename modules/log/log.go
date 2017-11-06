@@ -125,11 +125,11 @@ func (l *LoggingClient) RefineLogEnnFlowLog(podName string, esResponse *ESRespon
 	return ""
 }
 
-func (l *LoggingClient) GetEnnFlowLog(namespace, podName, containerName string, date time.Time, clusterID string) (*ESResponse, error) {
+func (l *LoggingClient) GetEnnFlowLog(namespace, podName, ScmContainerName,BuildContainerName string, date time.Time, clusterID string) (*ESResponse, error) {
 	method := "modules/log/GetEnnFlowLog.Get"
 
 	//namespace, podName,containerName string, date time.Time,clusterID string
-	logs, err := l.QueryGetEnnFLowLog(namespace, podName, containerName, date, clusterID)
+	logs, err := l.QueryGetEnnFLowLog(namespace, podName, ScmContainerName,BuildContainerName, date, clusterID)
 	if err != nil {
 		glog.Errorln(method, "Get logs failed, namespace:", namespace, ", podName:", podName, ", error:", err)
 		return nil, err
