@@ -37,7 +37,7 @@ func (ci *CiFlowBuildLogs) InsertOne(build CiFlowBuildLogs, orms ...orm.Ormer) (
 	return
 }
 
-func (ci *CiFlowBuildLogs) UpdateById(EndTime time.Time,Status int, buildId string, orms ...orm.Ormer) (int64, error) {
+func (ci *CiFlowBuildLogs) UpdateById(EndTime time.Time, Status int, buildId string, orms ...orm.Ormer) (int64, error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -46,7 +46,7 @@ func (ci *CiFlowBuildLogs) UpdateById(EndTime time.Time,Status int, buildId stri
 	}
 
 	sql := fmt.Sprintf("update %s set end_time=?,status=? where build_id=?", ci.TableName())
-	result, err := o.Raw(sql, EndTime,Status,buildId).Exec()
+	result, err := o.Raw(sql, EndTime, Status, buildId).Exec()
 	if err != nil {
 		return 0, err
 	}
@@ -54,7 +54,7 @@ func (ci *CiFlowBuildLogs) UpdateById(EndTime time.Time,Status int, buildId stri
 	return result.RowsAffected()
 }
 
-func (ci *CiFlowBuildLogs) UpdateStartTimeAndStatusById(startTime time.Time,Status int, buildId string, orms ...orm.Ormer) (int64, error) {
+func (ci *CiFlowBuildLogs) UpdateStartTimeAndStatusById(startTime time.Time, Status int, buildId string, orms ...orm.Ormer) (int64, error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -63,7 +63,7 @@ func (ci *CiFlowBuildLogs) UpdateStartTimeAndStatusById(startTime time.Time,Stat
 	}
 
 	sql := fmt.Sprintf("update %s set start_time=?,status=? where build_id=?", ci.TableName())
-	result, err := o.Raw(sql, startTime,Status).Exec()
+	result, err := o.Raw(sql, startTime, Status).Exec()
 	if err != nil {
 		return 0, err
 	}
@@ -108,27 +108,41 @@ func (ci *CiFlowBuildLogs) FindAllOfFlow(flowId string, size int, orms ...orm.Or
 }
 
 type FlowBuildLogResp struct {
-	BuildId string `json:"buildId"`
-	Status int8 `json:"status"`
+	BuildId      string `json:"buildId"`
+	Status       int8 `json:"status"`
 	CreationTime string `json:"creationTime"`
-	StartTime string `json:"startTime"`
-	EndTime string `json:"endTime"`
-	Namespace string `json:"namespace"`
+	StartTime    string `json:"startTime"`
+	EndTime      string `json:"endTime"`
+	Namespace    string `json:"namespace"`
 }
 
-func FormatBuild(flowBuildLog CiFlowBuildLogs,fieldPrefix string)(flowbuildResp FlowBuildLogResp){
+func FormatBuild(flowBuildLog CiFlowBuildLogs, fieldPrefix string) (flowbuildResp FlowBuildLogResp) {
 
-	flowbuildResp.BuildId=fieldPrefix+flowBuildLog.BuildId
-	flowbuildResp.Status=flowBuildLog.Status
-	flowbuildResp.CreationTime=fieldPrefix+flowBuildLog.CreationTime.Format("2006-01-02 15:04:05")
-	flowbuildResp.StartTime=fieldPrefix+flowBuildLog.StartTime.Format("2006-01-02 15:04:05")
-	flowbuildResp.EndTime=fieldPrefix+flowBuildLog.EndTime.Format("2006-01-02 15:04:05")
+	flowbuildResp.BuildId = fieldPrefix + flowBuildLog.BuildId
+	flowbuildResp.Status = flowBuildLog.Status
+	flowbuildResp.CreationTime = fieldPrefix + flowBuildLog.CreationTime.Format("2006-01-02 15:04:05")
+	flowbuildResp.StartTime = fieldPrefix + flowBuildLog.StartTime.Format("2006-01-02 15:04:05")
+	flowbuildResp.EndTime = fieldPrefix + flowBuildLog.EndTime.Format("2006-01-02 15:04:05")
 	return
 }
 
+type LastBuildInfo struct {
+	BuildId                string `orm:"column(build_id)" json:"buildId"`
+	FlowId                 string `orm:"column(flow_id)" json:"flow_id"`
+	CreationTime           time.Time `orm:"column(creation_time)" json:"creationTime"`
+	StartTime              time.Time `orm:"column(start_time)" json:"startTime"`
+	EndTime                time.Time `orm:"column(end_time)" json:"endTime"`
+	Status                 int `orm:"column(status)" json:"status"` //状态。0-成功 1-失败 2-执行中
+	StageId                string `orm:"column(stage_id)" json:"stage_id"`
+	StageName              string `orm:"column(stage_name)" json:"stage_name"`
+	StageBuildStatus       int `orm:"column(stage_build_status)" json:"stage_build_status"`
+	StageBuildCreationTime string `orm:"column(stage_build_creation_time)" json:"stage_build_creation_time"`
+	StageBuildStartTime    string `orm:"column(stage_build_start_time)" json:"stage_build_start_time"`
+	StageBuildEndTime      string `orm:"column(stage_build_end_time)" json:"stage_build_end_time"`
+	StageBuildBuildId      string `orm:"column(stage_build_build_id)" json:"stage_build_build_id"`
+}
 
-//未完成
-func (ci *CiFlowBuildLogs) FindLastBuildOfFlowWithStages(flowId string, orms ...orm.Ormer) (cFbl []CiFlowBuildLogs, total int64, err error) {
+func (ci *CiFlowBuildLogs) FindLastBuildOfFlowWithStages(flowId string, orms ...orm.Ormer) (cFbl []LastBuildInfo, total int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -157,4 +171,3 @@ func (ci *CiFlowBuildLogs) QueryFlowBuildStats(namespace string, orms ...orm.Orm
 	total, err = o.Raw(SELECT_SERVER_FLOW_BUILD_STATS, namespace).QueryRows(&cFbl)
 	return
 }
-

@@ -55,7 +55,7 @@ func (cf *CiFlowsController) GetCIFlows() {
 				return
 			}
 		}
-		flowInfo.Image=buildInfo.Image
+		flowInfo.Image = buildInfo.Image
 		if flow.Last_build_id == "" {
 			flowInfo.Status = nil
 			flowInfo.Last_build_id = nil
@@ -911,9 +911,31 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	return
 }
 
+type StageBuilds struct {
+	BuildId      string `json:"buildId"`
+	CreationTime string `json:"creationTime"`
+	EndTime      string`json:"endTime"`
+	StartTime    string `json:"startTime"`
+	Status       int `json:"status"`
+	StageName    string `json:"stageName"`
+	StageId      string `json:"stageId"`
+}
+
+type BuildResult struct {
+	BuildId      string `json:"buildId"`
+	FlowId       string `json:"flowId"`
+	CreationTime time.Time `json:"creationTime"`
+	EndTime      time.Time `json:"endTime"`
+	StartTime    time.Time `json:"startTime"`
+	Status       int `json:"status"`
+	StageBuilds  []StageBuilds `json:"stageBuilds"`
+}
+
 //@router /:flow_id/lastbuild [GET]
 func (cf *CiFlowsController) GetLastBuildDetails() {
-	method := "CiFlowsController.GetLastBuildDetails"
+
+	method := "CiFlowsController/GetLastBuildDetails"
+
 	flowId := cf.Ctx.Input.Param(":flow_id")
 
 	namespace := cf.Namespace
@@ -925,52 +947,91 @@ func (cf *CiFlowsController) GetLastBuildDetails() {
 
 	builds, total, err := flowBuild.FindLastBuildOfFlowWithStages(flowId)
 	if err != nil {
-		glog.Errorf("%s %v\n", method, err)
-		cf.ResponseErrorAndCode("FindLastBuildOfFlowWithStages failed", 401)
+		glog.Errorf("%s Get flow info failed from database: %v\n", method, err)
+		cf.ResponseErrorAndCode("not found the flows info", http.StatusNotFound)
 		return
 	}
 
-	if len(builds) != 0 {
-		cf.ResponseSuccessDevops(builds, total)
+	if total != 0 {
+		var buildResult BuildResult
+		var stageBuilds StageBuilds
+		buildResult.StageBuilds = make([]StageBuilds, 0)
+		buildResult.BuildId = builds[0].BuildId
+		buildResult.FlowId = builds[0].FlowId
+		buildResult.CreationTime = builds[0].CreationTime
+		buildResult.EndTime = builds[0].EndTime
+		buildResult.StartTime = builds[0].StartTime
+		buildResult.Status = builds[0].Status
+
+		for _, build := range builds {
+			stageBuilds.BuildId = build.StageBuildBuildId
+			stageBuilds.CreationTime = build.StageBuildCreationTime
+			stageBuilds.StartTime = build.StageBuildStartTime
+			stageBuilds.StageName = build.StageName
+			stageBuilds.EndTime = build.StageBuildEndTime
+			stageBuilds.Status = build.StageBuildStatus
+			stageBuilds.StageId = build.StageId
+			buildResult.StageBuilds = append(buildResult.StageBuilds, stageBuilds)
+		}
+
+		results := struct {
+			Results BuildResult `json:"results"`
+		}{
+			Results: buildResult,
+		}
+
+		cf.ResponseResultAndStatusDevops(results, http.StatusOK)
 		return
 	}
-	cf.ResponseNotFoundDevops("")
+
+	cf.ResponseErrorAndCode("FindLastBuildOfFlowWithStages failed", http.StatusNotFound)
 	return
 }
 
 //@router /:flow_id/builds/:flow_build_id [GET]
 func (cf *CiFlowsController) ListStagesBuilds() {
+
 	method := "CiFlowsController.ListStagesBuilds"
+
 	flowId := cf.Ctx.Input.Param(":flow_id")
 
 	namespace := cf.Namespace
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
+
 	flowBuildId := cf.Ctx.Input.Param(":flow_build_id")
 
 	flowBuild := models.NewCiFlowBuildLogs()
 
 	build, err := flowBuild.FindFlowBuild(flowId, flowBuildId)
 	if err != nil {
-		glog.Errorf("%s %v %v\n", method, build, err)
-		cf.ResponseErrorAndCode("Cannot find flow build of specified flow", 404)
+		glog.Errorf("%s get flowBuild info failed: build:%v, err:%v\n", method, build, err)
+		cf.ResponseErrorAndCode("Cannot find flow build of specified flow", http.StatusNotFound)
 		return
 	}
 
 	stageBuilds, total, err := models.NewCiStageBuildLogs().FindAllOfFlowBuild(flowBuildId)
 	if err != nil {
-		glog.Errorf("%s %v \n", method, err)
-		cf.ResponseErrorAndCode("Cannot find flow build of specified flow", 404)
+		glog.Errorf("%s get stage buildLog failed from database:%v \n", method, err)
+		cf.ResponseErrorAndCode("Cannot find flow build of specified flow", http.StatusNotFound)
 		return
 	}
 
-	if len(stageBuilds) != 0 {
-		cf.ResponseSuccessDevops(stageBuilds, total)
+
+	results := struct {
+		Results []models.CiStageBuildLogs `json:"results"`
+	}{
+		Results: stageBuilds,
+	}
+
+
+	if total != 0 {
+		cf.ResponseResultAndStatusDevops(results, http.StatusOK)
 		return
 	}
 
-	cf.ResponseNotFoundDevops("")
+	cf.ResponseErrorAndCode("Cannot find flow build of specified flow", http.StatusNotFound)
 	return
 }
 
@@ -1104,17 +1165,16 @@ func (cf *CiFlowsController) ListBuildsOfStage() {
 
 	stageBuilds, total, err := models.NewCiStageBuildLogs().FindAllOfStage(stageId, common.DEFAULT_PAGE_SIZE)
 	if err != nil {
-		glog.Errorf("%s get stage build log failed: total=%d, err:%v \n", method,total, err)
+		glog.Errorf("%s get stage build log failed: total=%d, err:%v \n", method, total, err)
 		cf.ResponseErrorAndCode("Stage build log not found", http.StatusNotFound)
 		return
 	}
 
-	results:= struct {
+	results := struct {
 		Results []models.CiStageBuildLogs `json:"results"`
 	}{
-		Results:stageBuilds,
+		Results: stageBuilds,
 	}
-
 
 	cf.ResponseResultAndStatusDevops(results, http.StatusOK)
 	return
@@ -1180,7 +1240,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	// get logs from kubernetes client function
 	getLogFromK8S := func() string {
 		glog.Infof("will get log from kubernetes.......\n")
-		return imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.SCM_CONTAINER_NAME)  +
+		return imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.SCM_CONTAINER_NAME) +
 			imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.BUILDER_CONTAINER_NAME)
 	}
 
@@ -1189,7 +1249,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	logClient := log.NewLoggingClient(cluster.APIProtocol, cluster.APIHost, PluginNamespace,
 		LoggingService+":"+strconv.Itoa(LoggingServicePort), cluster.APIToken)
 
-	response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME,models.BUILDER_CONTAINER_NAME, startTime, client.ClusterID)
+	response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME, startTime, client.ClusterID)
 	if err != nil {
 		logsData := getLogFromK8S()
 		glog.Infof(" log info  [%s]\n", logsData)
@@ -1202,13 +1262,13 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		return
 	}
 
-	if response!=nil{
+	if response != nil {
 		hits := response.Hits.Hits
 
 		if len(hits) != 0 {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
-					LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
+					LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font>        %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 				}
 			}
 
@@ -1216,7 +1276,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 		//glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
 	}
-
 
 	//for {
 	//	LogData = logClient.RefineLogEnnFlowLog(build.PodName, response)
@@ -1235,10 +1294,9 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	//	}
 	//}
 
-
 	if startTime.Format("2006.01.02") != endTime.Format("2006.01.02") {
 
-		response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME,models.BUILDER_CONTAINER_NAME, endTime, client.ClusterID)
+		response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME, endTime, client.ClusterID)
 		if err != nil {
 			logsData := getLogFromK8S()
 			glog.Infof(" log info  [%s]\n", logsData)
@@ -1251,7 +1309,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			return
 		}
 
-		if response!=nil{
+		if response != nil {
 			hits := response.Hits.Hits
 
 			if len(hits) != 0 {
@@ -1295,13 +1353,12 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write(data)
 	}
 
-
-	if LogData==""{
-		glog.Infof("getLogFromK8S():%s\n",getLogFromK8S())
+	if LogData == "" {
+		glog.Infof("getLogFromK8S():%s\n", getLogFromK8S())
 		LogData = getLogFromK8S()
 
 	}
-	if LogData==""{
+	if LogData == "" {
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志已被删除，paas平台只保留7天之内的日志信息</font>`))
 		return
 	}
