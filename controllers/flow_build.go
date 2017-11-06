@@ -733,7 +733,10 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 			glog.Infof("stop the run failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
 			//不是手动停止
 			errMsg="程序停止构建job"
-			imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+			_,err=imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+			if err!=nil{
+				glog.Errorf("%s Stop the job %s failed: %v\n",method,job.ObjectMeta.Name,err)
+			}
 		} else {
 			errMsg = "构建流程被手动停止"
 		}
@@ -896,8 +899,10 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 	//终止job
 	glog.Infof("%s - stop job=[%s]\n", method, job.ObjectMeta.Name)
 	//1 代表手动停止 0表示程序停止
-	imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
-
+	_,err=imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+	if err!=nil{
+		glog.Errorf("%s Stop the job %s failed: %v\n",method,job.ObjectMeta.Name,err)
+	}
 	timeout = true
 	return
 
