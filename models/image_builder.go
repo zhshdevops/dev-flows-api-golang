@@ -590,7 +590,8 @@ func (builder *ImageBuilder) WaitForJob(namespace, jobName string, buildWithDepe
 		glog.Errorf("%s WatchJob failed:%v\n", method, err)
 	}
 
-	glog.Infof("=======>>WatchRespData:%#v<<==========\n", WatchRespData)
+	glog.Infof("WatchJob result:%v\n", WatchRespData)
+
 	statusMessage.JobStatus = WatchRespData
 	return statusMessage
 }
@@ -908,7 +909,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 	if err != nil {
 		glog.Errorf("%s  %s\n", method, ">>>>>>断言失败<<<<<<")
 		watchRespData.Succeeded = 0
-		watchRespData.Failed = 0
+		watchRespData.Failed = 1
 		watchRespData.Active = 0
 		watchRespData.Status = ConditionUnknown
 		watchRespData.JobConditionType = JobFailed
@@ -923,7 +924,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 			if isOpen == false {
 				glog.Errorf("%s the watch job chain is close\n", method)
 				watchRespData.Succeeded = 0
-				watchRespData.Failed = 0
+				watchRespData.Failed = 1
 				watchRespData.Active = 0
 				watchRespData.Status = ConditionUnknown
 				watchRespData.JobConditionType = JobFailed
@@ -935,7 +936,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 			if false == parseIsOk {
 				glog.Errorf("%s job %s\n", method, ">>>>>>断言失败<<<<<<")
 				watchRespData.Succeeded = 0
-				watchRespData.Failed = 0
+				watchRespData.Failed = 1
 				watchRespData.Active = 0
 				watchRespData.Status = ConditionUnknown
 				watchRespData.JobConditionType = JobFailed
@@ -984,7 +985,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				}
 
 				return watchRespData, nil
-			} else if dm.Status.Failed >= 1 && dm.Status.Active == 0 {
+			} else if dm.Status.Failed >= 1 {
 				watchRespData.Succeeded = dm.Status.Succeeded
 				watchRespData.Failed = dm.Status.Failed
 				watchRespData.Active = dm.Status.Active
@@ -1017,7 +1018,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 						watchRespData.Message = "停止job成功"
 						watchRespData.Reason = "停止job成功"
 					}
-					return watchRespData, nil
+					return watchRespData, fmt.Errorf("用户停止了构建任务")
 					//没有依赖服务时
 				} else {
 					if len(dm.Status.Conditions) != 0 {
@@ -1031,7 +1032,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 						watchRespData.Message = "停止job成功"
 						watchRespData.Reason = "停止job成功"
 					}
-					return watchRespData, nil
+					return watchRespData, fmt.Errorf("job执行失败程序发送了停止构建任务的命令")
 				}
 			}
 
@@ -1160,12 +1161,14 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	if err != nil {
 		return job, err
 	}
-
+	job.Spec.Parallelism = Int32Toint32Point(0)
 	if forced {
 		//parallelism设为0，pod会被自动删除，但job会保留 *****
-		job.Spec.Parallelism = Int32Toint32Point(0)
+
 		//用来判断是否手动停止
 		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "true"
+	}else{
+		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "timeout or run failed"
 	}
 
 	//job watcher用来获取运行结果 失败的时候 会加个label 标识失败 1表示手动停止 0 表示由于某种原因自动执行失败

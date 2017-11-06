@@ -623,63 +623,58 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 	registryConfig := common.HarborServerUrl
 	glog.Infof("%s HarborServerUrl=[%s]\n", method, registryConfig)
 	pod := apiv1.Pod{}
-
-	timeout := false
-
-	errMsg := ""
+	var timeout bool
+	var err error
+	var errMsg string
 
 	var wg sync.WaitGroup
 	resultChan := make(chan bool, 1)
 	wg.Add(1)
-
 	go func() {
 		//TODO 设置3分钟超时，如无法创建container则自动停止构建
-		_, timeout, err := HandleWaitTimeout(job, imageBuilder)
+		pod, timeout, err = HandleWaitTimeout(job, imageBuilder)
 		if err != nil {
 			glog.Infof("%s HandleWaitTimeout get: %v\n", method, err)
 		}
 		resultChan <- false
 		//检查是否超时
-		glog.Infof("=====>>timeout<<==%s\n", timeout)
 		select {
 		case <-time.After(3 * time.Minute):
 			wg.Done()
 			timeout = true
+			glog.Infof("Kubernetes Job start timeout:%s\n", timeout)
 		case <-resultChan:
 			wg.Done()
 			timeout=false
-			glog.Infof("=========>>%s not timeout<<==========%s\n", timeout)
-
+			glog.Infof("Kubernetes Job not timeout:%s\n", timeout)
 		}
 
 	}()
 	wg.Wait()
 
-	glog.Infof("timeout value====>timeout:%s\n",timeout)
-
 	statusMessage := imageBuilder.WaitForJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, options.BuildWithDependency)
 
-	glog.Infof("%s WaitForJob statusMessage===>%#v\n", method, statusMessage.JobStatus)
 	if statusMessage.JobStatus.JobConditionType == models.ConditionUnknown {
 		glog.Warningf("%s Waiting for job failed, try again %#v\n", method, statusMessage.JobStatus)
 		statusMessage = imageBuilder.WaitForJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, options.BuildWithDependency)
 	}
-	glog.Infof("%s Build result:  %#v\n", method, statusMessage.JobStatus)
 	statusCode := 1
 	//手动停止
 	if statusMessage.JobStatus.ForcedStop {
 		statusCode = 1
 	} else {
 		if statusMessage.JobStatus.Failed > 0 {
+			glog.Infof("Run job failed:%v\n",statusMessage.JobStatus)
 			//执行失败
 			statusCode = 1
 		} else if statusMessage.JobStatus.Succeeded > 0 {
 			//执行成功
+			glog.Infof("Run job success:%v\n",statusMessage.JobStatus)
 			statusCode = 0
 		}
 	}
 
-	glog.Infof("%s Wait ended normally...  %v\n", method, statusMessage)
+	glog.Infof("%s Wait ended normally... and the job status: %v\n", method, statusMessage)
 
 	var newBuild models.CiStageBuildLogs
 	newBuild.EndTime = time.Now()
@@ -690,9 +685,9 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 	}
 
 	if pod.ObjectMeta.Name == "" {
-		pod, err := imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+		pod, err = imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 		if err != nil {
-			glog.Errorf("%s get pod failed:%v\n", method, err)
+			glog.Errorf("%s get pod from kubernetes cluster failed:%v\n", method, err)
 		}
 		if pod.ObjectMeta.Name != "" {
 			//执行失败时，生成失败原因
@@ -700,14 +695,14 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 				if len(pod.Status.ContainerStatuses) > 0 {
 					for _, sontainerStatus := range pod.Status.ContainerStatuses {
 						if sontainerStatus.Name == imageBuilder.BuilderName && sontainerStatus.State.Terminated != nil {
-							errMsg = fmt.Sprintf(`运行构建的容器异常退出：exit code为%d，退出原因为%s`, sontainerStatus.State.Terminated.ExitCode,
+							errMsg = fmt.Sprintf(`运行构建的容器异常退出：exit code=%d，退出原因为:%s`, sontainerStatus.State.Terminated.ExitCode,
 								sontainerStatus.State.Terminated.Message)
 						}
 					}
 					if errMsg == "" && len(pod.Status.InitContainerStatuses) > 0 {
 						for _, scmStatus := range pod.Status.InitContainerStatuses {
 							if scmStatus.Name == imageBuilder.ScmName && scmStatus.State.Terminated != nil {
-								errMsg = fmt.Sprintf(`代码拉取失败：exit code为%d，退出原因为%s`, scmStatus.State.Terminated.ExitCode,
+								errMsg = fmt.Sprintf(`代码拉取失败：exit code=%d，退出原因为:%s`, scmStatus.State.Terminated.ExitCode,
 									scmStatus.State.Terminated.Message)
 							}
 						}
@@ -764,10 +759,10 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 			handleNextStageBuild(user, stage, stageBuild, options.FlowOwner)
 		}
 		//TODO 通知执行成功邮件
-		glog.Errorf("%s %s\n", method, errMsg)
+		glog.Infof("%s %s\n", method, errMsg)
 	} else {
 		//TODO 通知失败邮件
-		glog.Errorf("%s %s\n", method, errMsg)
+		glog.Infof("%s %s\n", method, errMsg)
 	}
 
 }
@@ -889,7 +884,6 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 			return
 		}
 
-		glog.Infof("ContainerStatuses=========imageBuilder.BuilderName= time out <<==========\n")
 
 	}
 
