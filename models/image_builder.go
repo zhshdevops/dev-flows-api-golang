@@ -1168,7 +1168,7 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 		//用来判断是否手动停止
 		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "true"
 	}else{
-		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "timeout or run failed"
+		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "Timeout-OrRunFailed"
 	}
 
 	//job watcher用来获取运行结果 失败的时候 会加个label 标识失败 1表示手动停止 0 表示由于某种原因自动执行失败
