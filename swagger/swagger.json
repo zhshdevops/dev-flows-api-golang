@@ -1,0 +1,220 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Enncloud DevOps API",
+        "description": "新智云CICD API",
+        "version": "1.0.0",
+        "termsOfService": "http://paas.enncloud.cn",
+        "contact": {
+            "email": "qinzhao@ennew.cn"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        }
+    },
+    "basePath": "/api/v2/devops",
+    "paths": {
+        "/cd-rules/": {
+            "get": {
+                "tags": [
+                    "cd-rules"
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "cd-rules"
+                ]
+            }
+        },
+        "/ci-flows/": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            },
+            "post": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/ci-flows/{flow_id}": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            },
+            "put": {
+                "tags": [
+                    "ci-flows"
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/ci-flows/{flow_id}/builds": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            },
+            "post": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/ci-flows/{flow_id}/cd-rules": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            },
+            "post": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/ci-flows/{flow_id}/ci-rules": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            },
+            "put": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/ci-flows/{flow_id}/deployment-logs": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/ci-flows/{flow_id}/images": {
+            "get": {
+                "tags": [
+                    "ci-flows"
+                ]
+            }
+        },
+        "/dockerfiles/": {
+            "get": {
+                "tags": [
+                    "dockerfiles"
+                ]
+            }
+        },
+        "/managed-projects/": {
+            "get": {
+                "tags": [
+                    "managed-projects"
+                ],
+                "description": "GetManagedProjects",
+                "operationId": "CiManagedProjectsController.GetManagedProjects"
+            },
+            "post": {
+                "tags": [
+                    "managed-projects"
+                ]
+            }
+        },
+        "/managed-projects/webhooks/": {
+            "get": {
+                "tags": [
+                    "managed-projects"
+                ],
+                "description": "GetManagedProjects",
+                "operationId": "CiManagedProjectsController.GetManagedProjects"
+            },
+            "post": {
+                "tags": [
+                    "managed-projects"
+                ]
+            }
+        },
+        "/managed-projects/webhooks/{project_id}": {},
+        "/managed-projects/{project_id}": {},
+        "/registry/notification-handler": {
+            "post": {
+                "tags": [
+                    "registry"
+                ],
+                "description": "create users",
+                "operationId": "InvokeCDController.CreateUser",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for user content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.User"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{int} models.User.Id"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/repos/{type}": {
+            "get": {
+                "tags": [
+                    "repos"
+                ],
+                "description": "update the object",
+                "operationId": "CiReposController.Update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "objectId",
+                        "description": "The objectid you want to update",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.Object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/.Object"
+                        }
+                    },
+                    "403": {
+                        "description": ":objectId is empty"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        ".Object": {
+            "type": "object"
+        },
+        ".User": {
+            "type": "object"
+        }
+    }
+}
