@@ -1161,6 +1161,7 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	if err != nil {
 		return job, err
 	}
+	glog.Infof("Will stop the job %s\n",jobName)
 	job.Spec.Parallelism = Int32Toint32Point(0)
 	if forced {
 		//parallelism设为0，pod会被自动删除，但job会保留 *****

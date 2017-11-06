@@ -674,7 +674,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		}
 	}
 
-	glog.Infof("%s Wait ended normally... and the job status: %v\n", method, statusMessage)
+	glog.Infof("%s Wait ended normally... and the job status: %#v\n", method, statusMessage)
 
 	var newBuild models.CiStageBuildLogs
 	newBuild.EndTime = time.Now()
@@ -860,11 +860,16 @@ func startNextStageBuild(user *user.UserModel, stage models.CiStages,
 }
 
 func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv1.Pod, timeout bool, err error) {
-	method := "_handleWaitTimeout"
+	method := "handleWaitTimeout"
+
+	time.Sleep(3*time.Second)
+
 	pod, err = imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 	if err != nil {
-		glog.Errorf("%s get %v pod failed:%v\n", method, pod, err)
+		glog.Errorf("%s get %s pod failed:%v\n", method, pod.ObjectMeta.Name, err)
 	}
+
+
 
 	glog.Infof("%s - pod=[%s]<<===============>>", method, pod.ObjectMeta.Name)
 	if pod.ObjectMeta.Name != "" {
