@@ -648,7 +648,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		case <-resultChan:
 			wg.Done()
 			timeout=false
-			glog.Infof("=========>>%s not timeout<<==========", method)
+			glog.Infof("=========>>%s not timeout<<==========%s\n", timeout)
 
 		}
 
@@ -896,7 +896,7 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 	//终止job
 	glog.Infof("%s - stop job=[%s]\n", method, job.ObjectMeta.Name)
 	//1 代表手动停止 0表示程序停止
-	//imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+	imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
 
 	timeout = true
 	return

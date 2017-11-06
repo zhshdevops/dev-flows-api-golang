@@ -1160,15 +1160,15 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	if err != nil {
 		return job, err
 	}
-	//parallelism设为0，pod会被自动删除，但job会保留 *****
-	job.Spec.Parallelism = Int32Toint32Point(0)
 
 	if forced {
+		//parallelism设为0，pod会被自动删除，但job会保留 *****
+		job.Spec.Parallelism = Int32Toint32Point(0)
 		//用来判断是否手动停止
 		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "true"
 	}
 
-	//job watcher用来获取运行结果
+	//job watcher用来获取运行结果 失败的时候 会加个label 标识失败 1表示手动停止 0 表示由于某种原因自动执行失败
 	job.ObjectMeta.Labels["enncloud-builder-succeed"] = fmt.Sprintf("%d", succeeded)
 
 	return builder.Client.BatchV1Client.Jobs(namespace).Update(job)
