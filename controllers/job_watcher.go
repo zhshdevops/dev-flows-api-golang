@@ -17,12 +17,10 @@ import (
 	"dev-flows-api-golang/modules/client"
 	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
 
-
+	"sync"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 )
-
-
 
 type SocketsOfBuild struct {
 	FlowId  string `json:"flowId"`
@@ -33,12 +31,12 @@ type SocketsOfBuild struct {
 // 保存stage build id对应的所有socket
 // stage build完成时，需要从该mapping中获取build对应的socket，从而进行通知
 var SOCKETS_OF_BUILD_MAPPING = make(map[string]map[string]*SocketsOfBuild, 0)
-
+var SOCKETS_OF_BUILD_MAPPING_MUTEX sync.RWMutex
 // 保存socket对应的所有stage build id
 // 删除指定socket对应的SOCKETS_OF_BUILD_MAPPING记录时，需要从此mapping中获取build id
 // 当socket对应的所有build均完成通知之后须断开连接，根据此mapping来判断何时断开连接
 var BUILDS_OF_SOCKET_MAPPING = make(map[string]map[string]bool, 0)
-
+var BUILDS_OF_SOCKET_MAPPING_MUTEX sync.RWMutex
 // 保存stage id 对应的所有socket
 // 新建stage build时，需要通知哪个stage新建了build，根据此mapping来获取stage对应的socket
 type SocketsOfStage struct {
@@ -47,17 +45,18 @@ type SocketsOfStage struct {
 }
 
 var SOCKETS_OF_STAGE_MAPPING = make(map[string]map[string]*SocketsOfStage, 0)
-
+var SOCKETS_OF_STAGE_MAPPING_MUTEX sync.RWMutex
 // 保存socket对应的所有stage
 // 删除指定socket对应的SOCKETS_OF_STAGE_MAPPING记录时，需要从此mapping中获取stage id
 var STAGES_OF_SOCKET_MAPPING = make(map[string]map[string]bool, 0)
-
+var STAGES_OF_SOCKET_MAPPING_MUTEX sync.RWMutex
 // 保存flow id对应的所有socket
 
 var SOCKETS_OF_FLOW_MAPPING = make(map[string]map[string]socketio.Socket, 0)
-
+var SOCKETS_OF_FLOW_MAPPING_MUTEX sync.RWMutex
 // 保存socket对应的所有flow
 var FLOWS_OF_SOCKET_MAPPING = make(map[string]map[string]bool, 0)
+var FLOWS_OF_SOCKET_MAPPING_MUTEX sync.RWMutex
 
 type JobWatcherSocket struct {
 	Handler http.Handler
@@ -145,7 +144,7 @@ func JobWatcher(socket socketio.Socket) {
 				return
 			}
 
-			Watch(watchMessage.FlowId,watchMessage, socket)
+			Watch(watchMessage.FlowId, watchMessage, socket)
 
 		})
 
@@ -168,8 +167,8 @@ func JobWatcher(socket socketio.Socket) {
 				return
 			}
 
-			for _,flowId:=range flow.FlowIds{
-				Watch(flowId,watchMessage, socket)
+			for _, flowId := range flow.FlowIds {
+				Watch(flowId, watchMessage, socket)
 			}
 
 		})
@@ -197,7 +196,7 @@ func JobWatcher(socket socketio.Socket) {
 
 }
 
-func Watch(flowId string,watchBuildInfo WatchBuildInfo, socket socketio.Socket) {
+func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket) {
 	method := "jobwatch.Watch"
 	var i int
 	var watchedBuildslen = len(watchBuildInfo.WatchedBuilds)
@@ -309,6 +308,8 @@ func emitError(socket socketio.Socket, flowId, stageId, stageBuildId string, Sta
 }
 
 func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId string) {
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//保存build id对应的socket
 	if SOCKETS_OF_BUILD_MAPPING[stageBuildId][socket.Id()] == nil {
 		SOCKETS_OF_BUILD_MAPPING[stageBuildId][socket.Id()] = &SocketsOfBuild{
@@ -326,6 +327,8 @@ func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId st
 }
 
 func notifyFlow(flowId, flowBuildId string, status int) {
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
+	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 	method := "notifyFlow"
 	if flowId == "" || flowBuildId == "" {
 		return
@@ -395,6 +398,8 @@ func notify(stageBuildId string, status int) {
 	}
 
 	if socketidMap, ok := SOCKETS_OF_BUILD_MAPPING[stageBuildId]; ok {
+		SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+		defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 		for key, socketMap := range socketidMap {
 			glog.Infof("%s the socket id is %s\n", method, key)
 			emitStatus(socketMap.Socket, socketMap.FlowId, socketMap.StageId, stageBuildId, status)
@@ -444,6 +449,8 @@ func removeFromMapping_BuildMapping(socketId string) bool {
 
 //delete stage
 func removeFromMapping_StageMapping(socketId string) bool {
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//socket没有对应的object时，不用删除
 	if STAGES_OF_SOCKET_MAPPING[socketId] != nil {
 		// 删除object对应的socket
@@ -460,6 +467,8 @@ func removeFromMapping_StageMapping(socketId string) bool {
 
 //delete flow
 func removeFromMapping_FlowMapping(socketId string) bool {
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//socket没有对应的object时，不用删除
 	if FLOWS_OF_SOCKET_MAPPING[socketId] != nil {
 		// 删除object对应的socket
@@ -475,7 +484,7 @@ func removeFromMapping_FlowMapping(socketId string) bool {
 }
 
 func NotifyFlowStatus(flowId, flowBuildId string, status int) {
-	glog.Infof("Intoing notisyflowstatus flowsid=%s,status=%d ",flowId,status)
+	glog.Infof("Intoing notisyflowstatus flowsid=%s,status=%d ", flowId, status)
 	notifyFlow(flowId, flowBuildId, status)
 }
 
