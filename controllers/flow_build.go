@@ -19,6 +19,7 @@ import (
 	"dev-flows-api-golang/models"
 	"net/http"
 	"dev-flows-api-golang/modules/client"
+	"sync"
 )
 
 type FlowBuilResp struct {
@@ -29,7 +30,7 @@ type FlowBuilResp struct {
 
 //StartFlowBuild event 是CI的触发条件
 func StartFlowBuild(user *user.UserModel, flowId, stageId string, event string, options *models.Option) (interface{}, int) {
-	method := "startFlowBuild"
+	method := "controllers/startFlowBuild"
 	var resp FlowBuilResp
 	//校验是否存在该flow在数据库
 	ciFlow := models.NewCiFlows()
@@ -379,7 +380,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	if depot == "svn" && project.IsPrivate == 1 {
 		repo := models.NewCiRepos()
 		err := repo.FindOneRepo(user.Namespace, models.DepotToRepoType(depot))
-		if err != nil   {
+		if err != nil {
 			parseCode, err := sqlstatus.ParseErrorCode(err)
 			if parseCode == sqlstatus.SQLErrNoRowFound {
 				glog.Errorf("%s find one repo failed err:%v\n", method, err)
@@ -387,13 +388,13 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 				return stageBuildResp, http.StatusNotFound
 			} else {
 				glog.Errorf("%s  find one repo failed err:%v\n", method, err)
-				stageBuildResp.Message = "search repo "+depot+" failed"
+				stageBuildResp.Message = "search repo " + depot + " failed"
 				return stageBuildResp, http.StatusForbidden
 			}
 
 		}
 
-		if repo.UserInfo == ""{
+		if repo.UserInfo == "" {
 			glog.Errorf("%s  find one repo failed err:%v\n", method, err)
 			stageBuildResp.Message = "No repo auth info found"
 			return stageBuildResp, http.StatusNotFound
@@ -453,7 +454,9 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	} else {
 		buildInfo.BUILD_INFO_TYPE = 2 //显示没有下一个stage
 	}
-	//buildCluster="CID-d7d3eb44c1db"
+
+	buildCluster = "CID-d7d3eb44c1db"
+
 	imageBuilder := models.NewImageBuilder(buildCluster)
 
 	//构建job的参数以及执行job命令
@@ -621,39 +624,52 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 	glog.Infof("%s HarborServerUrl=[%s]\n", method, registryConfig)
 	pod := apiv1.Pod{}
 
-	//timeout := false
+	timeout := false
+
 	errMsg := ""
 
-	//resultChan := make(chan bool, 1)
-	////TODO 设置3分钟超时，如无法创建container则自动停止构建
-	//pod, timeout, err := HandleWaitTimeout(job, imageBuilder)
-	//if err != nil {
-	//	glog.Infof("%s %v", method, err)
-	//}
-	//resultChan <- false
-	////检查是否超时
-	//glog.Infof("timeout==%s\n", timeout)
-	//select {
-	//case <-time.After(3 * time.Minute):
-	//	timeout = timeout
-	//case <-resultChan:
-	//	glog.Infof("=========>>%s not timeout<<==========", method)
-	//
-	//}
+	var wg sync.WaitGroup
+	resultChan := make(chan bool, 1)
+	wg.Add(1)
+
+	go func() {
+		//TODO 设置3分钟超时，如无法创建container则自动停止构建
+		_, timeout, err := HandleWaitTimeout(job, imageBuilder)
+		if err != nil {
+			glog.Infof("%s HandleWaitTimeout get: %v\n", method, err)
+		}
+		resultChan <- false
+		//检查是否超时
+		glog.Infof("=====>>timeout<<==%s\n", timeout)
+		select {
+		case <-time.After(3 * time.Minute):
+			wg.Done()
+			timeout = true
+		case <-resultChan:
+			wg.Done()
+			timeout=false
+			glog.Infof("=========>>%s not timeout<<==========", method)
+
+		}
+
+	}()
+	wg.Wait()
+
+	glog.Infof("timeout value====>timeout:%s\n",timeout)
 
 	statusMessage := imageBuilder.WaitForJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, options.BuildWithDependency)
 
-	glog.Infof("%s WaitForJob statusMessage===>%#v\n",method, statusMessage.JobStatus)
-		if statusMessage.JobStatus.JobConditionType == models.ConditionUnknown {
-			glog.Warningf("%s Waiting for job failed, try again %#v\n", method,statusMessage.JobStatus)
-			statusMessage = imageBuilder.WaitForJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, options.BuildWithDependency)
-		}
+	glog.Infof("%s WaitForJob statusMessage===>%#v\n", method, statusMessage.JobStatus)
+	if statusMessage.JobStatus.JobConditionType == models.ConditionUnknown {
+		glog.Warningf("%s Waiting for job failed, try again %#v\n", method, statusMessage.JobStatus)
+		statusMessage = imageBuilder.WaitForJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, options.BuildWithDependency)
+	}
 	glog.Infof("%s Build result:  %#v\n", method, statusMessage.JobStatus)
 	statusCode := 1
 	//手动停止
-	if statusMessage.JobStatus.ForcedStop{
-		statusCode=1
-	}else{
+	if statusMessage.JobStatus.ForcedStop {
+		statusCode = 1
+	} else {
 		if statusMessage.JobStatus.Failed > 0 {
 			//执行失败
 			statusCode = 1
@@ -662,7 +678,6 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 			statusCode = 0
 		}
 	}
-
 
 	glog.Infof("%s Wait ended normally...  %v\n", method, statusMessage)
 
@@ -689,7 +704,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 								sontainerStatus.State.Terminated.Message)
 						}
 					}
-					if errMsg == "" && len(pod.Status.InitContainerStatuses) > 0{
+					if errMsg == "" && len(pod.Status.InitContainerStatuses) > 0 {
 						for _, scmStatus := range pod.Status.InitContainerStatuses {
 							if scmStatus.Name == imageBuilder.ScmName && scmStatus.State.Terminated != nil {
 								errMsg = fmt.Sprintf(`代码拉取失败：exit code为%d，退出原因为%s`, scmStatus.State.Terminated.ExitCode,
@@ -720,7 +735,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		glog.Warningf("%s Deleting job: %s\n", method, job.ObjectMeta.Name)
 		//执行失败时，终止job
 		if !statusMessage.JobStatus.ForcedStop {
-			glog.Infof("stop the failed job job.ObjectMeta.Name=%s",job.ObjectMeta.Name)
+			glog.Infof("stop the failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
 			//不是手动停止
 			imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
 		} else {
@@ -733,7 +748,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 				glog.Errorf("%s update flow build state failed from database:%v ;result=%d\n", method, err, result)
 				models.NewCiFlowBuildLogs().UpdateById(newBuild.EndTime, int(newBuild.Status), stageBuild.FlowBuildId)
 			}
-			if !statusMessage.JobStatus	.ForcedStop {
+			if !statusMessage.JobStatus.ForcedStop {
 				NotifyFlowStatus(stage.FlowId, stageBuild.FlowBuildId, int(newBuild.Status))
 			}
 
@@ -855,26 +870,32 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 		glog.Errorf("%s get %v pod failed:%v\n", method, pod, err)
 	}
 
-	glog.Infof("%s - pod=[%s]",method,pod.ObjectMeta.Name)
+	glog.Infof("%s - pod=[%s]<<===============>>", method, pod.ObjectMeta.Name)
 	if pod.ObjectMeta.Name != "" {
-		glog.Infof("%s - Checking if build container is timeout", method)
-		if len(pod.Status.ContainerStatuses) > 0 &&
-			IsContainerCreated(imageBuilder.BuilderName, pod.Status.ContainerStatuses) {
+
+		glog.Infof("%s - Checking if scm container is timeout\n", method)
+		if len(pod.Status.InitContainerStatuses) > 0 &&
+			IsContainerCreated(imageBuilder.ScmName, pod.Status.InitContainerStatuses) {
+			glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n",imageBuilder.ScmName)
 			timeout = false
 			return
 		}
 
-		glog.Infof("%s - Checking if scm container is timeout", method)
-		if len(pod.Status.InitContainerStatuses) > 0 &&
-			IsContainerCreated(imageBuilder.BuilderName, pod.Status.InitContainerStatuses) {
+		glog.Infof("%s - Checking if build container is timeout\n", method)
+		if len(pod.Status.ContainerStatuses) > 0 &&
+			IsContainerCreated(imageBuilder.BuilderName, pod.Status.ContainerStatuses) {
+			glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n",imageBuilder.BuilderName)
 			timeout = false
 			return
 		}
+
+		glog.Infof("ContainerStatuses=========imageBuilder.BuilderName= time out <<==========\n")
+
 	}
 
 	//终止job
-	glog.Infof("%s - stop job=[%s]", method, job.ObjectMeta.Name)
-
+	glog.Infof("%s - stop job=[%s]\n", method, job.ObjectMeta.Name)
+	//1 代表手动停止 0表示程序停止
 	//imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
 
 	timeout = true

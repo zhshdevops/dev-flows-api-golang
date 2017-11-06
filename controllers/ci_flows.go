@@ -905,8 +905,16 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		cf.ResponseErrorAndCode("body json 解析失败", http.StatusUnauthorized)
 		return
 	}
+
 	//不传event参数 event 是代码分支
-	cf.ResponseResultAndStatusDevops(StartFlowBuild(cf.User, flowId, bodyReqBody.StageId, "", bodyReqBody.Options))
+	result, httpStatusCode := StartFlowBuild(cf.User, flowId, bodyReqBody.StageId, "", bodyReqBody.Options)
+
+	if httpStatusCode == http.StatusOK {
+		cf.ResponseResultAndStatusDevops(result, httpStatusCode)
+		return
+	}
+
+	cf.ResponseErrorAndCode(result, httpStatusCode)
 
 	return
 }
@@ -984,7 +992,7 @@ func (cf *CiFlowsController) GetLastBuildDetails() {
 		return
 	}
 
-	cf.ResponseErrorAndCode("FindLastBuildOfFlowWithStages failed", http.StatusNotFound)
+	cf.ResponseErrorAndCode("没有相关的EnnFlow的构建记录", http.StatusNotFound)
 	return
 }
 
@@ -1018,13 +1026,11 @@ func (cf *CiFlowsController) ListStagesBuilds() {
 		return
 	}
 
-
 	results := struct {
 		Results []models.CiStageBuildLogs `json:"results"`
 	}{
 		Results: stageBuilds,
 	}
-
 
 	if total != 0 {
 		cf.ResponseResultAndStatusDevops(results, http.StatusOK)

@@ -64,6 +64,7 @@ func NewImageBuilder(clusterID ...string) *ImageBuilder {
 		Client = client.GetK8sConnection(clusterID[0])
 	}
 
+	glog.Infof("get kubernetes info :\n",Client)
 	return &ImageBuilder{
 		BuilderName: BUILDER_CONTAINER_NAME,
 		ScmName:     SCM_CONTAINER_NAME,

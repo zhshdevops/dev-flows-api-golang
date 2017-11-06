@@ -187,7 +187,7 @@ func (cf *CiFlows) ListFlowsAndLastBuild(namespace string, isBuildImage int, orm
 		"tenx_ci_stages s on s.flow_id = f.flow_id left join tenx_ci_managed_projects p on s.project_id = p.id " +
 		"where f.namespace= ? group by f.flow_id) scount " +
 		"on scount.flow_id = tmp_flow.flow_id  where tmp_flow.is_build_image = ? " +
-		"order by tmp_flow.create_time desc"
+		" group by tmp_flow.flow_id order by tmp_flow.create_time desc"
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
