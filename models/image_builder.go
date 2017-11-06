@@ -1164,7 +1164,6 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	job.Spec.Parallelism = Int32Toint32Point(0)
 	if forced {
 		//parallelism设为0，pod会被自动删除，但job会保留 *****
-
 		//用来判断是否手动停止
 		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "true"
 	}else{

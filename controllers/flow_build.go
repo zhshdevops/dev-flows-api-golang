@@ -727,11 +727,12 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 
 	//执行失败时要停止相应的job
 	if statusCode == 1 {
-		glog.Warningf("%s Deleting job: %s\n", method, job.ObjectMeta.Name)
+		glog.Warningf("%s Will Stop job: %s\n", method, job.ObjectMeta.Name)
 		//执行失败时，终止job
 		if !statusMessage.JobStatus.ForcedStop {
-			glog.Infof("stop the failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
+			glog.Infof("stop the run failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
 			//不是手动停止
+			errMsg="程序停止构建job"
 			imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
 		} else {
 			errMsg = "构建流程被手动停止"
@@ -762,7 +763,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		glog.Infof("%s %s\n", method, errMsg)
 	} else {
 		//TODO 通知失败邮件
-		glog.Infof("%s %s\n", method, errMsg)
+		glog.Infof("%s kubernetes run the juo failed:%s\n", method, errMsg)
 	}
 
 }
