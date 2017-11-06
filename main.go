@@ -28,6 +28,7 @@ func main() {
 		ctx.Output.Body([]byte("Enncloud DevOps API running"))
 	})
 
+	beego.SetStaticPath("/static", "./static")
 
 	beego.Run()
 }
