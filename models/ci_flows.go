@@ -423,6 +423,7 @@ func (cf *CiFlows) FindWithDockerfileCountById(namespace, flow_id string, orms .
 	return
 }
 
+//flow 状态。0-成功 1-失败 2-执行中  stage状态。0-成功 1-失败 2-执行中 3-等待
 func InsertBuildLog(flowBuildRec *CiFlowBuildLogs, stageBuild *CiStageBuildLogs, stageId string, orms ...orm.Ormer) error {
 	method := "models/ci_flows/InsertBuildLog"
 	o := orm.NewOrm()
@@ -432,7 +433,7 @@ func InsertBuildLog(flowBuildRec *CiFlowBuildLogs, stageBuild *CiStageBuildLogs,
 	}
 	flowBuildRec.StartTime = flowBuildRec.CreationTime
 	sqlFlowBuild := `INSERT INTO tenx_ci_flow_build_logs(build_id, flow_id, creation_time, start_time, end_time, status) VALUES (?, ?, ?, ?, ?, ?);`
-	_, err = o.Raw(sqlFlowBuild, flowBuildRec.BuildId, flowBuildRec.FlowId, flowBuildRec.CreationTime, flowBuildRec.StartTime, flowBuildRec.EndTime, flowBuildRec.Status).Exec()
+	_, err = o.Raw(sqlFlowBuild, flowBuildRec.BuildId, flowBuildRec.FlowId, flowBuildRec.CreationTime, flowBuildRec.StartTime, flowBuildRec.EndTime, common.STATUS_BUILDING).Exec()
 	if err != nil {
 		glog.Errorf("%s flowBuildRec %v \n", method, err)
 		o.Rollback()

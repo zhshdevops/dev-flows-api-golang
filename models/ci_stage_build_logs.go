@@ -140,7 +140,7 @@ func (ci *CiStageBuildLogs) InsertOne(build CiStageBuildLogs, orms ...orm.Ormer)
 	} else {
 		o = orms[0]
 	}
-	result, err = o.InsertOrUpdate(build)
+	result, err = o.Insert(&build)
 	return
 }
 

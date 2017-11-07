@@ -64,7 +64,7 @@ func NewImageBuilder(clusterID ...string) *ImageBuilder {
 		Client = client.GetK8sConnection(clusterID[0])
 	}
 
-	glog.Infof("get kubernetes info :\n",Client)
+	glog.Infof("get kubernetes info :\n", Client)
 	return &ImageBuilder{
 		BuilderName: BUILDER_CONTAINER_NAME,
 		ScmName:     SCM_CONTAINER_NAME,
@@ -309,9 +309,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	initContainer := apiv1.Container{
 		Name:  SCM_CONTAINER_NAME,
 		Image: buildInfo.ScmImage,
-		//IfNotPresent
-		ImagePullPolicy: "IfNotPresent",
-		//ImagePullPolicy: "Always",
+		ImagePullPolicy: "Always",
 	}
 	initContainer.Env = []apiv1.EnvVar{
 		{
@@ -412,7 +410,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 			Value: "2",
 		}, )
 	}
-	//=======================
+
 	for _, e := range buildInfo.Env {
 		if e.Name == "SVNPROJECT" && "" != e.Value {
 			initContainer.Env = append(initContainer.Env, apiv1.EnvVar{
@@ -432,7 +430,6 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	jobTemplate.ObjectMeta.GenerateName = builder.genJobName(buildInfo.FlowName, buildInfo.StageName)
 	jobTemplate.ObjectMeta.Namespace = buildInfo.Namespace
 	jobTemplate.Spec.Template.Spec.InitContainers = append(jobTemplate.Spec.Template.Spec.InitContainers, initContainer)
-	//glog.Infof("the job initContainer:%v \n",initContainer)
 	jobContainer.Env = env
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
 	glog.V(7).Infof("%s jobTemplate=[%v]\n", method, jobTemplate)
@@ -628,15 +625,19 @@ const (
 	// PodReasonUnschedulable reason in PodScheduled PodCondition means that the scheduler
 	// can't schedule the pod right now, for example due to insufficient resources in the cluster.
 	PodReasonUnschedulable string = "Unschedulable"
-)
 
+	ConTainerStatusRunning    string = "Running"
+	ConTainerStatusWaiting    string = "Waiting"
+	ConTainerStatusTerminated string = "Terminated"
+	ConTainerStatusError      string = "Error"
+)
 type StatusMessage struct {
 	Type string `json:"type" protobuf:"bytes,1,opt,name=type,casttype=PodConditionType"`
 	// Status is the status of the condition.
 	// Can be True, False, Unknown.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
 	Status string `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
-	// Last time we probed the condition.
+	// Last time we probed the condition. Pending
 	Phase   string
 	Message string `json:"message,omitempty" protobuf:"bytes,3,opt,name=message"`
 	// A brief CamelCase message indicating details about why the pod is in this state.
@@ -646,9 +647,28 @@ type StatusMessage struct {
 	JobStatus WatchJobRespData //job的状态
 }
 
-func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage, error) {
-	var status StatusMessage
+type PodStatus struct {
+	//PodScheduled Ready  Initialized Unschedulable
+	Type string `json:"type" protobuf:"bytes,1,opt,name=type,casttype=PodConditionType"`
+	// Status is the status of the condition.
+	// Can be True, False, Unknown.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+	Status string `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
+	//  Pending Running  Succeeded Failed Unknown
+	Phase   string
+	Message string `json:"message,omitempty" protobuf:"bytes,3,opt,name=message"`
+	// A brief CamelCase message indicating details about why the pod is in this state.
+	// e.g. 'OutOfDisk'
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	//容器状态
+	ContainerStatuses     string
+	InitContainerStatuses string
+}
+
+func (builder *ImageBuilder) WatchPod(namespace, jobName string) (PodStatus, error) {
 	method := "WatchPod"
+	var status PodStatus
 	labelsStr := fmt.Sprintf("job-name=%s", jobName)
 	labelSelector, err := labels.Parse(labelsStr)
 	if err != nil {
@@ -660,6 +680,7 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 		status.Status = ConditionUnknown
 		return status, err
 	}
+
 	podName := ""
 	listOptions := api.ListOptions{
 		LabelSelector: labelSelector.String(),
@@ -676,6 +697,7 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 		status.Status = ConditionUnknown
 		return status, err
 	}
+
 	for {
 		select {
 		case event, isOpen := <-watchInterface.ResultChan():
@@ -688,7 +710,7 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 				status.Status = ConditionUnknown
 				break
 			}
-			glog.Infof("the pod event type=%s\n", event.Type)
+			glog.Infof("The pod event type=%s\n", event.Type)
 			pod, parseIsOk := event.Object.(*apiv1.Pod)
 			if !parseIsOk {
 				glog.Errorf("get pod event failed:断言失败\n")
@@ -708,25 +730,20 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 			}
 
 			if event.Type == k8sWatch.Deleted {
-				glog.Errorf("%s pod of job %s is deleted with final status: %v\n", method, jobName, pod.Status)
+				glog.Errorf("%s pod of job %s is deleted with final status: %#v\n", method, jobName, pod.Status)
 				//收到deleted事件，pod可能被删除
-				status = TranslatePodStatus(pod.Status)
+				ContainerStatus := TranslatePodStatus(pod.Status)
+				status.ContainerStatuses = ContainerStatus.ContainerStatuses
+				status.InitContainerStatuses = ContainerStatus.InitContainerStatuses
+				status.Phase = PodFailed
 				break
 			} else if len(pod.Status.ContainerStatuses) > 0 {
-				glog.Infof("%s %v\n", method, pod.Status)
+				glog.Infof("%s get pod failed %v\n", method, pod.Status)
 				//存在containerStatuses时
-				builderContainerStatus := apiv1.ContainerStatus{}
-				for _, s := range pod.Status.ContainerStatuses {
-					if BUILDER_CONTAINER_NAME == s.Name {
-						builderContainerStatus = s
-					}
-				}
-
-				if builderContainerStatus.State.Terminated != nil {
-					//builder container为终止状态，视为job执行结束。
-					status = TranslatePodStatus(pod.Status)
-					break
-				}
+				ContainerStatus := TranslatePodStatus(pod.Status)
+				status.ContainerStatuses = ContainerStatus.ContainerStatuses
+				status.InitContainerStatuses = ContainerStatus.InitContainerStatuses
+				status.Phase = string(pod.Status.Phase)
 
 			}
 			if event.Type == k8sWatch.Error {
@@ -735,19 +752,19 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (StatusMessage,
 			}
 			//成功
 			if pod.Status.Phase == apiv1.PodSucceeded {
-				status.Phase = PodUnknown
-				status.Message = "get pod event failed 断言失败"
-				status.Reason = "get pod event failed 断言失败"
-				status.Type = PodReasonUnschedulable
-				status.Status = ConditionUnknown
+				status.Phase = PodSucceeded
+				status.Message = fmt.Sprintf("pod执行成功:%s", pod.Status.Message)
+				status.Reason = fmt.Sprintf("pod执行成功:%s", pod.Status.Reason)
+				status.Type = fmt.Sprintf("%s", pod.Status.Conditions)
+				status.Status = fmt.Sprintf("%s", pod.Status.Conditions)
 				break
 			} else if pod.Status.Phase == apiv1.PodFailed {
 				//创建失败
-				status.Phase = PodUnknown
-				status.Message = "get pod event failed 断言失败"
-				status.Reason = "get pod event failed 断言失败"
-				status.Type = PodReasonUnschedulable
-				status.Status = ConditionUnknown
+				status.Phase = PodFailed
+				status.Message = fmt.Sprintf("pod执行失败:%s", pod.Status.Message)
+				status.Reason = fmt.Sprintf("pod执行失败:%s", pod.Status.Reason)
+				status.Type = fmt.Sprintf("%s", pod.Status.Conditions)
+				status.Status = fmt.Sprintf("%s", pod.Status.Conditions)
 				break
 			}
 
@@ -768,6 +785,7 @@ func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socket
 	}
 	options := api.ListOptions{
 		FieldSelector: fieldSelector.String(),
+		Watch:true,
 	}
 
 	// 请求watch api监听pod发生的事件
@@ -823,39 +841,60 @@ func (builder *ImageBuilder) EventToLog(event apiv1.Event) string {
 	return fmt.Sprintf(`<font color="%s">[%s] [%s]: %s</font>\n`, color, event.FirstTimestamp.Format("20060102.150405.99"), level, event.Message)
 }
 
-// 根据builder container的状态返回job状态
-func TranslatePodStatus(status apiv1.PodStatus) StatusMessage {
+// 根据builder container的状态返回job状态 主要是获取容器的状态 scm container status
+func TranslatePodStatus(status apiv1.PodStatus) (statusMess PodStatus) {
 	method := "TranslatePodStatus"
-	var statusMess StatusMessage
+	//获取SCM 容器的状态
+	if len(status.InitContainerStatuses) != 0 {
+		for _, s := range status.InitContainerStatuses {
+			if SCM_CONTAINER_NAME == s.Name {
+				if s.State.Running != nil {
+					glog.Infof("method=%s,Message=The scm container is still running [%s]\n", method, s.State.Running)
+					statusMess.InitContainerStatuses = ConTainerStatusRunning
+				}
+				if s.State.Waiting != nil {
+					glog.Infof("method=%s,Message=The scm container is still waiting [%s]\n", method, s.State.Waiting)
+					statusMess.InitContainerStatuses = ConTainerStatusWaiting
+				}
+				if s.State.Terminated != nil {
+					statusMess.InitContainerStatuses = ConTainerStatusTerminated
+					if s.State.Terminated.ExitCode != 0 {
+						statusMess.ContainerStatuses = ConTainerStatusError
+					}
+					glog.Infof("method=%s,Message=The scm container is exit abnormally [%s]\n", method, s.State.Terminated)
+
+				}
+			}
+
+		}
+	}
+
 	if len(status.ContainerStatuses) != 0 {
 		for _, s := range status.ContainerStatuses {
 			if BUILDER_CONTAINER_NAME == s.Name {
 				if s.State.Running != nil {
 					glog.Infof("method=%s,Message=The builder container is still running [%s]\n", method, s.State.Running)
-					statusMess.Phase = PodRunning
+					statusMess.ContainerStatuses = ConTainerStatusRunning
 
-					return statusMess
 				}
-
 				if s.State.Waiting != nil {
 					glog.Infof("method=%s,Message=The builder container is still waiting [%s]\n", method, s.State.Waiting)
-					statusMess.Phase = PodPending
-					return statusMess
-				}
+					statusMess.ContainerStatuses = ConTainerStatusWaiting
 
-				if s.State.Terminated.ExitCode != 0 {
-					statusMess.Phase = PodFailed
-					glog.Infof("method=%s,Message=The builder container is exit abnormally [%s]\n", method, s.State.Terminated)
-					return statusMess
 				}
-				statusMess.Phase = PodSucceeded
-				return statusMess
+				if s.State.Terminated != nil {
+					statusMess.ContainerStatuses = ConTainerStatusTerminated
+					if s.State.Terminated.ExitCode != 0 {
+						statusMess.ContainerStatuses = ConTainerStatusError
+					}
+					glog.Infof("method=%s,Message=The builder container is exit abnormally [%s]\n", method, s.State.Terminated)
+
+				}
 
 			}
 		}
 	}
-	statusMess.Phase = PodUnknown
-	return statusMess
+	return
 }
 
 type WatchJobRespData struct {
@@ -1084,7 +1123,6 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			return ""
 		}
 
-
 		completeLogs += template.HTMLEscapeString(string(data[:n]))
 
 	}
@@ -1161,13 +1199,13 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	if err != nil {
 		return job, err
 	}
-	glog.Infof("Will stop the job %s\n",jobName)
+	glog.Infof("Will stop the job %s\n", jobName)
 	job.Spec.Parallelism = Int32Toint32Point(0)
 	if forced {
 		//parallelism设为0，pod会被自动删除，但job会保留 *****
 		//用来判断是否手动停止
 		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "true"
-	}else{
+	} else {
 		job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] = "Timeout-OrRunFailed"
 	}
 

@@ -913,8 +913,19 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		cf.ResponseResultAndStatusDevops(result, httpStatusCode)
 		return
 	}
+	var Resp string
 
-	cf.ResponseErrorAndCode(result, httpStatusCode)
+	stagebuild, ok := result.(StageBuildResp)
+	if ok {
+		Resp = stagebuild.Message
+	} else {
+		flowResp, ok := result.(FlowBuilResp)
+		if ok {
+			Resp = flowResp.Message
+		}
+	}
+
+	cf.ResponseErrorAndCode(Resp, httpStatusCode)
 
 	return
 }
