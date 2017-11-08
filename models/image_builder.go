@@ -307,8 +307,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	//构造init container
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
-		Name:  SCM_CONTAINER_NAME,
-		Image: buildInfo.ScmImage,
+		Name:            SCM_CONTAINER_NAME,
+		Image:           buildInfo.ScmImage,
 		ImagePullPolicy: "Always",
 	}
 	initContainer.Env = []apiv1.EnvVar{
@@ -631,6 +631,7 @@ const (
 	ConTainerStatusTerminated string = "Terminated"
 	ConTainerStatusError      string = "Error"
 )
+
 type StatusMessage struct {
 	Type string `json:"type" protobuf:"bytes,1,opt,name=type,casttype=PodConditionType"`
 	// Status is the status of the condition.
@@ -785,7 +786,7 @@ func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socket
 	}
 	options := api.ListOptions{
 		FieldSelector: fieldSelector.String(),
-		Watch:true,
+		Watch:         true,
 	}
 
 	// 请求watch api监听pod发生的事件
@@ -1024,7 +1025,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				}
 
 				return watchRespData, nil
-			} else if dm.Status.Failed >= 1 {
+			} else if dm.Status.Failed >= 1 && dm.Spec.Completions == Int32Toint32Point(1) {
 				watchRespData.Succeeded = dm.Status.Succeeded
 				watchRespData.Failed = dm.Status.Failed
 				watchRespData.Active = dm.Status.Active

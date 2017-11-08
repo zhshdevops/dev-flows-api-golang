@@ -32,7 +32,7 @@ type FlowBuilResp struct {
 func StartFlowBuild(user *user.UserModel, flowId, stageId string, event string, options *models.Option) (interface{}, int) {
 	method := "controllers/startFlowBuild"
 	var resp FlowBuilResp
-	//校验是否存在该flow在数据库
+	//校验是否存在该flow
 	ciFlow := models.NewCiFlows()
 	flow, err := ciFlow.FindFlowById(user.Namespace, flowId)
 	if err != nil {
@@ -148,9 +148,10 @@ func StartFlowBuild(user *user.UserModel, flowId, stageId string, event string, 
 			}
 		}
 	}
+
 	//开始执行 把执行日志插入到数据库
 	flowBuildId := uuid.NewFlowBuildID()
-	glog.Infof("====StartFlowBuild==before==flowBuildId===>%s\n",flowBuildId)
+	glog.Infof("====StartFlowBuild==before==flowBuildId===>%s\n", flowBuildId)
 	stageBuildId := uuid.NewStageBuildID()
 	codeBranch := ""
 	if event != "" {
@@ -161,12 +162,12 @@ func StartFlowBuild(user *user.UserModel, flowId, stageId string, event string, 
 	var stageBuildRec models.CiStageBuildLogs
 	now := time.Now()
 	stageBuildRec.FlowBuildId = flowBuildId
-	stageBuildRec.StageId=stage.StageId
+	stageBuildRec.StageId = stage.StageId
 	stageBuildRec.BuildId = stageBuildId
-	stageBuildRec.StageName=stage.StageName
-	stageBuildRec.Status=common.STATUS_WAITING
-	stageBuildRec.StartTime=now
-	stageBuildRec.Namespace=user.Namespace
+	stageBuildRec.StageName = stage.StageName
+	stageBuildRec.Status = common.STATUS_WAITING
+	stageBuildRec.StartTime = now
+	stageBuildRec.Namespace = user.Namespace
 	stageBuildRec.IsFirst = 1
 	stageBuildRec.BranchName = codeBranch
 	//如果不是事件推送,就执行DefaultBranch
@@ -192,7 +193,7 @@ func StartFlowBuild(user *user.UserModel, flowId, stageId string, event string, 
 	//InsertBuildLog will update 执行状态
 	err = models.InsertBuildLog(&flowBuildRec, &stageBuildRec, stage.StageId)
 	if err != nil {
-		resp.Message = "InsertBuildLog to database failed"
+		resp.Message = "服务内部异常，请稍后重试"
 		glog.Errorf("%s InsertBuildLog failed:%v", method, err)
 		return resp, http.StatusServiceUnavailable
 	}
@@ -235,14 +236,15 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 		err := project.FindProjectById(user.Namespace, stage.ProjectId)
 		if err != nil || project.Id == "" {
 			//project不存在，更新构建状态为失败
-			glog.Errorf("%s find project failed project:%v  err:%v\n", method, project, err)
+			glog.Errorf("%s find project failed:==> project:%v  err:%v\n", method, project, err)
 			SetFailedStatus(user, stage, ciStagebuildLogs, flowOwer)
 			stageBuildResp.Message = "Project is inactive"
 			return stageBuildResp, http.StatusForbidden
 		}
 	}
-	glog.Infof("FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s\n",stage.FlowId, stage.StageId,
+	glog.Infof("FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s\n", stage.FlowId, stage.StageId,
 		ciStagebuildLogs.FlowBuildId, ciStagebuildLogs.BuildId)
+	//获取存贮volume
 	volumeMapping, message, respCode := models.GetVolumeSetting(stage.FlowId, stage.StageId,
 		ciStagebuildLogs.FlowBuildId, ciStagebuildLogs.BuildId)
 	if respCode != http.StatusOK {
@@ -285,7 +287,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	buildInfo.ScmImage = common.HarborServerUrl + "/" + cloneImage
 	//克隆到镜像的目录 默认是 /app
 	buildInfo.Clone_location = common.CLONE_LOCATION
-	// Only build under user namespace or the owner of project(CI case)
+	// Only build under user namespace or the owner of project(CI case) TODO
 	namespace := ""
 	if user.Namespace != "" {
 		namespace = user.Namespace
@@ -319,7 +321,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 		}
 		buildInfo.TargetImage.Image = buildInfo.TargetImage.Project + "/" + buildInfo.TargetImage.Image
 		if common.CUSTOM_REGISTRY == buildInfo.TargetImage.RegistryType {
-			//自定义仓库时
+			//自定义仓库时 时速云没有给相关的表
 			//TODO
 		}
 		//Dockerfile from where 2 onlinedockerdile code dockerfile
@@ -423,9 +425,10 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 
 	} else if (depot == "gitlab" && project.IsPrivate == 1) ||
 		(project.Address != "" && strings.Index(project.Address, "@") > 0) {
-		buildInfo.Git_repo_url = project.Address //TODO 正则 [A-Za-z0-9-_.]+
-		buildInfo.PrivateKey = project.PrivateKey
+		// Handle private githlab
+		buildInfo.Git_repo_url = strings.Split(strings.Split(project.Address, "@")[1], ":")[0]
 		buildInfo.PublicKey = project.PublicKey
+		buildInfo.PrivateKey = project.PrivateKey
 	}
 
 	var buildRec models.CiStageBuildLogs
@@ -449,10 +452,8 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 
 	//var buildRec BuildRec
 	nextStage, err := models.NewCiStage().FindNextOfFlow(stage.FlowId, stage.Seq)
-	if err != nil && strings.Contains(fmt.Sprintf("%s", err), "no row") {
+	if err != nil && !strings.Contains(fmt.Sprintf("%s", err), "no row found") {
 		glog.Errorf("%s %v\n", method, err)
-		stageBuildResp.Message = " FindNextOfFlow failed"
-		//return stageBuildResp, http.StatusNotFound
 
 	}
 	//如果没有下一个构建 BUILD_INFO_TYPE =1 用来是否删除编译好的二进制文件或者 满足构建多个构建镜像
@@ -465,43 +466,39 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	//buildCluster = "CID-d7d3eb44c1db"
 
 	imageBuilder := models.NewImageBuilder(buildCluster)
-
 	//构建job的参数以及执行job命令
 	job, err := imageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
 	if err != nil || job == nil {
 		buildRec.Status = common.STATUS_FAILED
 		buildRec.EndTime = time.Now()
-		glog.Errorf("%s BuildImage failed Err: %v\n", method, err)
+		glog.Errorf("%s BuildImage create job failed Err: %v\n", method, err)
 		stageBuildResp.Message = "Failed to create job"
-		return stageBuildResp, http.StatusInternalServerError
+		//return stageBuildResp, http.StatusInternalServerError
+	} else {
+		glog.Infof("%s build images job=%v\n", method, job)
+		var options BuildStageOptions
+		options.BuildWithDependency = buildWithDependency
+		options.FlowOwner = flowOwer
+		options.ImageName = buildInfo.TargetImage.Image
+		options.UseCustomRegistry = false //不是客户的镜像仓库
+		buildRec.JobName = job.ObjectMeta.Name
+		buildRec.Namespace = job.ObjectMeta.Namespace
+		//等待构建完成
+		WaitForBuildToComplete(job, imageBuilder, user, stage, ciStagebuildLogs, options)
 	}
-
-	glog.Infof("%s build images job=%v\n", method, job)
-
-	var options BuildStageOptions
-	options.BuildWithDependency = buildWithDependency
-	options.FlowOwner = flowOwer
-	options.ImageName = buildInfo.TargetImage.Image
-	options.UseCustomRegistry = false //不是客户的镜像仓库
-
-	buildRec.JobName = job.ObjectMeta.Name
-	buildRec.Namespace = job.ObjectMeta.Namespace
-
-	//等待构建完成
-	WaitForBuildToComplete(job, imageBuilder, user, stage, ciStagebuildLogs, options)
 
 	pod, err := imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 	if err != nil {
 		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
 		stageBuildResp.Message = "get pod failed from kubernetes"
-		return stageBuildResp, http.StatusInternalServerError
 	}
 
 	if pod.ObjectMeta.Name != "" {
 		buildRec.PodName = pod.ObjectMeta.Name
+		buildRec.NodeName = pod.Spec.NodeName
 	}
 
-	updateResult, err := models.NewCiStageBuildLogs().UpdateById(buildRec, ciStagebuildLogs.BuildId)
+	updateResult, err := models.NewCiStageBuildLogs().UpdatePodNameAndJobNameByBuildId(buildRec, ciStagebuildLogs.BuildId)
 	if err != nil || updateResult < 1 {
 		glog.Errorf("%s update stage build failed updateResult=%d err=:%v\n", method, updateResult, err)
 	}
@@ -544,27 +541,30 @@ func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo mode
 	}
 
 }
+
 //状态。0-成功 1-失败 2-执行中 3-等待 子任务     flow 状态。0-成功 1-失败 2-执行中
 // update build status with 'currentBuild' and start next build of same stage
 func UpdateStatusAndHandleWaiting(user *user.UserModel, stage models.CiStages,
 	cistagebuildLogs models.CiStageBuildLogs, currentbuildId string, flowower string) {
 	method := "updateStatusAndHandleWaiting"
-	glog.Infof("%s The CurrentbuildId=%s\n",method, currentbuildId)
-	//查询有没有 当前stage 处于 等待状态
+	glog.Infof("%s The CurrentbuildId=%s\n", method, currentbuildId)
+	//查询有没有 当前stage 处于 等待状态3
 	stageBuildLogs, total, err := models.NewCiStageBuildLogs().
 		FindAllByIdWithStatus(stage.StageId, common.STATUS_WAITING)
 	if err != nil {
 		glog.Errorf("%s find stage build log failed :%v\n", method, err)
 		return
 	}
-	glog.Infof("stageBuildLogs=%v\n",stageBuildLogs)
+	glog.Infof("stageBuildLogs length=%d\n", len(stageBuildLogs))
 	if total == 0 {
 		//如没有等待的构建，则更新当前构建状态
+		glog.Infof("will update ent_time:%s\n",cistagebuildLogs.EndTime)
 		res, err := models.NewCiStageBuildLogs().UpdateById(cistagebuildLogs, currentbuildId)
 		if err != nil {
 			glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)
 			return
 		}
+		glog.Infof("=======================>>update result:%d\n",res)
 		return
 	}
 
@@ -578,26 +578,25 @@ func UpdateStatusAndHandleWaiting(user *user.UserModel, stage models.CiStages,
 	if err != nil {
 		glog.Errorf("%s UpdateById update stagebuild status failed from database  err: %v", method, err)
 	}
-
+	//执行下一个构建
 	StartStageBuild(user, stage, stageBuildLogs[0], flowower)
 
 	return
 
 }
 
+//设置失败状态
 func SetFailedStatus(user *user.UserModel, stage models.CiStages, cistageBuild models.CiStageBuildLogs, flowOwer string) {
 	method := "setFailedStatus"
 	flowBuildlog := models.CiFlowBuildLogs{}
 	now := time.Now()
 	flowBuildlog.EndTime = now
 	flowBuildlog.Status = common.STATUS_FAILED
-	if cistageBuild.FlowBuildId != "" && 1 != cistageBuild.BuildAlone { //是否单独构建
+	if cistageBuild.FlowBuildId != "" && 1 != cistageBuild.BuildAlone { //是否单独构建 1是 0否
 		//不是单独构建
 		flowbuild, err := models.NewCiFlowBuildLogs().FindOneById(cistageBuild.FlowBuildId)
 		if err != nil {
-
 			glog.Errorf("%s find flow %s build failed from database err:%v \n", method, cistageBuild.FlowBuildId, err)
-
 			return
 		}
 		if flowbuild.FlowId != "" {
@@ -605,12 +604,14 @@ func SetFailedStatus(user *user.UserModel, stage models.CiStages, cistageBuild m
 				flowBuildlog.StartTime = now
 			}
 		}
+		//非独立构建stage时，更新flow构建的状态
 		_, err = models.NewCiFlowBuildLogs().UpdateById(flowBuildlog.EndTime, int(flowBuildlog.Status), cistageBuild.FlowBuildId)
 		if err != nil {
 			glog.Errorf("%s update stagebuild failed: %v\n", method, err)
 		}
 	}
 	//处理下一个构建
+
 	UpdateStatusAndHandleWaiting(user, stage,
 		cistageBuild, cistageBuild.BuildId, flowOwer)
 
@@ -625,6 +626,7 @@ type BuildStageOptions struct {
 
 func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user *user.UserModel, stage models.CiStages,
 	stageBuild models.CiStageBuildLogs, options BuildStageOptions) {
+	//TODO 注释掉公有云
 	method := "WaitForBuildToComplete"
 	registryConfig := common.HarborServerUrl
 	glog.Infof("%s HarborServerUrl=[%s]\n", method, registryConfig)
@@ -647,11 +649,9 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		select {
 		case <-time.After(3 * time.Minute):
 			wg.Done()
-			timeout = true
 			glog.Infof("Kubernetes Job start timeout:%s\n", timeout)
 		case <-resultChan:
 			wg.Done()
-			timeout = false
 			glog.Infof("Kubernetes Job not timeout:%s\n", timeout)
 		}
 
@@ -664,9 +664,11 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		glog.Warningf("%s Waiting for job failed, try again %#v\n", method, statusMessage.JobStatus)
 		statusMessage = imageBuilder.WaitForJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, options.BuildWithDependency)
 	}
+
 	statusCode := 1
 	//手动停止
 	if statusMessage.JobStatus.ForcedStop {
+		glog.Infof("Run job forced stop:%v\n", statusMessage.JobStatus)
 		statusCode = 1
 	} else {
 		if statusMessage.JobStatus.Failed > 0 {
@@ -683,7 +685,9 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 	glog.Infof("%s Wait ended normally... and the job status: %#v\n", method, statusMessage)
 
 	var newBuild models.CiStageBuildLogs
+
 	newBuild.EndTime = time.Now()
+
 	if statusCode == 0 {
 		newBuild.Status = common.STATUS_SUCCESS
 	} else {
@@ -744,10 +748,12 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 				glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
 			}
 		} else {
-			errMsg = "构建流程被手动停止"
+			glog.Infof("构建流程被用户手动停止")
+			errMsg = "构建流程被用户手动停止"
 		}
 
 		if stageBuild.FlowBuildId != "" {
+			glog.Infof("Will Update FlowBuild endTime and Status")
 			result, err := models.NewCiFlowBuildLogs().UpdateById(newBuild.EndTime, int(newBuild.Status), stageBuild.FlowBuildId)
 			if err != nil || result < 1 {
 				glog.Errorf("%s update flow build state failed from database:%v ;result=%d\n", method, err, result)
@@ -760,20 +766,41 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		}
 	}
 
-	//修改状态
+	//修改状态,并执行其他等待的子任务
 	UpdateStatusAndHandleWaiting(user, stage, newBuild, stageBuild.BuildId, options.FlowOwner)
 
 	if newBuild.Status == common.STATUS_SUCCESS {
-		if stageBuild.FlowBuildId != "" && stageBuild.BuildAlone != 1 {
-			glog.Infof("begin handleNextStageBuild\n")
+		if stageBuild.FlowBuildId != "" && stageBuild.BuildAlone != 1 { //不是单独构建
+			errMsg="构建成功将会构建下一个子任务"
+			glog.Infof("%s %s\n", method, )
+			glog.Infof("<<=============begin run handleNextStageBuild===========>>%s\n",errMsg)
 			//TODO 通知下一个构建流程
 			handleNextStageBuild(user, stage, stageBuild, options.FlowOwner)
 		}
 		//TODO 通知执行成功邮件
-		glog.Infof("%s %s\n", method, errMsg)
+
 	} else {
+		//	newBuild.EndTime=time.Now()
+		_, err = imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+		if err != nil {
+			glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
+		}
+		//UpdateStatusAndHandleWaiting(user, stage, newBuild, stageBuild.BuildId, options.FlowOwner)
+		if stageBuild.FlowBuildId != "" {
+			glog.Infof("Will Update FlowBuild endTime and Status")
+			result, err := models.NewCiFlowBuildLogs().UpdateById(newBuild.EndTime, int(newBuild.Status), stageBuild.FlowBuildId)
+			if err != nil || result < 1 {
+				glog.Errorf("%s update flow build state failed from database:%v ;result=%d\n", method, err, result)
+				models.NewCiFlowBuildLogs().UpdateById(newBuild.EndTime, int(newBuild.Status), stageBuild.FlowBuildId)
+			}
+			NotifyFlowStatus(stage.FlowId, stageBuild.FlowBuildId, int(newBuild.Status))
+		}
+
+		if errMsg != "" {
+			errMsg = "构建发生未知错误"
+		}
 		//TODO 通知失败邮件
-		glog.Infof("%s kubernetes run the juo failed:%s\n", method, errMsg)
+		glog.Infof("%s kubernetes run the job failed:%s\n", method, errMsg)
 	}
 
 }
@@ -785,10 +812,11 @@ func handleNextStageBuild(user *user.UserModel, stage models.CiStages,
 	flowBuildId := cistagebuildLogs.FlowBuildId
 	nextStage, err := models.NewCiStage().FindNextOfFlow(stage.FlowId, stage.Seq)
 	if err != nil {
-		glog.Errorf("%s find next stage of flow %s failed from database %v", method, stage.FlowId, err)
+		glog.Errorf("%s find next stage of flow %s failed from database:err %v", method, stage.FlowId, err)
 
 	}
-	glog.Info("handleNextStageBuild FlowBuildId===%s\n",flowBuildId)
+
+	glog.Infof("handleNextStageBuild FlowBuildId===%s %#v\n", flowBuildId,stage)
 	if nextStage.StageName != "" {
 		//存在下一步时
 		// 继承上一个 stage 的 options，例如构建时指定 branch
@@ -807,7 +835,7 @@ func handleNextStageBuild(user *user.UserModel, stage models.CiStages,
 		}
 
 		if flowBuild.Status < common.STATUS_BUILDING {
-			glog.Infof("flowBuild status:%d flowBuild of id:%s\n",flowBuild.Status,flowBuild.BuildId)
+			glog.Infof("flowBuild status:%d flowBuild of id:%s\n", flowBuild.Status, flowBuild.BuildId)
 			// flow构建已经被stop，此时不再触发下一步构建
 			glog.Warningf("%s Flow build is finished, build of next stage stageId:[%s] will not start", method, stage.StageId)
 			return
@@ -820,6 +848,7 @@ func handleNextStageBuild(user *user.UserModel, stage models.CiStages,
 	} else {
 		//不存在下一步时，更新flow构建状态为成功
 		NotifyFlowStatus(stage.FlowId, flowBuildId, common.STATUS_SUCCESS)
+		glog.Info("==================will update flowBuildId %s stage",flowBuildId)
 		end_time := time.Now()
 		models.NewCiFlowBuildLogs().UpdateById(end_time, common.STATUS_SUCCESS, flowBuildId)
 	}
@@ -835,13 +864,14 @@ func startNextStageBuild(user *user.UserModel, stage models.CiStages,
 
 	stageBuildId := uuid.NewStageBuildID()
 	stageBuildRec := models.CiStageBuildLogs{
-		CreationTime:time.Now(),
-		BuildId:     stageBuildId,
-		FlowBuildId: flowBuildId,
-		StageId:     stage.StageId,
-		StageName:   stage.StageName,
-		Status:      common.STATUS_WAITING,
-		Namespace:   user.Namespace,
+		CreationTime: time.Now(),
+		EndTime:time.Now(),
+		BuildId:      stageBuildId,
+		FlowBuildId:  flowBuildId,
+		StageId:      stage.StageId,
+		StageName:    stage.StageName,
+		Status:       common.STATUS_WAITING,
+		Namespace:    user.Namespace,
 	}
 
 	if stage.DefaultBranch != "" {
@@ -877,8 +907,6 @@ func startNextStageBuild(user *user.UserModel, stage models.CiStages,
 
 func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv1.Pod, timeout bool, err error) {
 	method := "handleWaitTimeout"
-
-	time.Sleep(3 * time.Second)
 
 	pod, err = imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 	if err != nil {

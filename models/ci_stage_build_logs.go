@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 	"github.com/astaxie/beego/orm"
+	"github.com/golang/glog"
 )
 
 type CiStageBuildLogs struct {
@@ -48,18 +49,44 @@ func (ci *CiStageBuildLogs) UpdateById(build CiStageBuildLogs, buildId string, o
 	} else {
 		o = orms[0]
 	}
+	glog.Infof("==============>>build=%s,buildId=%s\n", build.EndTime, buildId)
+
 	updateResult, err = o.QueryTable(ci.TableName()).
 		Filter("build_id", buildId).Update(orm.Params{
 		//"flow_build_id":build.FlowBuildId,
 		//"stage_id":build.StageId,
 		//"stage_name":build.StageName,
-		"status": build.Status,
-		//"job_name":build.JobName,
-		//"pod_name":build.PodName,
-		//"node_name":build.NodeName,
-		//"namespace":build.Namespace,
-		//"start_time":build.StartTime,
-		"end_time": build.EndTime,
+		"status":     build.Status,
+		"pod_name":   build.PodName,
+		"node_name":  build.NodeName,
+		"start_time": build.StartTime,
+		"end_time":   time.Now(),
+		//"build_alone": build.BuildAlone,
+		//"is_first": build.IsFirst,
+		//"branch_name": build.BranchName,
+	})
+	return
+}
+
+func (ci *CiStageBuildLogs) UpdatePodNameAndJobNameByBuildId(build CiStageBuildLogs, buildId string, orms ...orm.Ormer) (updateResult int64, err error) {
+	var o orm.Ormer
+	if len(orms) != 1 {
+		o = orm.NewOrm()
+	} else {
+		o = orms[0]
+	}
+	updateResult, err = o.QueryTable(ci.TableName()).
+		Filter("build_id", buildId).Update(orm.Params{
+		//"flow_build_id":build.FlowBuildId,
+		//"stage_id":build.StageId,
+		//"stage_name":build.StageName,
+		"status":     build.Status,
+		"job_name":   build.JobName,
+		"pod_name":   build.PodName,
+		"node_name":  build.NodeName,
+		"namespace":  build.Namespace,
+		"start_time": build.StartTime,
+		"end_time":   time.Now(),
 		//"build_alone": build.BuildAlone,
 		//"is_first": build.IsFirst,
 		//"branch_name": build.BranchName,
