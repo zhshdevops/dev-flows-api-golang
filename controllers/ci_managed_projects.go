@@ -440,7 +440,7 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event
 		ciConfig := models.CiConfig{}
 		eventType := ""
 		if stage.CiConfig != "" {
-			err := json.Unmarshal([]byte(stage.CiConfig), ciConfig)
+			err := json.Unmarshal([]byte(stage.CiConfig), &ciConfig)
 			if err != nil {
 				glog.Errorf("%s json marshal failed==>%v\n", method, err)
 				return err
