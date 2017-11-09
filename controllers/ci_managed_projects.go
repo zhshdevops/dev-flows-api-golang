@@ -517,7 +517,7 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event
 		if matched {
 			glog.V(1).Infof("%s ---- Add to build queue ----: :%s\n", method, eventType)
 			//TODO 开始构建任务
-			go StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, nil)
+			 StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, nil)
 		}
 
 	}
