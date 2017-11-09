@@ -368,7 +368,9 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", http.StatusOK)
 		return
 	}
-
+	cimp.User.Username=project.Owner
+	cimp.User.Namespace=project.Namespace
+	cimp.User.UserNamespace=project.Owner
 	// Use the user/space info of this project
 	//var userInfo = {
 	//user: project.owner,

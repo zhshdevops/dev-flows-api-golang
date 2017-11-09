@@ -33,6 +33,7 @@ type UserModel struct {
 	EnvEdition     int       `orm:"column(env_edition)"`
 	Migrated       int       `orm:"column(migrated)"`
 	Type           int       `orm:"column(type);default(1)"`
+	UserNamespace  string `orm:"-"`
 }
 
 // DirectorySummary count of each user directory
@@ -42,18 +43,18 @@ type DirectorySummary struct {
 }
 
 const (
-	MigratedNo = 0
+	MigratedNo      = 0
 	MigratedFromOld = 1
 )
 
 const (
-	EnvEditionStanard = 0
+	EnvEditionStanard      = 0
 	EnvEditionProfessional = 1
 )
 
 const (
 	DatabaseUser = 1
-	LDAPUser = 2
+	LDAPUser     = 2
 )
 
 // TableName return tenx_users
@@ -98,7 +99,6 @@ func (u *UserModel) IsHaveAuthor(orms ...orm.Ormer) (uint32, error) {
 	err := o.Raw(SELECT_USER_HAVE_THE_TEAMSPACE, u.UserID, u.Namespace).QueryRow(u)
 	return sqlstatus.ParseErrorCode(err)
 }
-
 
 // Insert add a new user record to db
 func (u *UserModel) Insert(orms ...orm.Ormer) (uint32, error) {
@@ -422,4 +422,3 @@ func (u *UserModel) GetUserDirectorySummary() ([]DirectorySummary, error) {
 	_, err := o.Raw(sql).QueryRows(&directoryRow)
 	return directoryRow, err
 }
-
