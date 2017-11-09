@@ -126,13 +126,6 @@ func (c *BaseController) Prepare() {
 					return
 
 				}
-			} else {
-				c.User, err = checkToken(username, "")
-				if err != nil {
-					glog.Errorln(method, "Check token failed", err)
-					c.ErrorUnauthorized()
-					return
-				}
 			}
 		}
 		space := c.Ctx.Input.Header("teamspace")
@@ -237,11 +230,9 @@ func checkToken(username, token string) (*user.UserModel, error) {
 	if err != nil {
 		return nil, fmt.Errorf("User '" + username + "' is not authorized to access TenxCloud API service.")
 	}
-	if !IfCheckTocken {
-		if token != userModel.APIToken {
-			glog.Errorln(method, "user", username, "token", token, "is not correct")
-			return nil, fmt.Errorf("invalid api token")
-		}
+	if token != userModel.APIToken {
+		glog.Errorln(method, "user", username, "token", token, "is not correct")
+		return nil, fmt.Errorf("invalid api token")
 	}
 
 	return userModel, nil
