@@ -222,7 +222,7 @@ func (ci *CiManagedProjects) FindProjectById(namespace, projectId string) error 
 
 func (ci *CiManagedProjects) FindProjectByIdNew(projectId string) error {
 	o := orm.NewOrm()
-	sql := fmt.Sprintf("select * from %s where namespace=? and id=?", ci.TableName())
+	sql := fmt.Sprintf("select * from %s where id=?", ci.TableName())
 	return o.Raw(sql, projectId).QueryRow(&ci)
 
 }
