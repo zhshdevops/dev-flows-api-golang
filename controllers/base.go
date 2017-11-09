@@ -101,7 +101,7 @@ func (c *BaseController) Prepare() {
 	if isWebSocketConnect(c) == true {
 		c.User = &user.UserModel{}
 	}else if IfCheckTocken {
-
+		c.User = &user.UserModel{}
 	} else {
 		username := c.Ctx.Input.Header("username")
 		token := c.Ctx.Input.Header("authorization")
