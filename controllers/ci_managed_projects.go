@@ -79,6 +79,7 @@ func (cimp *CiManagedProjectsController) GetManagedProjects() {
 
 	cimp.ResponseSuccessDevops(listProject, total)
 }
+
 //"http://10.39.0.53:9999/svnrepos/xinzhiyuntest"
 //is_private
 //:
@@ -133,7 +134,7 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 	project.Owner = cimp.User.Username
 	project.Namespace = cimp.Namespace
 	project.CreateTime = time.Now()
-	project.SourceFullName=body.SourceFullName
+	project.SourceFullName = body.SourceFullName
 	results := &models.CiManagedProjects{}
 
 	results.FindProjectByNameType(cimp.Namespace, project.Name, project.RepoType)
@@ -217,7 +218,7 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 
 			_, err := depot.CreateOneRepo(repoInfo)
 			if err != nil {
-				glog.Errorf("CreateOneRepo failed:%s\n",err)
+				glog.Errorf("CreateOneRepo failed:%s\n", err)
 				cimp.ResponseErrorAndCode("insert svn info into database failed ", http.StatusInternalServerError)
 				return
 			}
@@ -351,7 +352,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 
 	body := cimp.Ctx.Input.RequestBody
 
-	glog.Infof("%s,%s\n",method,string(body))
+	glog.Infof("%s,%s\n", method, string(body))
 
 	namespace := cimp.Namespace
 	project := &models.CiManagedProjects{}
@@ -368,9 +369,9 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", http.StatusOK)
 		return
 	}
-	cimp.User.Username=project.Owner
-	cimp.User.Namespace=project.Namespace
-	cimp.User.UserNamespace=project.Owner
+	cimp.User.Username = project.Owner
+	cimp.User.Namespace = project.Namespace
+	cimp.User.UserNamespace = project.Owner
 	// Use the user/space info of this project
 	//var userInfo = {
 	//user: project.owner,
@@ -425,7 +426,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		cimp.ResponseErrorAndCode("Only gitlab/github/gogs/svn is supported by now", http.StatusBadRequest)
 		return
 	}
-	cimp.ResponseErrorAndCode("Webhook handled normally",http.StatusOK)
+	cimp.ResponseErrorAndCode("Webhook handled normally", http.StatusOK)
 	return
 
 }
