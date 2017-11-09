@@ -21,7 +21,7 @@ func init() {
 
 	if DEVOPS_EXTERNAL_HOST == "" {
 
-		DEVOPS_EXTERNAL_HOST = "localhost:8090"
+		DEVOPS_EXTERNAL_HOST = "10.4.110.167:8090"
 	}
 
 	WebHookUrlPrefix = DEVOPS_EXTERNAL_PROTOCOL + "://" + DEVOPS_EXTERNAL_HOST + "/api/v2/devops/managed-projects/webhooks/"

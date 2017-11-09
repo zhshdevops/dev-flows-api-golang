@@ -484,7 +484,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 		buildRec.JobName = job.ObjectMeta.Name
 		buildRec.Namespace = job.ObjectMeta.Namespace
 		//等待构建完成
-		WaitForBuildToComplete(job, imageBuilder, user, stage, ciStagebuildLogs, options)
+		buildRec.Status = int8(WaitForBuildToComplete(job, imageBuilder, user, stage, ciStagebuildLogs, options))
 	}
 
 	pod, err := imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
@@ -558,13 +558,13 @@ func UpdateStatusAndHandleWaiting(user *user.UserModel, stage models.CiStages,
 	glog.Infof("stageBuildLogs length=%d\n", len(stageBuildLogs))
 	if total == 0 {
 		//如没有等待的构建，则更新当前构建状态
-		glog.Infof("will update ent_time:%s\n",cistagebuildLogs.EndTime)
+		glog.Infof("如没有等待的构建，则更新当前构建状态 will update status:%d,nodeName=%s,currentbuildId=%s\n", cistagebuildLogs.Status,cistagebuildLogs.NodeName, currentbuildId)
 		res, err := models.NewCiStageBuildLogs().UpdateById(cistagebuildLogs, currentbuildId)
 		if err != nil {
 			glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)
 			return
 		}
-		glog.Infof("=======================>>update result:%d\n",res)
+		glog.Infof("=======================>>update result:%d\n", res)
 		return
 	}
 
@@ -625,7 +625,7 @@ type BuildStageOptions struct {
 }
 
 func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user *user.UserModel, stage models.CiStages,
-	stageBuild models.CiStageBuildLogs, options BuildStageOptions) {
+	stageBuild models.CiStageBuildLogs, options BuildStageOptions) int {
 	//TODO 注释掉公有云
 	method := "WaitForBuildToComplete"
 	registryConfig := common.HarborServerUrl
@@ -766,17 +766,20 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		}
 	}
 
+	glog.Infof("get \n")
+
 	//修改状态,并执行其他等待的子任务
 	UpdateStatusAndHandleWaiting(user, stage, newBuild, stageBuild.BuildId, options.FlowOwner)
 
 	if newBuild.Status == common.STATUS_SUCCESS {
 		if stageBuild.FlowBuildId != "" && stageBuild.BuildAlone != 1 { //不是单独构建
-			errMsg="构建成功将会构建下一个子任务"
-			glog.Infof("%s %s\n", method, )
-			glog.Infof("<<=============begin run handleNextStageBuild===========>>%s\n",errMsg)
+			errMsg = "构建成功将会构建下一个子任务"
+			glog.Infof("<<=============begin run handleNextStageBuild===========>>%s\n", errMsg)
 			//TODO 通知下一个构建流程
 			handleNextStageBuild(user, stage, stageBuild, options.FlowOwner)
 		}
+
+		return common.STATUS_SUCCESS
 		//TODO 通知执行成功邮件
 
 	} else {
@@ -785,9 +788,10 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		if err != nil {
 			glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
 		}
-		//UpdateStatusAndHandleWaiting(user, stage, newBuild, stageBuild.BuildId, options.FlowOwner)
+		glog.Infof("执行失败 Will Update State build Status=%d\n", newBuild.Status)
+		UpdateStatusAndHandleWaiting(user, stage, newBuild, stageBuild.BuildId, options.FlowOwner)
 		if stageBuild.FlowBuildId != "" {
-			glog.Infof("Will Update FlowBuild endTime and Status")
+			glog.Infof("执行失败 Will Update FlowBuild Status=%d\n", newBuild.Status)
 			result, err := models.NewCiFlowBuildLogs().UpdateById(newBuild.EndTime, int(newBuild.Status), stageBuild.FlowBuildId)
 			if err != nil || result < 1 {
 				glog.Errorf("%s update flow build state failed from database:%v ;result=%d\n", method, err, result)
@@ -802,6 +806,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 		//TODO 通知失败邮件
 		glog.Infof("%s kubernetes run the job failed:%s\n", method, errMsg)
 	}
+	return common.STATUS_FAILED
 
 }
 
@@ -816,7 +821,7 @@ func handleNextStageBuild(user *user.UserModel, stage models.CiStages,
 
 	}
 
-	glog.Infof("handleNextStageBuild FlowBuildId===%s %#v\n", flowBuildId,stage)
+	glog.Infof("handleNextStageBuild FlowBuildId===%s %#v\n", flowBuildId, stage)
 	if nextStage.StageName != "" {
 		//存在下一步时
 		// 继承上一个 stage 的 options，例如构建时指定 branch
@@ -848,7 +853,7 @@ func handleNextStageBuild(user *user.UserModel, stage models.CiStages,
 	} else {
 		//不存在下一步时，更新flow构建状态为成功
 		NotifyFlowStatus(stage.FlowId, flowBuildId, common.STATUS_SUCCESS)
-		glog.Info("==================will update flowBuildId %s stage",flowBuildId)
+		glog.Info("不存在下一步时，更新flow构建状态为成功==================will update flowBuildId %s stage", flowBuildId)
 		end_time := time.Now()
 		models.NewCiFlowBuildLogs().UpdateById(end_time, common.STATUS_SUCCESS, flowBuildId)
 	}
@@ -865,7 +870,7 @@ func startNextStageBuild(user *user.UserModel, stage models.CiStages,
 	stageBuildId := uuid.NewStageBuildID()
 	stageBuildRec := models.CiStageBuildLogs{
 		CreationTime: time.Now(),
-		EndTime:time.Now(),
+		EndTime:      time.Now(),
 		BuildId:      stageBuildId,
 		FlowBuildId:  flowBuildId,
 		StageId:      stage.StageId,

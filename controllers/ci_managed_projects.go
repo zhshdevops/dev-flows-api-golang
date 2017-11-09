@@ -345,27 +345,39 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 	projectId := cimp.Ctx.Input.Param(":project_id")
 	if projectId == "" {
 		glog.Errorf("%s %s", method, "No projectId in the webhook request.")
-		cimp.ResponseErrorAndCode("No projectId in the webhook request.", 400)
+		cimp.ResponseErrorAndCode("No projectId in the webhook request.", http.StatusBadRequest)
 		return
 	}
+
 	body := cimp.Ctx.Input.RequestBody
+
+	glog.Infof("%s,%s\n",method,string(body))
+
 	namespace := cimp.Namespace
 	project := &models.CiManagedProjects{}
 	err := project.FindProjectById(namespace, projectId)
 	if err != nil || project.Username == "" {
-		glog.Errorf("%s %v", method, err)
-		cimp.ResponseErrorAndCode("This project does not exist.", 404)
+		glog.Errorf("%s this project not exist:%v\n", method, err)
+		cimp.ResponseErrorAndCode("This project does not exist.", http.StatusNotFound)
 		return
 	}
 
 	ciStages, total, err := models.NewCiStage().FindByProjectIdAndCI(projectId, 1)
 	if err != nil || total < 1 {
 		glog.Errorf("%s No stage of CI flow is using this project or CI is disabled. %v", method, err)
-		cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", 501)
+		cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", http.StatusOK)
 		return
 	}
 
 	// Use the user/space info of this project
+	//var userInfo = {
+	//user: project.owner,
+	//	name: project.owner,
+	//	// Use owner namespace to run the build
+	//		namespace: project.namespace,
+	//	// Used for query
+	//		userNamespace: project.owner
+	//}
 
 	if project.RepoType == GOGS || project.RepoType == GITHUB ||
 		project.RepoType == SVN || project.RepoType == GITLAB {
@@ -373,7 +385,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		if project.RepoType == GITLAB {
 			event, err = cimp.getGitlabEventInfo(body, *project)
 			if err != nil {
-				glog.Errorf("%s %v\n", method, err)
+				glog.Errorf("%s gitlab webhook run failed:%v\n", method, err)
 				cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", 501)
 				return
 			}
@@ -408,10 +420,10 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		}
 	} else {
 		glog.Errorf("%s %s\n", method, "Only gitlab/github/gogs/svn is supported by now")
-		cimp.ResponseErrorAndCode("Only gitlab/github/gogs/svn is supported by now", 400)
+		cimp.ResponseErrorAndCode("Only gitlab/github/gogs/svn is supported by now", http.StatusBadRequest)
 		return
 	}
-	cimp.ResponseSuccess("Success")
+	cimp.ResponseErrorAndCode("Webhook handled normally",http.StatusOK)
 	return
 
 }
