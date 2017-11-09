@@ -81,7 +81,7 @@ func (c *BaseController) Prepare() {
 
 	method := "controllers/BaseController.Prepare"
 	glog.Infof("request url:%s\n", c.Ctx.Request.URL.String())
-	if strings.Contains(c.Ctx.Request.URL.String(),"managed-projects/webhooks") {
+	if strings.Contains(c.Ctx.Request.URL.String(), "managed-projects/webhooks") {
 		IfCheckTocken = true
 	}
 
@@ -112,6 +112,7 @@ func (c *BaseController) Prepare() {
 		} else {
 			var err error
 			prefix := "token "
+
 			if strings.HasPrefix(strings.ToLower(token), prefix) {
 				c.User, err = checkToken(username, token[len(prefix):])
 				if err != nil {
@@ -120,9 +121,12 @@ func (c *BaseController) Prepare() {
 					return
 				}
 			} else {
-				glog.Errorln(method, "Missing token prefix")
-				c.ErrorBadRequest("Invalid authorization header", nil)
-				return
+				if !IfCheckTocken {
+					glog.Errorln(method, "Missing token prefix")
+					c.ErrorBadRequest("Invalid authorization header", nil)
+					return
+				}
+
 			}
 		}
 		space := c.Ctx.Input.Header("teamspace")
