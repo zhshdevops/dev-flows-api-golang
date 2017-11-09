@@ -356,7 +356,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 
 	project := &models.CiManagedProjects{}
 	err := project.FindProjectByIdNew(projectId)
-	if err != nil || project.Username == "" {
+	if err != nil || project.Owner == "" {
 		glog.Errorf("%s this project not exist:%v\n", method, err)
 		cimp.ResponseErrorAndCode("This project does not exist.", http.StatusNotFound)
 		return
