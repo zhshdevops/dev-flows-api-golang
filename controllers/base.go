@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	UserSpace spaceType = iota
+	UserSpace    spaceType = iota
 	TeamSpace
 	OnBehalfUser
 )
@@ -50,6 +50,7 @@ type QueryLogRequest struct {
 	LogVolume string `json:"log_volume"`
 	FileName  string `json:"filename"`
 }
+
 // response
 type response struct {
 	Message string `json:"message"`
@@ -74,9 +75,15 @@ func init() {
 	workPool = workpool.New(runtime.NumCPU()*3, 100)
 }
 
+var IfCheckTocken bool
 // Prepare validation all requests
 func (c *BaseController) Prepare() {
+
 	method := "controllers/BaseController.Prepare"
+	glog.Infof("request url:%s\n", c.Ctx.Request.URL.String())
+	if strings.Contains(c.Ctx.Request.URL.String(),"managed-projects/webhooks") {
+		IfCheckTocken = true
+	}
 
 	// set audit id
 	if strings.ToUpper(c.Ctx.Request.Method) == "GET" {
@@ -220,10 +227,13 @@ func checkToken(username, token string) (*user.UserModel, error) {
 	if err != nil {
 		return nil, fmt.Errorf("User '" + username + "' is not authorized to access TenxCloud API service.")
 	}
-	if token != userModel.APIToken {
-		glog.Errorln(method, "user", username, "token", token, "is not correct")
-		return nil, fmt.Errorf("invalid api token")
+	if !IfCheckTocken {
+		if token != userModel.APIToken {
+			glog.Errorln(method, "user", username, "token", token, "is not correct")
+			return nil, fmt.Errorf("invalid api token")
+		}
 	}
+
 	return userModel, nil
 }
 
@@ -435,7 +445,6 @@ func (c *BaseController) IsUserSuperAdmin() bool {
 	return false
 }
 
-
 func isNoAuth(c *BaseController) bool {
 	url := c.Audit.URL
 	method := c.Audit.Method
@@ -449,7 +458,7 @@ func isNoAuth(c *BaseController) bool {
 		return true
 	} else if url == "/spi/v2/users/vsettan" && method == "POST" {
 		return true
-	}else if strings.HasPrefix(c.Ctx.Request.URL.Path, "/spi/v2/oem") && method == "GET" {
+	} else if strings.HasPrefix(c.Ctx.Request.URL.Path, "/spi/v2/oem") && method == "GET" {
 		return true
 	}
 	return false
