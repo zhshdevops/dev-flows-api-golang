@@ -112,21 +112,27 @@ func (c *BaseController) Prepare() {
 		} else {
 			var err error
 			prefix := "token "
+			if !IfCheckTocken {
+				if strings.HasPrefix(strings.ToLower(token), prefix) {
+					c.User, err = checkToken(username, token[len(prefix):])
+					if err != nil {
+						glog.Errorln(method, "Check token failed", err)
+						c.ErrorUnauthorized()
+						return
+					}
+				} else {
+					glog.Errorln(method, "Missing token prefix")
+					c.ErrorBadRequest("Invalid authorization header", nil)
+					return
 
-			if strings.HasPrefix(strings.ToLower(token), prefix) {
-				c.User, err = checkToken(username, token[len(prefix):])
+				}
+			} else {
+				c.User, err = checkToken(username, "")
 				if err != nil {
 					glog.Errorln(method, "Check token failed", err)
 					c.ErrorUnauthorized()
 					return
 				}
-			} else {
-				if !IfCheckTocken {
-					glog.Errorln(method, "Missing token prefix")
-					c.ErrorBadRequest("Invalid authorization header", nil)
-					return
-				}
-
 			}
 		}
 		space := c.Ctx.Input.Header("teamspace")
