@@ -43,8 +43,8 @@ type ActiveRepoReq struct {
 	Private         int `json:"private"`
 	GitlabProjectId int `json:"gitlab_project_id"`
 	SourceFullName  string `json:"source_full_name"`
-	Password  string `json:"password"`
-	Username  string `json:"username"`
+	Password        string `json:"password"`
+	Username        string `json:"username"`
 }
 
 func NewCiManagedProjects() *CiManagedProjects {
@@ -165,11 +165,11 @@ func CreateIntegrationParts(namespace string, verified bool, project *CiManagedP
 
 	} else {
 		project.DeployKeyId = resp.Id
-		repoName:=""
-		if project.RepoType=="gitlab"{
-			repoName=project.GitlabProjectId
-		}else {
-			repoName=project.Name
+		repoName := ""
+		if project.RepoType == "gitlab" {
+			repoName = project.GitlabProjectId
+		} else {
+			repoName = project.Name
 		}
 		createWebHook, err := repoApi.CreateWebhook(project.Id, events, repoName)
 		if err != nil {
@@ -181,9 +181,9 @@ func CreateIntegrationParts(namespace string, verified bool, project *CiManagedP
 			project.WebhookId = createWebHook.Id
 		}
 		//gitlab
-		if  project.WebhookUrl==""{
-			project.WebhookUrl=createWebHook.Url
-			project.WebhookId=createWebHook.Id
+		if project.WebhookUrl == "" {
+			project.WebhookUrl = createWebHook.Url
+			project.WebhookId = createWebHook.Id
 		}
 
 	}
@@ -220,6 +220,12 @@ func (ci *CiManagedProjects) FindProjectById(namespace, projectId string) error 
 
 }
 
+func (ci *CiManagedProjects) FindProjectByIdNew(projectId string) error {
+	o := orm.NewOrm()
+	sql := fmt.Sprintf("select * from %s where namespace=? and id=?", ci.TableName())
+	return o.Raw(sql, projectId).QueryRow(&ci)
+
+}
 func (ci *CiManagedProjects) FindProjectOnlyById(projectId string) error {
 
 	o := orm.NewOrm()

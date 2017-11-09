@@ -354,9 +354,8 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 
 	glog.Infof("%s,%s\n", method, string(body))
 
-	namespace := cimp.Namespace
 	project := &models.CiManagedProjects{}
-	err := project.FindProjectById(namespace, projectId)
+	err := project.FindProjectByIdNew(projectId)
 	if err != nil || project.Username == "" {
 		glog.Errorf("%s this project not exist:%v\n", method, err)
 		cimp.ResponseErrorAndCode("This project does not exist.", http.StatusNotFound)
