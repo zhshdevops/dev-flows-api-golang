@@ -415,7 +415,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		glog.V(1).Infof("Validate CI rule of each stage ...")
 
 		//create builds by ci rules
-		err = cimp.invokeCIFlowOfStages(body, event, ciStages, *project)
+		err = cimp.invokeCIFlowOfStages(body, event, ciStages, project)
 		if err != nil {
 			cimp.ResponseErrorAndCode("build failed "+fmt.Sprintf("%s", err), 501)
 			return
@@ -430,7 +430,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 
 }
 
-func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event EventHook, stageList []models.CiStages, project models.CiManagedProjects) error {
+func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
 	method := "CiManagedProjectsController.invokeCIFlowOfStages"
 	glog.V(1).Infof("%s Number of stages in the list %d", method, len(stageList))
 
@@ -517,7 +517,7 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event
 		if matched {
 			glog.V(1).Infof("%s ---- Add to build queue ----: :%s\n", method, eventType)
 			//TODO 开始构建任务
-			 StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, nil)
+			 StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, &models.Option{})
 		}
 
 	}
