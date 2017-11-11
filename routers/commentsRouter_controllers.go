@@ -31,6 +31,14 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
+	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowBuildLogsController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowBuildLogsController"],
+		beego.ControllerComments{
+			Method: "InvokeBuildsByWebhook",
+			Router: `/`,
+			AllowHTTPMethods: []string{"POST"},
+			MethodParams: param.Make(),
+			Params: nil})
+
 	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowsController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowsController"],
 		beego.ControllerComments{
 			Method: "GetCIFlows",
@@ -260,14 +268,6 @@ func init() {
 			Method: "GetManagedProjectDetail",
 			Router: `/:project_id`,
 			AllowHTTPMethods: []string{"GET"},
-			MethodParams: param.Make(),
-			Params: nil})
-
-	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiManagedProjectsController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiManagedProjectsController"],
-		beego.ControllerComments{
-			Method: "InvokeBuildsByWebhook",
-			Router: `/webhooks/:project_id`,
-			AllowHTTPMethods: []string{"POST"},
 			MethodParams: param.Make(),
 			Params: nil})
 

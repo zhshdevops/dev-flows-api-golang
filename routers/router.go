@@ -65,15 +65,17 @@ func init() {
 				&controllers.CiScriptsController{},
 			),
 		),
+		beego.NSNamespace("/managed-projects/webhooks/:project_id",
+			beego.NSInclude(
+				&controllers.CiFlowBuildLogsController{},
+			),
+		),
 
 	)
 
 	beego.AddNamespace(ns)
 	//beego.Handler("/stagebuild/log/",controllers.NewJobWatcherSocket().Handler)
-	beego.Handler("/stagebuild/log/",controllers.StageBuildLog)
-	beego.Handler("/stagebuild/status/",controllers.StageBuildStatus)
-
-
-
+	beego.Handler("/stagebuild/log/", controllers.StageBuildLog)
+	beego.Handler("/stagebuild/status/", controllers.StageBuildStatus)
 
 }
