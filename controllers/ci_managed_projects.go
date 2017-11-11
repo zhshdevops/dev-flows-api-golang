@@ -376,10 +376,8 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 	if err != nil {
 		glog.Errorf(" Gte User '"+project.Owner+" failed:%v\n", err)
 	}
-	cimp.User = userModel
-	cimp.User.Username = project.Owner
-	cimp.User.Namespace = project.Namespace
-	cimp.User.UserNamespace = project.Owner
+
+
 	// Use the user/space info of this project
 	//var userInfo = {
 	//user: project.owner,
@@ -424,7 +422,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		glog.V(1).Infof("Validate CI rule of each stage ...")
 
 		//create builds by ci rules
-		err = cimp.invokeCIFlowOfStages(body, event, ciStages, project)
+		err = cimp.invokeCIFlowOfStages(userModel,body, event, ciStages, project)
 		if err != nil {
 			cimp.ResponseErrorAndCode("build failed "+fmt.Sprintf("%s", err), 501)
 			return
@@ -439,7 +437,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 
 }
 
-func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
+func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
 	method := "CiManagedProjectsController.invokeCIFlowOfStages"
 	glog.V(1).Infof("%s Number of stages in the list %d", method, len(stageList))
 
@@ -532,7 +530,7 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event
 				Options: &models.Option{Branch: event.Name},
 			}
 			imageBuild := models.NewImageBuilder()
-			stagequeue,result,httpStatusCode:=NewStageQueue(cimp.User, buildBody, event.Name, cimp.Namespace, stage.FlowId, imageBuild)
+			stagequeue,result,httpStatusCode:=NewStageQueue(user, buildBody, event.Name, cimp.Namespace, stage.FlowId, imageBuild)
 			if httpStatusCode == http.StatusOK {
 				go func(){
 					result,httpStatusCode=stagequeue.Run()

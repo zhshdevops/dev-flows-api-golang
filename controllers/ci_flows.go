@@ -35,6 +35,7 @@ func (cf *CiFlowsController) GetCIFlows() {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
 	isBuildImage, _ := cf.GetInt("isBuildImage", 0)
+	glog.Infof("============userName=%s\n",cf.User.Username)
 	glog.Info("namespace=%s\n",namespace)
 	listFlowsData, total, err := ciflows.ListFlowsAndLastBuild(namespace, isBuildImage)
 	if err != nil || total == 0 {
