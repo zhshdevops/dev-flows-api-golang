@@ -872,9 +872,9 @@ func (queue *StageQueue) Run() (FlowBuilResp, int) {
 			glog.Infof("%s ======get build status============stageBuildRec:%#v\n", method, queue.StageBuildLog)
 			// Only use namespace for teamspace scope
 			respStage, code := queue.StartStageBuild(stage, index)
-			glog.Infof("%s Run failed respStage:%v\n", method, respStage)
 			//构建失败
 			if code != 200 {
+				glog.Infof("%s Run failed respStage:%v\n", method, respStage)
 				//修改FlowBuildLog
 				queue.SetFailedStatus()
 				//通知websocket 失败

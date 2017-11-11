@@ -392,21 +392,21 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		project.RepoType == SVN || project.RepoType == GITLAB {
 
 		if project.RepoType == GITLAB {
-			event, err = cimp.getGitlabEventInfo(body, *project)
+			event, err = getGitlabEventInfo(cimp.Ctx.Request,body, *project)
 			if err != nil {
 				glog.Errorf("%s gitlab webhook run failed:%v\n", method, err)
 				cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", 501)
 				return
 			}
 		} else if project.RepoType == GITHUB || project.RepoType == GOGS {
-			event, err = cimp.GetEventInfo(body, *project)
+			event, err = GetEventInfo(cimp.Ctx.Request,body, *project)
 			if err != nil {
 				glog.Errorf("%s %v\n", method, err)
 				cimp.ResponseErrorAndCode(fmt.Sprintf("%s", err), 501)
 				return
 			}
 		} else if project.RepoType == SVN {
-			event, err = cimp.GetSvnEventInfo(body, *project)
+			event, err = GetSvnEventInfo(body, *project)
 			if err != nil {
 				glog.Errorf("%s %v\n", method, err)
 				cimp.ResponseErrorAndCode(fmt.Sprintf("%s", err), 501)
@@ -422,7 +422,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		glog.V(1).Infof("Validate CI rule of each stage ...")
 
 		//create builds by ci rules
-		err = cimp.invokeCIFlowOfStages(userModel,body, event, ciStages, project)
+		err = invokeCIFlowOfStages(userModel,body, event, ciStages, project)
 		if err != nil {
 			cimp.ResponseErrorAndCode("build failed "+fmt.Sprintf("%s", err), 501)
 			return
@@ -437,7 +437,7 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 
 }
 
-func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
+func  invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
 	method := "CiManagedProjectsController.invokeCIFlowOfStages"
 	glog.V(1).Infof("%s Number of stages in the list %d", method, len(stageList))
 
@@ -530,7 +530,7 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(user *user.UserMod
 				Options: &models.Option{Branch: event.Name},
 			}
 			imageBuild := models.NewImageBuilder()
-			stagequeue,result,httpStatusCode:=NewStageQueue(user, buildBody, event.Name, cimp.Namespace, stage.FlowId, imageBuild)
+			stagequeue,result,httpStatusCode:=NewStageQueue(user, buildBody, event.Name, user.Namespace, stage.FlowId, imageBuild)
 			if httpStatusCode == http.StatusOK {
 				go func(){
 					result,httpStatusCode=stagequeue.Run()
@@ -542,17 +542,16 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(user *user.UserMod
 
 	}
 
-	//TODO 通知repo 构建情况 打算用协程做处理
-
 	return nil
 
 }
 
-func (cimp *CiManagedProjectsController) getGitlabEventInfo(body []byte, project models.CiManagedProjects) (EventHook, error) {
+func getGitlabEventInfo(req *http.Request,body []byte, project models.CiManagedProjects) (EventHook, error) {
 	method := "CiManagedProjectsController.getGitlabEventInfo"
 	var hookPayload gitLabClientv3.HookPayload
 	var event EventHook
-	headerEvnt := cimp.Ctx.Input.Header("x-gitlab-event")
+
+	headerEvnt := req.Header.Get("x-gitlab-event")
 	err := json.Unmarshal(body, &hookPayload)
 	if err != nil {
 		glog.Errorf("%s json unmarshal failed:%v\n", method, err)
@@ -596,7 +595,7 @@ func (cimp *CiManagedProjectsController) getGitlabEventInfo(body []byte, project
 
 		eventType = strings.SplitN(hookPayload.Ref, "/", 3)[1]
 
-		eventType = cimp.formateCIPushType(eventType)
+		eventType = formateCIPushType(eventType)
 		if len(hookPayload.Commits) != 0 {
 			commitId = hookPayload.Commits[len(hookPayload.Commits)-1].Id
 		}
@@ -620,12 +619,12 @@ func (cimp *CiManagedProjectsController) getGitlabEventInfo(body []byte, project
 
 }
 
-func (cimp *CiManagedProjectsController) GetEventInfo(body []byte, project models.CiManagedProjects) (EventHook, error) {
+func GetEventInfo(req *http.Request,body []byte, project models.CiManagedProjects) (EventHook, error) {
 	var event EventHook
 	method := "CiManagedProjectsController.getEventInfo"
-	headerEvnt := cimp.Ctx.Input.Header("x-github-event")
+	headerEvnt := req.Header.Get("x-github-event")
 	if headerEvnt == "" {
-		headerEvnt = cimp.Ctx.Input.Header("x-gogs-event")
+		headerEvnt = req.Header.Get("x-gogs-event")
 	}
 
 	glog.V(1).Infof("%s  event type in the header: %s\n", method, headerEvnt)
@@ -680,7 +679,7 @@ func (cimp *CiManagedProjectsController) GetEventInfo(body []byte, project model
 		glog.V(1).Infof("%s push payload pushName info :%v\n", method, pushName)
 
 		pushType = strings.SplitN(pushPayload.Ref, "/", 3)[1]
-		headerEvnt = cimp.formateCIPushType(pushType)
+		headerEvnt = formateCIPushType(pushType)
 		commitId = pushPayload.Commits[len(pushPayload.Commits)-1].ID
 		projectId = int(pushPayload.Repo.ID)
 	}
@@ -703,7 +702,7 @@ func (cimp *CiManagedProjectsController) GetEventInfo(body []byte, project model
 				pushName = createPayload.Ref
 			}
 		}
-		headerEvnt = cimp.formateCIPushType(headerEvnt)
+		headerEvnt = formateCIPushType(headerEvnt)
 		glog.V(1).Infof("%s create or release payload pushName info :%v\n", method, pushName)
 	}
 
@@ -714,7 +713,7 @@ func (cimp *CiManagedProjectsController) GetEventInfo(body []byte, project model
 	return event, nil
 }
 
-func (cimp *CiManagedProjectsController) formateCIPushType(pushType string) string {
+func  formateCIPushType(pushType string) string {
 	switch pushType {
 	case "heads":
 		return "Branch"
@@ -728,7 +727,7 @@ func (cimp *CiManagedProjectsController) formateCIPushType(pushType string) stri
 	return pushType
 
 }
-func (cimp *CiManagedProjectsController) checkSignature() error {
+func checkSignature() error {
 
 	return errors.New("get error failed")
 
@@ -741,7 +740,7 @@ type EventHook struct {
 	CommitId     string `json:"commitId"`
 }
 
-func (cimp *CiManagedProjectsController) GetSvnEventInfo(body []byte, project models.CiManagedProjects) (EventHook, error) {
+func  GetSvnEventInfo(body []byte, project models.CiManagedProjects) (EventHook, error) {
 	var event EventHook
 	method := "CiManagedProjectsController.GetSvnEventInfo"
 	svnHook := coderepo.SvnHook{}
