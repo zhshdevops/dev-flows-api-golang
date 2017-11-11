@@ -1011,7 +1011,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				}
 				return watchRespData, fmt.Errorf("收到deleted事件，job可能被第三方删除")
 				//成功时并且已经完成时
-			} else if dm.Status.Succeeded >= 1 && dm.Status.Active == 0 &&
+			} else if dm.Status.Succeeded <= 1 &&
 				dm.Status.CompletionTime != nil && len(dm.Status.Conditions) != 0 {
 
 				//job执行成功
@@ -1027,8 +1027,8 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				}
 
 				return watchRespData, nil
-			} else if dm.Status.Failed >= 1 && dm.Spec.Completions == Int32Toint32Point(1) &&
-				dm.Status.CompletionTime == nil {
+			} else if dm.Status.Failed <=1 && dm.Spec.Completions == Int32Toint32Point(1) &&
+				dm.Status.CompletionTime == nil && len(dm.Status.Conditions) == 0{
 				watchRespData.Succeeded = dm.Status.Succeeded
 				watchRespData.Failed = dm.Status.Failed
 				watchRespData.Active = dm.Status.Active

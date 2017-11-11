@@ -496,11 +496,13 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	if pod.ObjectMeta.Name != "" {
 		buildRec.PodName = pod.ObjectMeta.Name
 		buildRec.NodeName = pod.Spec.NodeName
+		buildRec.JobName=job.ObjectMeta.Name
 	}
-
-	updateResult, err := models.NewCiStageBuildLogs().UpdatePodNameAndJobNameByBuildId(buildRec, ciStagebuildLogs.BuildId)
-	if err != nil || updateResult < 1 {
-		glog.Errorf("%s update stage build failed updateResult=%d err=:%v\n", method, updateResult, err)
+	if buildRec.PodName != "" {
+		updateResult, err := models.NewCiStageBuildLogs().UpdatePodNameAndJobNameByBuildId(buildRec, ciStagebuildLogs.BuildId)
+		if err != nil || updateResult < 1 {
+			glog.Errorf("%s update stage build failed updateResult=%d err=:%v\n", method, updateResult, err)
+		}
 	}
 
 	if ciStagebuildLogs.FlowBuildId != "" {
@@ -522,17 +524,17 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 
 func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo models.Container) {
 	scriptID := containerInfo.Scripts_id
-	//userName:=user.Username
-	//userToken:=""
-	//if user.APIToken!=""{
-	//	userToken=user.APIToken
-	//}
+	userName := user.Username
+	userToken := ""
+	if user.APIToken != "" {
+		userToken = user.APIToken
+	}
 	//TODO 加密解密的问题
 	containerInfo.Command = []string{fmt.Sprintf("/app/%s", scriptID)}
 	containerInfo.Env = []apiv1.EnvVar{
 		{
 			Name:  "SCRIPT_ENTRY_INFO",
-			Value: scriptID,
+			Value: scriptID + ":" + userName + ":" + userToken,
 		},
 		{
 			Name:  "SCRIPT_URL",
@@ -558,7 +560,7 @@ func UpdateStatusAndHandleWaiting(user *user.UserModel, stage models.CiStages,
 	glog.Infof("stageBuildLogs length=%d\n", len(stageBuildLogs))
 	if total == 0 {
 		//如没有等待的构建，则更新当前构建状态
-		glog.Infof("如没有等待的构建，则更新当前构建状态 will update status:%d,nodeName=%s,currentbuildId=%s\n", cistagebuildLogs.Status,cistagebuildLogs.NodeName, currentbuildId)
+		glog.Infof("如没有等待的构建，则更新当前构建状态 will update status:%d,nodeName=%s,currentbuildId=%s\n", cistagebuildLogs.Status, cistagebuildLogs.NodeName, currentbuildId)
 		res, err := models.NewCiStageBuildLogs().UpdateById(cistagebuildLogs, currentbuildId)
 		if err != nil {
 			glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)

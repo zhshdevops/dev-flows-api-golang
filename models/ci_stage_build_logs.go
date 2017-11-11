@@ -59,11 +59,11 @@ func (ci *CiStageBuildLogs) UpdateById(build CiStageBuildLogs, buildId string, o
 		"status":     build.Status,
 		"pod_name":   build.PodName,
 		"node_name":  build.NodeName,
-		"start_time": build.StartTime,
+		//"start_time": build.StartTime,
 		"end_time":   time.Now(),
 		//"build_alone": build.BuildAlone,
 		//"is_first": build.IsFirst,
-		//"branch_name": build.BranchName,
+		"job_name": build.JobName,
 	})
 	return
 }
@@ -75,19 +75,19 @@ func (ci *CiStageBuildLogs) UpdatePodNameAndJobNameByBuildId(build CiStageBuildL
 	} else {
 		o = orms[0]
 	}
-	glog.Infof("UpdatePodNameAndJobNameByBuildId build NodeName=%s, PodName=%s\n",build.NodeName,build.PodName)
+	glog.Infof("UpdatePodNameAndJobNameByBuildId build NodeName=%s, PodName=%s\n", build.NodeName, build.PodName)
 	updateResult, err = o.QueryTable(ci.TableName()).
 		Filter("build_id", buildId).Update(orm.Params{
 		//"flow_build_id":build.FlowBuildId,
 		//"stage_id":build.StageId,
 		//"stage_name":build.StageName,
-		"status":     build.Status,
-		"job_name":   build.JobName,
-		"pod_name":   build.PodName,
-		"node_name":  build.NodeName,
-		"namespace":  build.Namespace,
-		"start_time": build.StartTime,
-		"end_time":   time.Now(),
+		"status":    build.Status,
+		"job_name":  build.JobName,
+		"pod_name":  build.PodName,
+		"node_name": build.NodeName,
+		"namespace": build.Namespace,
+		//"start_time": build.StartTime,
+		"end_time": time.Now(),
 		//"build_alone": build.BuildAlone,
 		//"is_first": build.IsFirst,
 		//"branch_name": build.BranchName,
@@ -103,7 +103,7 @@ func (ci *CiStageBuildLogs) UpdateBuildLogById(build CiStageBuildLogs, buildId s
 		o = orms[0]
 	}
 
-	glog.Infof("UpdateBuildLogById build NodeName=%s\n",build.NodeName)
+	glog.Infof("UpdateBuildLogById build NodeName=%s\n", build.NodeName)
 	updateResult, err = o.QueryTable(ci.TableName()).
 		Filter("build_id", buildId).Update(orm.Params{
 		//"flow_build_id":build.FlowBuildId,
@@ -130,7 +130,7 @@ func (ci *CiStageBuildLogs) UpdatePodNameById(podName string, buildId string, or
 	} else {
 		o = orms[0]
 	}
-	glog.Infof("UpdatePodNameById build podName=%s\n",podName)
+	glog.Infof("UpdatePodNameById build podName=%s\n", podName)
 	updateResult, err = o.QueryTable(ci.TableName()).
 		Filter("build_id", buildId).Update(orm.Params{
 		"pod_name": podName,

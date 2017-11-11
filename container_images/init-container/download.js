@@ -31,7 +31,7 @@ if (!SCRIPT_ENTRY_INFO) {
   return
 }
 
-const scriptEntryInfo = aeadDecrypt(SCRIPT_ENTRY_INFO).split(':')
+const scriptEntryInfo = SCRIPT_ENTRY_INFO.split(':')
 const scriptId = scriptEntryInfo[0]
 const username = scriptEntryInfo[1]
 const token = scriptEntryInfo[2]

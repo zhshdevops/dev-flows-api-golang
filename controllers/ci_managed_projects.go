@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"dev-flows-api-golang/models"
+	"dev-flows-api-golang/models/user"
 	"encoding/json"
 
 	//"regexp"
@@ -368,6 +369,14 @@ func (cimp *CiManagedProjectsController) InvokeBuildsByWebhook() {
 		cimp.ResponseErrorAndCode("find project by projectid and ci failed or No stage of CI flow is using this project or CI is disabled.", http.StatusOK)
 		return
 	}
+
+	userModel := &user.UserModel{}
+	// use cache for better performance
+	_, err = userModel.GetByName(project.Owner)
+	if err != nil {
+		glog.Errorf(" Gte User '"+project.Owner+" failed:%v\n", err)
+	}
+	cimp.User = userModel
 	cimp.User.Username = project.Owner
 	cimp.User.Namespace = project.Namespace
 	cimp.User.UserNamespace = project.Owner
@@ -517,7 +526,20 @@ func (cimp *CiManagedProjectsController) invokeCIFlowOfStages(body []byte, event
 		if matched {
 			glog.V(1).Infof("%s ---- Add to build queue ----: :%s\n", method, eventType)
 			//TODO 开始构建任务
-			 go StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, &models.Option{})
+			//go StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, &models.Option{})
+			buildBody := models.BuildReqbody{
+				StageId: stage.StageId,
+				Options: &models.Option{Branch: event.Name},
+			}
+			imageBuild := models.NewImageBuilder()
+			stagequeue,result,httpStatusCode:=NewStageQueue(cimp.User, buildBody, event.Name, cimp.Namespace, stage.FlowId, imageBuild)
+			if httpStatusCode == http.StatusOK {
+				go func(){
+					result,httpStatusCode=stagequeue.Run()
+					glog.Infof("invokeCIFlowOfStages %s %d",result,httpStatusCode)
+				}()
+			}
+
 		}
 
 	}

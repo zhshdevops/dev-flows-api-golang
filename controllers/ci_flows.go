@@ -899,7 +899,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		return
 	}
 	var bodyReqBody models.BuildReqbody
-	glog.V(7).Infof("%s request body:%v\n", method, body)
+	glog.Infof("%s request body===================:%v\n", method, string(body))
 	err := json.Unmarshal(body, &bodyReqBody)
 	if err != nil {
 		glog.Errorf("%s json unmarshal bodyReqBody failed: %v\n", method, err)
@@ -908,14 +908,19 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	}
 
 	//不传event参数 event 是代码分支
-	result, httpStatusCode := StartFlowBuild(cf.User, flowId, bodyReqBody.StageId, "", bodyReqBody.Options)
+	//result, httpStatusCode := StartFlowBuild(cf.User, flowId, bodyReqBody.StageId, "", bodyReqBody.Options)
+	imageBuild:=models.NewImageBuilder(client.ClusterID)
+	stagequeue,result, httpStatusCode:=NewStageQueue(cf.User,bodyReqBody,"",cf.Namespace,flowId,imageBuild)
+	if httpStatusCode == http.StatusOK {
+		result, httpStatusCode=stagequeue.Run()
+	}
 
 	if httpStatusCode == http.StatusOK {
 		cf.ResponseResultAndStatusDevops(result, httpStatusCode)
 		return
 	}
-	var Resp string
 
+	var Resp string
 	stagebuild, ok := result.(StageBuildResp)
 	if ok {
 		Resp = stagebuild.Message
@@ -925,9 +930,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 			Resp = flowResp.Message
 		}
 	}
-
 	cf.ResponseErrorAndCode(Resp, httpStatusCode)
-
 	return
 }
 
