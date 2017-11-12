@@ -16,10 +16,13 @@ import (
 	"dev-flows-api-golang/models/common"
 	"dev-flows-api-golang/modules/client"
 	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
-
+	//"github.com/gorilla/websocket"
 	"sync"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"net"
+	//"golang.org/x/tools/playground/socket"
+	"strings"
 )
 
 type SocketsOfBuild struct {
@@ -58,6 +61,39 @@ var SOCKETS_OF_FLOW_MAPPING_MUTEX sync.RWMutex
 var FLOWS_OF_SOCKET_MAPPING = make(map[string]map[string]bool, 0)
 var FLOWS_OF_SOCKET_MAPPING_MUTEX sync.RWMutex
 
+//=================================new
+type SocketsOfBuildNew struct {
+	FlowId  string `json:"flowId"`
+	StageId string `json:"stage_id"`
+	Conn    net.Conn
+	Op      ws.OpCode
+}
+
+// 保存stage build id对应的所有socket
+// stage build完成时，需要从该mapping中获取build对应的socket，从而进行通知
+var SOCKETS_OF_BUILD_MAPPING_NEW = make(map[string]map[string]*SocketsOfBuildNew, 0)
+// 保存socket对应的所有stage build id
+// 删除指定socket对应的SOCKETS_OF_BUILD_MAPPING记录时，需要从此mapping中获取build id
+// 当socket对应的所有build均完成通知之后须断开连接，根据此mapping来判断何时断开连接
+var BUILDS_OF_SOCKET_MAPPING_NEW = make(map[string]map[string]bool, 0)
+// 保存stage id 对应的所有socket
+// 新建stage build时，需要通知哪个stage新建了build，根据此mapping来获取stage对应的socket
+type SocketsOfStageNew struct {
+	FlowId string `json:"flowId"`
+	Conn   net.Conn
+	Op     ws.OpCode
+}
+
+var SOCKETS_OF_STAGE_MAPPING_NEW = make(map[string]map[string]*SocketsOfStageNew, 0)
+// 保存socket对应的所有stage
+// 删除指定socket对应的SOCKETS_OF_STAGE_MAPPING记录时，需要从此mapping中获取stage id
+var STAGES_OF_SOCKET_MAPPING_NEW = make(map[string]map[string]bool, 0)
+// 保存flow id对应的所有socket
+
+var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string]map[string]net.Conn, 0)
+// 保存socket对应的所有flow
+var FLOWS_OF_SOCKET_MAPPING_NEW = make(map[string]map[string]bool, 0)
+
 type JobWatcherSocket struct {
 	Handler http.Handler
 }
@@ -65,27 +101,63 @@ type JobWatcherSocket struct {
 func NewJobWatcherSocket() *JobWatcherSocket {
 	return &JobWatcherSocket{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 			conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 			if err != nil {
 				// handle error
 			}
+			defer conn.Close()
+			var watchMessage WatchBuildInfo
+			var resp WatchBuildResp
+			var flow FlowBuildStatusInfo
+			//生成websocket 唯一ID
+			sockerID := newId(r)
 
-			go func() {
-				defer conn.Close()
-
-				for {
-					msg, op, err := wsutil.ReadClientData(conn)
-					if err != nil {
-						fmt.Println("===================", msg)
-						// handle error
-					}
-					err = wsutil.WriteServerMessage(conn, op, msg)
-					if err != nil {
-						// handle error
-					}
+			glog.Infof("connect id:%s\n", sockerID)
+			msg, op, err := wsutil.ReadClientData(conn)
+			if err != nil {
+				fmt.Println("===================", msg)
+				// handle error
+			}
+			glog.Infof("receive msg:%s\n", string(msg))
+			if strings.Contains(string(msg), "watchedBuilds") {
+				err = json.Unmarshal(msg, &watchMessage)
+				if err != nil {
+					glog.Errorf("receive msg json unmashal failed:%v\n", err)
 				}
-			}()
+
+				WatchNew(watchMessage.FlowId, watchMessage, conn, sockerID, op)
+
+			} else {
+				err = json.Unmarshal(msg, &flow)
+				if err != nil {
+					glog.Errorf("receive msg json unmashal failed:%v\n", err)
+				}
+
+				for _, flowId := range flow.FlowIds {
+
+					WatchNew(flowId, watchMessage, conn, sockerID, op)
+				}
+
+			}
+
+			glog.Infof("%v", resp)
+
+			//go func() {
+			//
+			//
+			//	for {
+			//		msg, op, err := wsutil.ReadClientData(conn)
+			//		if err != nil {
+			//			fmt.Println("===================", msg)
+			//			// handle error
+			//		}
+			//		err = wsutil.WriteServerMessage(conn, op, msg)
+			//		if err != nil {
+			//			// handle error
+			//		}
+			//	}
+			//}()
+
 		}),
 	}
 }
@@ -196,7 +268,71 @@ func JobWatcher(socket socketio.Socket) {
 
 }
 
+func WatchNew(flowId string, watchBuildInfo WatchBuildInfo, socket net.Conn, socketId string, op ws.OpCode) {
+
+	method := "jobwatch.WatchNew"
+	var i int
+	var watchedBuildslen = len(watchBuildInfo.WatchedBuilds)
+
+	if watchedBuildslen < 1 {
+		//未指定watchedBuilds时，当做只监听flow
+		if _, exist := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; !exist {
+			SOCKETS_OF_FLOW_MAPPING_NEW[flowId][socketId] = socket
+		}
+
+		if FLOWS_OF_SOCKET_MAPPING_NEW[socketId] == nil {
+			FLOWS_OF_SOCKET_MAPPING_NEW[socketId][flowId] = true
+		}
+
+		return
+	}
+
+	for _, stageBuild := range watchBuildInfo.WatchedBuilds {
+		if stageBuild.StageId == "" { //如果是没有对应的stageId
+			emitErrorNew(socket, flowId, stageBuild.StageId, stageBuild.StageBuildId, 400, "Stage id should be specified", op)
+			return
+		}
+
+		//保存stage id对应的socket
+		if _, exist := SOCKETS_OF_STAGE_MAPPING[stageBuild.StageId]; !exist {
+			SOCKETS_OF_STAGE_MAPPING_NEW[stageBuild.StageId][socketId].Conn = socket
+			SOCKETS_OF_STAGE_MAPPING_NEW[stageBuild.StageId][socketId].FlowId = flowId
+		}
+
+		//保存socket对应的stage id
+		if _, exist := STAGES_OF_SOCKET_MAPPING_NEW[socketId]; !exist {
+			STAGES_OF_SOCKET_MAPPING_NEW[socketId][stageBuild.StageId] = true
+		}
+
+		if stageBuild.StageBuildId == "" {
+			glog.Infof("%s stageBuildId is empty\n", method)
+			return
+		}
+		build, err := GetValidStageBuild(flowId, stageBuild.StageId, stageBuild.StageBuildId)
+		if err != nil {
+			//未获取到build时，返回错误
+			glog.Errorf("%s GetValidStageBuild failed==>:%v\n", method, err)
+			emitErrorNew(socket, flowId, stageBuild.StageId, stageBuild.StageBuildId, 400, fmt.Sprintf("%s", err), op)
+		} else if build.Status == common.STATUS_SUCCESS || build.Status == common.STATUS_FAILED {
+			//状态为成功或失败时，返回状态
+			emitStatusNew(socket, flowId, stageBuild.StageId, stageBuild.StageBuildId, int(build.Status), op)
+		} else {
+			//保存build与socket的映射关系
+			saveSocketAndBuildNew(socket, socketId, stageBuild.StageBuildId, flowId, stageBuild.StageId, op)
+		}
+		i = i + 1
+		if i == watchedBuildslen {
+			//遍历完成时，处理不需要watch的socket
+			handleNoWatchedExistNew(socket)
+		}
+
+	}
+
+}
+
 func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket) {
+	//con,err:=websocket.Upgrader{}.Upgrade()
+	//con.
 	method := "jobwatch.Watch"
 	var i int
 	var watchedBuildslen = len(watchBuildInfo.WatchedBuilds)
@@ -285,6 +421,36 @@ func emitStatus(socket socketio.Socket, flowId, stageId, stageBuildId string, bu
 	socket.Emit(StageBuildStatusSocket, messageResp)
 	return
 }
+func emitStatusNew(socket net.Conn, flowId, stageId, stageBuildId string, buildStatus int, op ws.OpCode) {
+	message := struct {
+		FlowId       string `json:"flowId"`
+		StageId      string `json:"stageId"`
+		StageBuildId string `json:"stageBuildId"`
+		BuildStatus  int `json:"buildStatus"`
+	}{
+		FlowId:       flowId,
+		StageBuildId: stageBuildId,
+		BuildStatus:  buildStatus,
+		StageId:      stageId,
+	}
+	messageResp := struct {
+		Results struct {
+			FlowId       string `json:"flowId"`
+			StageId      string `json:"stageId"`
+			StageBuildId string `json:"stageBuildId"`
+			BuildStatus  int `json:"buildStatus"`
+		} `json:"results"`
+		Status int `json:"status"`
+	}{
+		Results: message,
+		Status:  200,
+	}
+
+	data, _ := json.Marshal(messageResp)
+
+	wsutil.WriteServerMessage(socket, op, data)
+	return
+}
 
 func emitError(socket socketio.Socket, flowId, stageId, stageBuildId string, Status int, message string) {
 	var resp WatchBuildResp
@@ -307,6 +473,29 @@ func emitError(socket socketio.Socket, flowId, stageId, stageBuildId string, Sta
 	return
 }
 
+func emitErrorNew(socket net.Conn, flowId, stageId, stageBuildId string, Status int, message string, op ws.OpCode) {
+	var resp WatchBuildResp
+	resp.Status = Status
+	messageResp := struct {
+		FlowId       string `json:"flowId"`
+		StageId      string `json:"stageId"`
+		StageBuildId string `json:"stageBuildId"`
+		Message      string `json:"message"`
+	}{
+		FlowId:       flowId,
+		StageBuildId: stageBuildId,
+		StageId:      stageId,
+		Message:      message,
+	}
+
+	resp.Results = messageResp
+
+	data, _ := json.Marshal(resp)
+
+	wsutil.WriteServerMessage(socket, op, data)
+	return
+}
+
 func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId string) {
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
@@ -322,6 +511,26 @@ func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId st
 	//保存socket对应的build id
 	if !BUILDS_OF_SOCKET_MAPPING[socket.Id()][stageBuildId] {
 		BUILDS_OF_SOCKET_MAPPING[socket.Id()][stageBuildId] = true
+	}
+
+}
+
+func saveSocketAndBuildNew(socket net.Conn, socketId string, stageBuildId, flowId, stageId string, op ws.OpCode) {
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
+	//保存build id对应的socket
+	if SOCKETS_OF_BUILD_MAPPING_NEW[stageBuildId][socketId] == nil {
+		SOCKETS_OF_BUILD_MAPPING_NEW[stageBuildId][socketId] = &SocketsOfBuildNew{
+			Conn:    socket,
+			FlowId:  flowId,
+			StageId: stageId,
+			Op:      op,
+		}
+	}
+
+	//保存socket对应的build id
+	if !BUILDS_OF_SOCKET_MAPPING_NEW[socketId][stageBuildId] {
+		BUILDS_OF_SOCKET_MAPPING_NEW[socketId][stageBuildId] = true
 	}
 
 }
@@ -343,6 +552,22 @@ func notifyFlow(flowId, flowBuildId string, status int) {
 
 }
 
+func notifyFlowNew(flowId, flowBuildId string, status int) {
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
+	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+	method := "notifyFlow"
+	if flowId == "" || flowBuildId == "" {
+		return
+	}
+
+	if socketidMap, ok := SOCKETS_OF_FLOW_MAPPING[flowId]; ok {
+		for key, socketMap := range socketidMap {
+			glog.Infof("%s the socket id is %s\n", method, key)
+			emitStatusOfFlow(socketMap, flowId, flowBuildId, status)
+		}
+	}
+
+}
 func emitStatusOfFlow(socket socketio.Socket, flowId, flowBuildId string, buildStatus int) {
 	message := struct {
 		FlowId      string `json:"flowId"`
@@ -427,6 +652,13 @@ func handleNoWatchedExist(socket socketio.Socket) {
 	// }
 }
 
+func handleNoWatchedExistNew(socket net.Conn) {
+	// if (!BUILDS_OF_SOCKET_MAPPING[socket.id] ||
+	//       Object.keys(BUILDS_OF_SOCKET_MAPPING[socket.id]).length < 1) {
+	//   socket.disconnect()
+	// }
+}
+
 func removeStagesAndBuilds(socket socketio.Socket) bool {
 	return removeFromMapping_StageMapping(socket.Id()) &&
 		removeFromMapping_BuildMapping(socket.Id())
@@ -493,6 +725,10 @@ func removeSocket(socket socketio.Socket) {
 	removeFromMapping_FlowMapping(socket.Id())
 }
 
+func init() {
+	go doStart()
+}
+
 func doStart() {
 
 	method := "jobWatcher/doStart"
@@ -535,7 +771,7 @@ func doStart() {
 			if event.Type == watch.Deleted {
 				glog.Infof("%s A job is deleted:%v\n", event)
 				if dm.ObjectMeta.Labels["stage-build-id"] != "" {
-					if dm.Status.Succeeded <= 1 {
+					if dm.Status.Succeeded >= 1 {
 						//构建成功
 						notify(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_SUCCESS)
 					} else {
@@ -549,11 +785,13 @@ func doStart() {
 				//收到added事件，等待中的stage build开始构建
 				notifyNewBuild(dm.ObjectMeta.Labels["stage-id"],
 					dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_BUILDING)
-			} else if dm.Status.Succeeded <= 1 {
+			} else if dm.Status.Succeeded >= 1 {
 				//job执行成功
+				glog.Infof("===================>>Succeeded")
 				notify(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_SUCCESS)
-			} else if dm.Status.Failed <= 1 {
+			} else if dm.Status.Failed >= 1 {
 				//job执行失败
+				glog.Infof("===================>>failed")
 				notify(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_FAILED)
 			} else if dm.Spec.Parallelism == Int32Toint32Point(0) {
 				//停止job时
@@ -565,8 +803,6 @@ func doStart() {
 				}
 
 			}
-
-			//TODO 循环执行
 
 		}
 

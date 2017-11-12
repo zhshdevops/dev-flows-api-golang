@@ -104,6 +104,10 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 
 	var project models.CiManagedProjects
 	var body models.ActiveRepoReq
+
+	cimp.Audit.SetOperationType(models.AuditOperationCreate)
+	cimp.Audit.SetResourceType(models.AuditResourceProjects)
+
 	err := json.Unmarshal(cimp.Ctx.Input.RequestBody, &body)
 	if err != nil {
 		glog.Errorf("%s json Unmarshal failed %v\n", method, err)
@@ -250,6 +254,9 @@ func (cimp *CiManagedProjectsController) RemoveManagedProject() {
 	project_id := cimp.Ctx.Input.Param(":project_id")
 	namespace := cimp.Namespace
 	project := &models.CiManagedProjects{}
+	cimp.Audit.SetResourceID(project_id)
+	cimp.Audit.SetOperationType(models.AuditOperationDelete)
+	cimp.Audit.SetResourceType(models.AuditResourceProjects)
 	//如果找不到projejct TODO 检查sql语句的no rows result set
 	err := project.FindProjectById(namespace, project_id)
 	if err != nil {
@@ -339,8 +346,7 @@ func (cimp *CiManagedProjectsController) GetManagedProjectDetail() {
 
 }
 
-
-func  invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
+func invokeCIFlowOfStages(user *user.UserModel, body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
 	method := "CiManagedProjectsController.invokeCIFlowOfStages"
 	glog.V(1).Infof("%s Number of stages in the list %d", method, len(stageList))
 
@@ -382,15 +388,27 @@ func  invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, st
 						//检查是否是合法的regexp
 						matchWayReg, err := regexp.Compile(ciConfig.Branch.Name)
 						if err != nil {
-							glog.Errorf("%s branch regexp complie failed: %v\n", method, err)
-							//TODO send email
+							glog.Errorf("%s 解析正则表达式失败，请检查格式 branch regexp complie failed: %v\n", method, err)
+							detail := &EmailDetail{
+								Type:    "ci",
+								Result:  "failed",
+								Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Branch.Name),
+							}
+							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
 							return err
 						}
 						if matchWayReg.MatchString(event.Name) {
 							matched = true
 						} else {
-							//TODO send email
-							return fmt.Errorf("解析正则表达式失败，请检查格式 %s", ciConfig.Tag.Name)
+							detail := &EmailDetail{
+								Type:    "ci",
+								Result:  "failed",
+								Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Branch.Name),
+							}
+							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
+							return fmt.Errorf("解析正则表达式失败，请检查格式 %s", ciConfig.Branch.Name)
 						}
 					}
 				} else if eventType == "tag" {
@@ -404,13 +422,25 @@ func  invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, st
 						matchWayReg, err := regexp.Compile(ciConfig.Tag.Name)
 						if err != nil {
 							glog.Errorf("%s tag regexp complie failed: %v\n", method, err)
-							//TODO send email
+							detail := &EmailDetail{
+								Type:    "ci",
+								Result:  "failed",
+								Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Tag.Name),
+							}
+							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
 							return err
 						}
 						if matchWayReg.MatchString(event.Name) {
 							matched = true
 						} else {
-							//TODO send email
+							detail := &EmailDetail{
+								Type:    "ci",
+								Result:  "failed",
+								Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Tag.Name),
+							}
+							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
 							return fmt.Errorf("解析正则表达式失败，请检查格式 %s", ciConfig.Tag.Name)
 						}
 					}
@@ -433,11 +463,11 @@ func  invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, st
 				Options: &models.Option{Branch: event.Name},
 			}
 			imageBuild := models.NewImageBuilder()
-			stagequeue,result,httpStatusCode:=NewStageQueue(user, buildBody, event.Name, user.Namespace, stage.FlowId, imageBuild)
+			stagequeue, result, httpStatusCode := NewStageQueue(user, buildBody, event.Name, user.Namespace, stage.FlowId, imageBuild)
 			if httpStatusCode == http.StatusOK {
-				go func(){
-					result,httpStatusCode=stagequeue.Run()
-					glog.Infof("invokeCIFlowOfStages %s %d",result,httpStatusCode)
+				go func() {
+					result, httpStatusCode = stagequeue.Run()
+					glog.Infof("invokeCIFlowOfStages %s %d", result, httpStatusCode)
 				}()
 			}
 
@@ -449,7 +479,7 @@ func  invokeCIFlowOfStages(user *user.UserModel,body []byte, event EventHook, st
 
 }
 
-func getGitlabEventInfo(req *http.Request,body []byte, project models.CiManagedProjects) (EventHook, error) {
+func getGitlabEventInfo(req *http.Request, body []byte, project models.CiManagedProjects) (EventHook, error) {
 	method := "CiManagedProjectsController.getGitlabEventInfo"
 	var hookPayload gitLabClientv3.HookPayload
 	var event EventHook
@@ -522,7 +552,7 @@ func getGitlabEventInfo(req *http.Request,body []byte, project models.CiManagedP
 
 }
 
-func GetEventInfo(req *http.Request,body []byte, project models.CiManagedProjects) (EventHook, error) {
+func GetEventInfo(req *http.Request, body []byte, project models.CiManagedProjects) (EventHook, error) {
 	var event EventHook
 	method := "CiManagedProjectsController.getEventInfo"
 	headerEvnt := req.Header.Get("x-github-event")
@@ -616,7 +646,7 @@ func GetEventInfo(req *http.Request,body []byte, project models.CiManagedProject
 	return event, nil
 }
 
-func  formateCIPushType(pushType string) string {
+func formateCIPushType(pushType string) string {
 	switch pushType {
 	case "heads":
 		return "Branch"
@@ -643,7 +673,7 @@ type EventHook struct {
 	CommitId     string `json:"commitId"`
 }
 
-func  GetSvnEventInfo(body []byte, project models.CiManagedProjects) (EventHook, error) {
+func GetSvnEventInfo(body []byte, project models.CiManagedProjects) (EventHook, error) {
 	var event EventHook
 	method := "CiManagedProjectsController.GetSvnEventInfo"
 	svnHook := coderepo.SvnHook{}

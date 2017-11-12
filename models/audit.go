@@ -7,7 +7,7 @@
 package models
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"strconv"
 	"time"
 
@@ -23,14 +23,14 @@ type AuditInfo struct {
 	// if skip is true, this audit info will not be recorded to db
 	Skip bool
 
-	// id
-	ID string
-
 	// if UpdateRecord is false, insert new record to db
 	UpdateRecord bool
 
 	// request
-	StartTime   time.Time
+	StartTime time.Time
+
+	// id
+	ID          string
 	Method      string
 	URL         string
 	Operator    string
@@ -58,8 +58,8 @@ type AuditOperation uint
 // get operation number:
 // i=0 && while IFS= read -r line; do echo $line $i; let i++; done <<< $(grep "\sAuditOperation\w\+" audit.go | awk '{print $1}' | sed 's/AuditOperation//')
 const (
-	AuditOperationUnknown AuditOperation = iota
-	AuditOperationCreate                 // 1
+	AuditOperationUnknown        AuditOperation = iota
+	AuditOperationCreate          // 1
 	AuditOperationGet
 	AuditOperationList
 	AuditOperationUpdate
@@ -68,7 +68,7 @@ const (
 	AuditOperationStop
 	AuditOperationRestart
 	AuditOperationPause
-	AuditOperationResume // 10
+	AuditOperationResume          // 10
 	AuditOperationBatchDelete
 	AuditOperationBatchStart
 	AuditOperationBatchStop
@@ -76,12 +76,12 @@ const (
 	AuditOperationQuickRestart
 	AuditOperationCheckExist
 	AuditOperationFormat
-	AuditOperationExpand // 18
+	AuditOperationExpand          // 18
 	AuditOperationBatchIgnore
 	AuditOperationEnablEmail
 	AuditOperationDisablEmail
 	AuditOperationCreateOrUpdate
-	AuditOperationToggleEnable // 20
+	AuditOperationToggleEnable    // 20
 	AuditOperationIgnore
 	AuditOperationRollBack
 	AuditOperationClone
@@ -132,8 +132,8 @@ type AuditResource uint
 // get resource number:
 // i=0 && while IFS= read -r line; do echo $line $i; let i++; done <<< $(grep "\sAuditResource\w\+" audit.go | awk '{print $1}' | sed 's/AuditResource//')
 const (
-	AuditResourceUnknown  AuditResource = iota
-	AuditResourceInstance               // 1
+	AuditResourceUnknown                  AuditResource = iota
+	AuditResourceInstance                  // 1
 	AuditResourceInstanceEvent
 	AuditResourceInstanceLog
 	AuditResourceInstanceMetrics
@@ -142,7 +142,7 @@ const (
 	AuditResourceServiceInstance
 	AuditResourceServiceEvent
 	AuditResourceServiceLog
-	AuditResourceServiceK8sService // 10
+	AuditResourceServiceK8sService         // 10
 	AuditResourceServiceRollingUpgrade
 	AuditResourceServiceManualScale
 	AuditResourceServiceAutoScale
@@ -150,9 +150,9 @@ const (
 	AuditResourceServiceHaOption
 	AuditResourceServiceDomain
 	AuditResourceApp
-	AuditResourceAppService // app's service
+	AuditResourceAppService                // app's service
 	AuditResourceAppOperationLog
-	AuditResourceAppExtraInfo // icon etc // 20
+	AuditResourceAppExtraInfo              // icon etc // 20
 	AuditResourceAppTopology
 	AuditResourceConfigGroup
 	AuditResourceConfig
@@ -160,11 +160,11 @@ const (
 	AuditResourceNodeMetrics
 	AuditResourceThirdPartyRegistry
 	AuditResourceVolume
-	AuditResourceVolumeConsumption // 28
+	AuditResourceVolumeConsumption         // 28
 
 	// user
 	AuditResourceUser
-	AuditResourceUserTeams // 30
+	AuditResourceUserTeams   // 30
 	AuditResourceUserSpaces
 
 	// team
@@ -176,24 +176,24 @@ const (
 	AuditResourceCluster
 
 	// ci
-	AuditResourceRepos // 36
+	AuditResourceRepos            // 36
 	AuditResourceProjects
 	AuditResourceFlows
 	AuditResourceStages
-	AuditResourceLinks // 40
+	AuditResourceLinks            // 40
 	AuditResourceBuilds
 	AuditResourceCIRules
 	AuditResourceCDRules
 	AuditResourceCIDockerfiles
 	AuditResourceCINotifications
-	AuditResourceCDNotifications // 46
+	AuditResourceCDNotifications  // 46
 
 	// instanceexport
-	AuditResourceInstanceExport //47
+	AuditResourceInstanceExport  //47
 	// alert
 	AuditResourceAlertEmailGroup
 	AuditResourceAlertRecord
-	AuditResourceAlertStrategy //50
+	AuditResourceAlertStrategy    //50
 	AuditResourceAlertRule
 	//snapshot
 	AuditResourceSnapshot
@@ -201,7 +201,10 @@ const (
 	// labels
 	AuditResourceLabels
 
-	AuditResourceInstanceDelete //47
+	AuditResourceInstanceDelete  //47
+	AuditResourceOnlineScript    //47
+
+	AuditResourceCIImages = 1000
 )
 
 func (ar *AuditResource) String() string {
@@ -390,7 +393,7 @@ func (a *AuditRecord) TableName() string {
 
 // NewAuditRecord create audit record by http request info
 func NewAuditRecord(a *AuditInfo) *AuditRecord {
-	method := "models.NewAuditRecord"
+	//method := "models.NewAuditRecord"
 	r := &AuditRecord{}
 
 	r.ID = a.ID
@@ -408,32 +411,32 @@ func NewAuditRecord(a *AuditInfo) *AuditRecord {
 	r.Duration = a.Duration
 	r.Operator = a.Operator
 
-	if r.ResourceName == "" && r.ResourceID != "" {
-		// store resource id in resource name to avoid or operation
-		r.ResourceName = r.ResourceID
-	}
-
-	// extract resource name from request body
-	type name struct {
-		Name     string `json:"name"`
-		UserName string `json:"userName"` // models/user/usercreate.go UserSpec
-		TeamName string `json:"teamName"` // models/team/teamlist.go Team
-	}
-	if r.ResourceName == "" && r.ResourceConfig != "" {
-		var n name
-		err := json.Unmarshal([]byte(r.ResourceConfig), &n)
-		if err != nil {
-			glog.Errorln(method, "failed to extract name from request body", r.ResourceConfig, err)
-		} else {
-			if n.Name != "" {
-				r.ResourceName = n.Name
-			} else if n.UserName != "" {
-				r.ResourceName = n.UserName
-			} else if n.TeamName != "" {
-				r.ResourceName = n.TeamName
-			}
-		}
-	}
+	//if r.ResourceName == "" && r.ResourceID != "" {
+	//	// store resource id in resource name to avoid or operation
+	//	r.ResourceName = r.ResourceID
+	//}
+	//
+	//// extract resource name from request body
+	//type name struct {
+	//	Name     string `json:"name"`
+	//	UserName string `json:"userName"` // models/user/usercreate.go UserSpec
+	//	TeamName string `json:"teamName"` // models/team/teamlist.go Team
+	//}
+	//if r.ResourceName == "" && r.ResourceConfig != "" {
+	//	var n name
+	//	err := json.Unmarshal([]byte(r.ResourceConfig), &n)
+	//	if err != nil {
+	//		glog.Errorln(method, "failed to extract name from request body", r.ResourceConfig, err)
+	//	} else {
+	//		if n.Name != "" {
+	//			r.ResourceName = n.Name
+	//		} else if n.UserName != "" {
+	//			r.ResourceName = n.UserName
+	//		} else if n.TeamName != "" {
+	//			r.ResourceName = n.TeamName
+	//		}
+	//	}
+	//}
 
 	return r
 }

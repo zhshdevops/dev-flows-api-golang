@@ -9,45 +9,44 @@ import (
 	"dev-flows-api-golang/modules/client"
 	"fmt"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
+	"dev-flows-api-golang/util/uuid"
 )
 
 type InvokeCDController struct {
-	BaseController
+	ErrorController
 }
+
 // @Title CreateUser
 // @Description create users
 // @Param	body		body 	models.User	true		"body for user content"
 // @Success 200 {int} models.User.Id
 // @Failure 403 body is empty
 // @router /notification-handler [POST]
-func (ic *InvokeCDController)NotificationHandler() {
+func (ic *InvokeCDController) NotificationHandler() {
+	ic.Audit.Skip = true
 	var notification models.Notification
 	method := "InvokeCDController.NotificationHandler"
 	message := ""
 	body := ic.Ctx.Input.RequestBody
 	glog.Infof("%s %s\n", method, string(body))
-	namespace := ic.Namespace
-	if namespace == "" {
-		namespace = ic.Ctx.Input.Header("username")
-	}
 	if string(body) == "" {
-		message = " request body is empty."
-		ic.ResponseErrorAndCode(message, 400)
+		message = " request body is empty or Invalid request body."
+		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
 		return
 	}
-	ic.Audit.Skip = true
 	err := json.Unmarshal(body, &notification)
 	if err != nil {
 		message = "json 解析失败"
-		glog.Errorf("%s %v\n", method, err)
-		ic.ResponseErrorAndCode(message, 400)
+		glog.Errorf("%s json 解析失败:%v\n", method, err)
+		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
 		return
 	}
 
 	if len(notification.Events) < 1 {
 		message = "Invalid request body."
-		glog.Errorf("%s %s\n", method, notification)
-		ic.ResponseErrorAndCode(message, 400)
+		glog.Errorf("%s Invalid request body:%s\n", method, notification)
+		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
 		return
 	}
 	events := notification.Events[0]
@@ -56,9 +55,10 @@ func (ic *InvokeCDController)NotificationHandler() {
 		strings.Index(events.Request.UserAgent, "docker") < 0 {
 		message = "Skipped due to: 1) Not a push. 2) Not manifest update. 3. Not from docker client"
 		glog.Errorf("%s %v\n", method, "Skipped due to: 1) Not a push. 2) Not manifest update. 3. Not from docker client")
-		ic.ResponseErrorAndCode(message, 200)
+		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
 	}
+
 	var imageInfo models.ImageInfo
 	imageInfo.Tag = events.Target.Tag
 	imageInfo.Fullname = events.Target.Repository
@@ -68,54 +68,70 @@ func (ic *InvokeCDController)NotificationHandler() {
 	if err != nil || len(cdrules) == 0 {
 		glog.Infof("%s result=%d err=[%v]\n", method, result, err)
 		message = "There is no CD rule that matched this image:" + imageInfo.Fullname
-		ic.ResponseErrorAndCode(message, 200)
+		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
 	}
-	//var log models.CDDeploymentLogs
-	//cdlog := models.NewCDDeploymentLogs()
-	//var cdresult models.Result
+
+	var log models.CDDeploymentLogs
+	cdlog := models.NewCDDeploymentLogs()
+	var cdresult models.Result
+	start_time := time.Now()
+
 	newDeploymentArray := make([]models.NewDeploymentArray, 0)
 	newDeployment := models.NewDeploymentArray{}
 	for index, cdrule := range cdrules {
 		glog.Infof("%s  New image tag =[%s] \n", method, imageInfo.Tag)
-		start_time := time.Now()
 		k8sClient := client.GetK8sConnection(cdrule.BindingClusterId)
 		if k8sClient == nil {
 			glog.Errorf(" The specified cluster %s does not exist %s %v \n", cdrule.BindingClusterId, method, err)
 			if (len(cdrules) - 1) == index {
-				ic.ResponseErrorAndCode("The specified cluster" + cdrule.BindingClusterId + " does not exist", 404)
+				ic.ResponseErrorAndCode("The specified cluster"+cdrule.BindingClusterId+" does not exist", http.StatusNotFound)
 				return
 			}
-
 			continue
 		}
-		option:=v1.GetOptions{}
-		deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(namespace).Get(cdrule.BindingDeploymentName,option)
+		option := v1.GetOptions{}
+		deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName, option)
 		if err != nil {
 			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
-			//log.CdRuleId = cdrule.RuleId
-			//log.TargetVersion = imageInfo.Tag
-			//log.CreateTime = time.Now()
-			//cdresult.Status = 2
-			//cdresult.Duration = time.Now().Unix() - start_time
-			//cdresult.Error = fmt.Sprintf("%s", err)
-			//data, err := json.Marshal(cdresult)
-			//if err != nil {
-			//	glog.Errorf("%s %v\n", method, err)
-			//	message = "json Marshal failed "+string(data)
-			//	ic.ResponseErrorAndCode(message, 401)
-			//	return
-			//}
-			//log.Result=string(data)
-			//inertRes,err:=cdlog.InsertCDLog(log)
-			//if err!=nil{
-			//	glog.Errorf("%s inertRes=%d %v\n", method,inertRes, err)
-			//	message = "InsertCDLog failed "+string(data)
-			//	ic.ResponseErrorAndCode(message, 401)
-			//	return
-			//}
+
+			log.CdRuleId = cdrule.RuleId
+			log.TargetVersion = imageInfo.Tag
+			log.CreateTime = time.Now()
+			cdresult.Status = 2
+			cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+			cdresult.Error = fmt.Sprintf("%s", err)
+			data, err := json.Marshal(cdresult)
+			if err != nil {
+				glog.Errorf("%s json marshal failed:%v\n", method, err)
+				message = "json Marshal failed " + string(data)
+				ic.ResponseErrorAndCode(message, 401)
+				return
+			}
+			log.Result = string(data)
+			log.Id = uuid.NewCDLogID()
+			inertRes, err := cdlog.InsertCDLog(log)
+			if err != nil {
+				detail := &EmailDetail{
+					Type:    "cd",
+					Result:  "failed",
+					Subject: fmt.Sprintf(`镜像%s的持续集成执行失败`, cdrule.ImageName),
+					Body:    fmt.Sprintf(`校验持续集成规则时发生异常或者该服务已经停止或删除`),
+				}
+				detail.SendEmailUsingFlowConfig(cdrule.Namespace, cdrule.FlowId)
+				glog.Errorf("%s inertRes=%d %v\n", method, inertRes, err)
+				message = "InsertCDLog failed " + string(data)
+				ic.ResponseErrorAndCode(message, http.StatusConflict)
+				return
+			}
 			////send mail
-			//return
+			detail := &EmailDetail{
+				Type:    "cd",
+				Result:  "failed",
+				Subject: fmt.Sprintf(`镜像%s的持续集成执行失败`, cdrule.ImageName),
+				Body:    fmt.Sprintf(`校验持续集成规则时发生异常或者该服务已经停止`),
+			}
+			detail.SendEmailUsingFlowConfig(cdrule.Namespace, cdrule.FlowId)
 			continue
 		}
 
@@ -132,41 +148,112 @@ func (ic *InvokeCDController)NotificationHandler() {
 		newDeploymentArray = append(newDeploymentArray, newDeployment)
 
 	}
+
 	if len(newDeploymentArray) == 0 {
 		glog.Warningf("%s No rule matched to invoke the service deployment. %s\n", method,
-			imageInfo.Fullname + " " + imageInfo.Tag)
+			imageInfo.Fullname+" "+imageInfo.Tag)
 		message = "No rule matched to invoke the service deployment."
-		ic.ResponseErrorAndCode(message, 200)
+		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
 	}
 
 	for _, dep := range newDeploymentArray {
+
 		if dep.Deployment.Status.AvailableReplicas == 0 ||
 			fmt.Sprintf("%s", dep.Deployment.ObjectMeta.UID) !=
 				dep.BindingDeploymentId {
-			glog.Warningf("%s newDeploymentArray failed. %s\n", method,
-				imageInfo.Fullname + " " + imageInfo.Tag)
+			glog.Warningf("%s 该服务已经停止或者没有找到相关服务. %s\n", method,
+				imageInfo.Fullname+":"+imageInfo.Tag)
 			continue
 		}
 
 		k8sClient := client.GetK8sConnection(dep.Cluster_id)
 		if k8sClient == nil {
-			glog.Errorf("%s %v \n", method, err)
-			//ic.ResponseErrorAndCode("The specified cluster" + cdrule.BindingClusterId + " does not exist", 404)
+			glog.Errorf("%s get kubernetes clientset failed: %v \n", method, err)
 			continue
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 
-			dp, err := k8sClient.ExtensionsV1beta1Client.Deployments(namespace).Update(dep.Deployment)
+			dp, err := k8sClient.ExtensionsV1beta1Client.Deployments(dep.Namespace).Update(dep.Deployment)
 			if err != nil {
-				glog.Errorf("%s dp=[%v] %v \n", method, dp, err)
+
+				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp, err)
+				//失败时插入日志
+				log.CdRuleId = dep.Rule_id
+				log.TargetVersion = imageInfo.Tag
+				log.CreateTime = time.Now()
+				cdresult.Status = 2
+				cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+				cdresult.Error = fmt.Sprintf("%s", err)
+				data, err := json.Marshal(cdresult)
+				if err != nil {
+					glog.Errorf("%s json marshal failed:%v\n", method, err)
+					message = "json Marshal failed " + string(data)
+					ic.ResponseErrorAndCode(message, 401)
+					return
+				}
+				log.Result = string(data)
+				log.Id = uuid.NewCDLogID()
+				inertRes, err := cdlog.InsertCDLog(log)
+				if err != nil {
+					detail := &EmailDetail{
+						Type:    "cd",
+						Result:  "failed",
+						Subject: fmt.Sprintf(`镜像%s的持续集成执行失败`, imageInfo.Fullname),
+						Body:    fmt.Sprintf(`校验持续集成规则时发生异常或者该服务已经停止或删除`),
+					}
+					detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
+					glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
+					message = "InsertCDLog failed " + string(data)
+					ic.ResponseErrorAndCode(message, http.StatusConflict)
+					return
+				}
+
+				detail := &EmailDetail{
+					Type:    "cd",
+					Result:  "failed",
+					Subject: fmt.Sprintf(`镜像%s的持续集成执行失败`, imageInfo.Fullname),
+					Body:    fmt.Sprintf(`更新服务时发生异常:%v`, err),
+				}
+				detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
 				continue
 			}
+
 		}
+
+		//成功时插入日志
+		log.CdRuleId = dep.Rule_id
+		log.TargetVersion = imageInfo.Tag
+		log.CreateTime = time.Now()
+		cdresult.Status = 1
+		cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+		cdresult.Error = fmt.Sprintf("%s", err)
+		data, err := json.Marshal(cdresult)
+		if err != nil {
+			glog.Errorf("%s json marshal failed:%v\n", method, err)
+			message = "json Marshal failed " + string(data)
+			ic.ResponseErrorAndCode(message, 401)
+			return
+		}
+		log.Result = string(data)
+		log.Id = uuid.NewCDLogID()
+		inertRes, err := cdlog.InsertCDLog(log)
+		if err != nil {
+			glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
+		}
+
+		detail := &EmailDetail{
+			Type:    "cd",
+			Result:  "success",
+			Subject: fmt.Sprintf(`持续集成执行成功，镜像%s已更新`, imageInfo.Fullname),
+			Body: fmt.Sprintf(`已将服务%s使用的镜像更新为%s:%s的最新版本`,
+				dep.Deployment.ObjectMeta.Name, imageInfo.Fullname, imageInfo.Tag),
+		}
+		detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
 
 	}
 
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
-	ic.ResponseErrorAndCode("Continuous deployment completed successfully", 200)
+	ic.ResponseErrorAndCode("Continuous deployment completed successfully", http.StatusOK)
 	return
 }

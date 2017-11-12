@@ -18,6 +18,10 @@ type CiScriptsController struct {
 //@router / [POST]
 func (cs *CiScriptsController)AddScript()  {
 	method:=" CiScriptsController.AddScript"
+
+	cs.Audit.SetOperationType(models.AuditOperationCreate)
+	cs.Audit.SetResourceType(models.AuditResourceOnlineScript)
+
 	 contet  :=string(cs.Ctx.Input.RequestBody)
 	 if contet==""{
 	 	cs.ResponseErrorAndCode("the script content is empty",http.StatusBadRequest)
@@ -66,6 +70,10 @@ func (cs *CiScriptsController)DeleteScriptByID()  {
 	method:=" CiScriptsController.DeleteScriptByID"
 	Id := cs.Ctx.Input.Param(":id")
 
+	cs.Audit.SetResourceID(Id)
+	cs.Audit.SetOperationType(models.AuditOperationDelete)
+	cs.Audit.SetResourceType(models.AuditResourceOnlineScript)
+
 	ciScript:=&models.CiScripts{}
 	num,err:=ciScript.DeleteScriptByID(Id)
 	if err!=nil{
@@ -82,6 +90,10 @@ func (cs *CiScriptsController)DeleteScriptByID()  {
 func (cs *CiScriptsController)UpdateScriptByID()  {
 	method:=" CiScriptsController.DeleteScriptByID"
 	Id := cs.Ctx.Input.Param(":id")
+
+	cs.Audit.SetResourceID(Id)
+	cs.Audit.SetOperationType(models.AuditOperationUpdate)
+	cs.Audit.SetResourceType(models.AuditResourceOnlineScript)
 	contet  :=string(cs.Ctx.Input.RequestBody)
 	if contet==""{
 		cs.ResponseErrorAndCode("the script content is empty",http.StatusBadRequest)

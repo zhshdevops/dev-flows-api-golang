@@ -5,40 +5,40 @@ import "dev-flows-api-golang/util/rand"
 
 const (
 	shortIDLen = 12
-	longIDlen = 16
+	longIDlen  = 16
 )
 
 const (
-	appID = "AID-"
-	permissionID = "PID-"
-	roleID = "RID-"
-	clusterID = "CID-"
-	storagePoolID = "SPID-"
-	teamID = "TID-"
-	templateID = "TPID-"
-	userID = "UID-"
-	teamspaceID = "TSID-"
-	volumeID = "VID-"
+	appID            = "AID-"
+	permissionID     = "PID-"
+	roleID           = "RID-"
+	clusterID        = "CID-"
+	storagePoolID    = "SPID-"
+	teamID           = "TID-"
+	templateID       = "TPID-"
+	userID           = "UID-"
+	teamspaceID      = "TSID-"
+	volumeID         = "VID-"
 	userPreferenceID = "UPID-"
-	appTemplateID = "ATID-"
-	auditID = "AUDID-"
-	integrationID = "INTID-"
-	certificateID = "CTID-"
-	notifyGroupID = "NGID-"
-	strategyID = "STRAID-"
-	snapshotID = "SSID-"
-	proxyGroupID = "group-"
+	appTemplateID    = "ATID-"
+	auditID          = "AUDID-"
+	integrationID    = "INTID-"
+	certificateID    = "CTID-"
+	notifyGroupID    = "NGID-"
+	strategyID       = "STRAID-"
+	snapshotID       = "SSID-"
+	proxyGroupID     = "group-"
 	// ID prefix for managed projects
-	MANAGED_PROJECT_ID_PREFIX = "MPID-"
-	STAGE_ID_PREFIX = "CISID-"
-	FLOW_BUILD_ID_PREFIX = "FBID-"
-	STAGE_BUILD_ID_PREFIX = "SBID-"
-	CI_FLOW_ID_PREFIX = "CIFID-"
-	CI_IMAGES = "CIMID-"
-	CD_RULE_ID_PREFIX = "CDRID-"
-	AUDIT_ID_PREFIX = "AUDID-"
+	MANAGED_PROJECT_ID_PREFIX   = "MPID-"
+	STAGE_ID_PREFIX             = "CISID-"
+	FLOW_BUILD_ID_PREFIX        = "FBID-"
+	STAGE_BUILD_ID_PREFIX       = "SBID-"
+	CI_FLOW_ID_PREFIX           = "CIFID-"
+	CI_IMAGES                   = "CIMID-"
+	CD_RULE_ID_PREFIX           = "CDRID-"
+	AUDIT_ID_PREFIX             = "AUDID-"
 	CD_DEPLOYMENT_LOG_ID_PREFIX = "CDLID-"
-	CI_SCRIPT_PREFIX = "SCRIPT-"
+	CI_SCRIPT_PREFIX            = "SCRIPT-"
 )
 
 // newShortID generate short uuid and add type prefix
@@ -56,6 +56,17 @@ func newLongID(prefix string) string {
 func NewManagedProjectID() string {
 
 	return newShortID(MANAGED_PROJECT_ID_PREFIX)
+
+}
+func NewAuditID() string {
+
+	return newShortID(AUDIT_ID_PREFIX)
+
+}
+
+func NewCDLogID() string {
+
+	return newShortID(CD_DEPLOYMENT_LOG_ID_PREFIX)
 
 }
 
@@ -82,7 +93,6 @@ func GetCIMID() string {
 	return newShortID(CI_IMAGES)
 
 }
-
 
 func NewCDRuleID() string {
 
@@ -161,4 +171,3 @@ func NewStrategy() string {
 func NewProxyGroup() string {
 	return proxyGroupID + rand.RandString(5)
 }
-

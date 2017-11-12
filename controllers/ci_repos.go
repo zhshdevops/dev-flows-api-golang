@@ -169,6 +169,10 @@ func (cirepo *CiReposController) Logout() {
 
 	repoType := cirepo.Ctx.Input.Param(":type")
 
+	cirepo.Audit.SetResourceName(repoType)
+	cirepo.Audit.SetOperationType(models.AuditOperationDelete)
+	cirepo.Audit.SetResourceType(models.AuditResourceRepos)
+
 	depot := models.NewCiRepos()
 	_, err := depot.DeleteOneRepo(cirepo.Namespace, models.DepotToRepoType(repoType))
 
@@ -204,7 +208,9 @@ func (cirepo *CiReposController) AddRepository() {
 	method := "CiReposController.AddRepository"
 
 	repoType := cirepo.Ctx.Input.Param(":type")
-
+	cirepo.Audit.SetResourceName(repoType)
+	cirepo.Audit.SetOperationType(models.AuditOperationCreate)
+	cirepo.Audit.SetResourceType(models.AuditResourceRepos)
 	reqBody := cirepo.Ctx.Input.RequestBody
 	if string(reqBody) == "" {
 		glog.Errorf("%s Request body is empty\n", method)
@@ -341,24 +347,24 @@ func (cirepo *CiReposController) AddRepository() {
 		}
 		var repoList string
 
-		if repoType==GOGS||repoType==GITHUB{
-			var repoInfo =make(map[string][]coderepo.ReposGitHubAndGogs)
-			repoInfo[repositrys[0].Owner.Name]=repositrys
-			data,err:=json.Marshal(repoInfo)
-			if err!=nil{
-				glog.Errorf("%s github or gogs json marshal failed:%v\n",method,err)
+		if repoType == GOGS || repoType == GITHUB {
+			var repoInfo = make(map[string][]coderepo.ReposGitHubAndGogs)
+			repoInfo[repositrys[0].Owner.Name] = repositrys
+			data, err := json.Marshal(repoInfo)
+			if err != nil {
+				glog.Errorf("%s github or gogs json marshal failed:%v\n", method, err)
 				cirepo.ResponseErrorAndCode("github or gogs  同步代码仓库失败 json marshal failed: "+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 				return
 			}
-			repoList=string(data)
-		}else if repoType==GITLAB{
-			data,err:=json.Marshal(repositrys)
-			if err!=nil{
-				glog.Errorf("%s gitlab json marshal failed:%v\n",method,err)
+			repoList = string(data)
+		} else if repoType == GITLAB {
+			data, err := json.Marshal(repositrys)
+			if err != nil {
+				glog.Errorf("%s gitlab json marshal failed:%v\n", method, err)
 				cirepo.ResponseErrorAndCode("gitlab 同步代码仓库失败 json marshal failed: "+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 				return
 			}
-			repoList=string(data)
+			repoList = string(data)
 		}
 
 		//update database repolist
@@ -382,7 +388,9 @@ func (cirepo *CiReposController) AddRepository() {
 func (cirepo *CiReposController) SyncRepos() {
 	method := "controllers/CiReposController.SyncRepos"
 	repoType := cirepo.Ctx.Input.Param(":type")
-
+	cirepo.Audit.SetResourceName(repoType)
+	cirepo.Audit.SetOperationType(models.AuditOperationUpdate)
+	cirepo.Audit.SetResourceType(models.AuditResourceRepos)
 	depot := models.NewCiRepos()
 	err := depot.FindOneRepoToken(cirepo.Namespace, models.DepotToRepoType(repoType))
 	if err != nil {
@@ -404,7 +412,7 @@ func (cirepo *CiReposController) SyncRepos() {
 	}
 	//同步
 	repoApi := coderepo.NewRepoApier(repoType, depot.GitlabUrl, depot.AccessToken)
-	if repoApi==nil{
+	if repoApi == nil {
 		glog.Errorf(" %s 暂时不支持这个类型 ===>: %v\n", method, err)
 		cirepo.ResponseErrorAndCode("暂时不支持这个类型", http.StatusInternalServerError)
 		return
@@ -418,31 +426,31 @@ func (cirepo *CiReposController) SyncRepos() {
 	}
 	var repoList string
 
-	if repoType==GOGS||repoType==GITHUB{
-		var repoInfo =make(map[string][]coderepo.ReposGitHubAndGogs)
-		repoInfo[repositrys[0].Owner.Name]=repositrys
-		data,err:=json.Marshal(repoInfo)
-		if err!=nil{
-			glog.Errorf("%s github or gogs json marshal failed:%v\n",method,err)
+	if repoType == GOGS || repoType == GITHUB {
+		var repoInfo = make(map[string][]coderepo.ReposGitHubAndGogs)
+		repoInfo[repositrys[0].Owner.Name] = repositrys
+		data, err := json.Marshal(repoInfo)
+		if err != nil {
+			glog.Errorf("%s github or gogs json marshal failed:%v\n", method, err)
 			cirepo.ResponseErrorAndCode("github or gogs  同步代码仓库失败 json marshal failed: "+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 			return
 		}
-		repoList=string(data)
-	}else if repoType==GITLAB{
-		data,err:=json.Marshal(repositrys)
-		if err!=nil{
-			glog.Errorf("%s gitlab json marshal failed:%v\n",method,err)
+		repoList = string(data)
+	} else if repoType == GITLAB {
+		data, err := json.Marshal(repositrys)
+		if err != nil {
+			glog.Errorf("%s gitlab json marshal failed:%v\n", method, err)
 			cirepo.ResponseErrorAndCode("gitlab 同步代码仓库失败 json marshal failed: "+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 			return
 		}
-		repoList=string(data)
+		repoList = string(data)
 	}
 
 	//update database repolist
 	resultUpdate, err := depot.UpdateOneRepo(cirepo.Namespace, models.DepotToRepoType(repoType), repoList)
 	if err != nil {
 
-		glog.Errorf("%s update repo_list failed from database resultUpdate=%d err=%v\n", method,resultUpdate,err)
+		glog.Errorf("%s update repo_list failed from database resultUpdate=%d err=%v\n", method, resultUpdate, err)
 
 		cirepo.ResponseErrorAndCode(" 同步代码仓库失败 repo list not update: "+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 
@@ -677,7 +685,7 @@ func (cirepo *CiReposController) GetTags() {
 
 		glog.V(1).Infof("%s the tags info: %v", method, tags)
 
-		cirepo.ResponseResultAndStatusDevops(tags,http.StatusOK)
+		cirepo.ResponseResultAndStatusDevops(tags, http.StatusOK)
 		return
 	} else {
 
@@ -689,9 +697,9 @@ func (cirepo *CiReposController) GetTags() {
 		}
 		glog.V(1).Infof("%s the tags info: %v", method, tags)
 
-		cirepo.ResponseResultAndStatusDevops(tags,http.StatusOK)
+		cirepo.ResponseResultAndStatusDevops(tags, http.StatusOK)
 	}
-	cirepo.ResponseResultAndStatusDevops("",http.StatusOK)
+	cirepo.ResponseResultAndStatusDevops("", http.StatusOK)
 	return
 
 }
@@ -709,7 +717,7 @@ func (cirepo *CiReposController) GetBranches() {
 		cirepo.ResponseErrorAndCode("reponame in query is required and must be fullname. reponame in query is required.", 400)
 		return
 	}
-	glog.Infof("repoName=%s\n",repoName)
+	glog.Infof("repoName=%s\n", repoName)
 	if repoType == GITLAB && projectId == 0 {
 		glog.Errorf("project_id in query is required. \n")
 		cirepo.ResponseErrorAndCode("project_id in query is required.", 400)

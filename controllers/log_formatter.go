@@ -16,7 +16,3 @@ func FormatLog(data string, isHtml bool) (buildLogs string) {
 
 	return
 }
-
-func formatDate() {
-
-}

@@ -19,14 +19,19 @@ func (ciImage *CiImagesController) UpdateBaseImage() {
 	var image models.CiImages
 	Id := ciImage.Ctx.Input.Param(":id")
 
+	ciImage.Audit.SetResourceID(Id)
+	ciImage.Audit.SetResourceName(Id)
+	ciImage.Audit.SetOperationType(models.AuditOperationUpdate)
+	ciImage.Audit.SetResourceType(models.AuditResourceCIImages)
+
 	contet := string(ciImage.Ctx.Input.RequestBody)
 
 	if contet == "" {
 		ciImage.ResponseErrorAndCode("the script content is empty", 402)
 		return
 	}
-	err:=json.Unmarshal(ciImage.Ctx.Input.RequestBody,&image)
-	if err!=nil{
+	err := json.Unmarshal(ciImage.Ctx.Input.RequestBody, &image)
+	if err != nil {
 		glog.Errorf("%s %v\n", method, err)
 		ciImage.ResponseErrorAndCode("the request body is empty", 501)
 		return
@@ -40,19 +45,19 @@ func (ciImage *CiImagesController) UpdateBaseImage() {
 
 	image.CategoryName = GetCategoryName(int(image.CategoryId))
 
-	ciImageModel:=models.NewCiImages()
+	ciImageModel := models.NewCiImages()
 
 	if ciImage.User.Role == 2 {
 
-		ciImageModel.UpdateBaseImageById(Id,image)
+		ciImageModel.UpdateBaseImageById(Id, image)
 
 	} else {
 
-		ciImageModel.UpdateBaseImage(Id,ciImage.Namespace,image)
+		ciImageModel.UpdateBaseImage(Id, ciImage.Namespace, image)
 
 	}
 
-	image.Id=Id
+	image.Id = Id
 	ciImage.ResponseSuccessCIRuleDevops(image)
 	return
 
@@ -64,6 +69,10 @@ func (ciImage *CiImagesController) CreateNewBaseImage() {
 	method := "CiImagesController.CreateNewBaseImage"
 	image := models.CiImages{}
 	image.Id = uuid.GetCIMID()
+	ciImage.Audit.SetResourceID(image.Id)
+	ciImage.Audit.SetResourceName(image.Id)
+	ciImage.Audit.SetOperationType(models.AuditOperationCreate)
+	ciImage.Audit.SetResourceType(models.AuditResourceCIImages)
 
 	contet := string(ciImage.Ctx.Input.RequestBody)
 	if contet == "" {
@@ -121,7 +130,12 @@ func (ciImage *CiImagesController) GetAvailableImages() {
 func (ciImage *CiImagesController) DeleteBaseImage() {
 	method := "CiImagesController.DeleteBaseImage"
 	Id := ciImage.Ctx.Input.Param(":id")
-	err := models.NewCiImages().DeleteImage(Id,ciImage.Namespace)
+	err := models.NewCiImages().DeleteImage(Id, ciImage.Namespace)
+	ciImage.Audit.SetResourceID(Id)
+	ciImage.Audit.SetResourceName(Id)
+	ciImage.Audit.SetOperationType(models.AuditOperationDelete)
+	ciImage.Audit.SetResourceType(models.AuditResourceCIImages)
+
 	if err != nil {
 		glog.Errorf("%s %v\n", method, err)
 		ciImage.ResponseErrorAndCode(method+" DeleteBaseImage failed ", 502)

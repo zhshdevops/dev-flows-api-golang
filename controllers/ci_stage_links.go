@@ -20,6 +20,9 @@ func (link *CiStageLinksController) UpdateLinkDirs() {
 	flowId := link.Ctx.Input.Param(":flow_id")
 	stageId := link.Ctx.Input.Param(":stage_id")
 	targetId := link.Ctx.Input.Param(":target_id")
+
+	link.Audit.SetOperationType(models.AuditOperationUpdate)
+	link.Audit.SetResourceType(models.AuditResourceLinks)
 	if string(link.Ctx.Input.RequestBody) == "" {
 		glog.Errorf("%s request body is empty %s\n", method, "No link specified")
 		link.ResponseErrorAndCode("request body is empty,No link specified", http.StatusBadRequest)

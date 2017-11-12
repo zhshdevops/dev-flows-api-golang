@@ -6,6 +6,7 @@ import (
 	//"dev-flows-api-golang/modules/tenx/errors"
 	shortid "dev-flows-api-golang/util/uuid"
 	"dev-flows-api-golang/modules/workpool"
+	"dev-flows-api-golang/models/team2user"
 	"regexp"
 
 	"flag"
@@ -92,6 +93,8 @@ func (c *BaseController) Prepare() {
 		c.Audit.ID = shortid.NewAudit()
 		c.Audit.StartTime = time.Now()
 		c.Audit.Operator = c.Ctx.Input.Header("username")
+		c.Audit.Method = strings.ToUpper(c.Ctx.Request.Method)
+		c.Audit.URL = c.Ctx.Request.URL.String()
 		c.Audit.RequestBody = string(c.Ctx.Input.RequestBody)
 	}
 
@@ -100,7 +103,7 @@ func (c *BaseController) Prepare() {
 	c.Audit.RequestBody = string(c.Ctx.Input.RequestBody)
 	if isWebSocketConnect(c) == true {
 		c.User = &user.UserModel{}
-	}else if IfCheckTocken {
+	} else if IfCheckTocken {
 		c.User = &user.UserModel{}
 	} else {
 		username := c.Ctx.Input.Header("username")
@@ -108,29 +111,23 @@ func (c *BaseController) Prepare() {
 		if len(token) == 0 {
 			token = c.Ctx.Input.Header("Authorization")
 		}
-
-		if isNoAuth(c) {
-			c.User = &user.UserModel{}
-		} else {
-			var err error
-			prefix := "token "
-
-			if strings.HasPrefix(strings.ToLower(token), prefix) {
-				c.User, err = checkToken(username, token[len(prefix):])
-				if err != nil {
-					glog.Errorln(method, "Check token failed", err)
-					c.ErrorUnauthorized()
-					return
-				}
-			} else {
-				glog.Errorln(method, "Missing token prefix")
-				c.ErrorBadRequest("Invalid authorization header", nil)
-				return
-
-			}
-
-		}
 		space := c.Ctx.Input.Header("teamspace")
+		var err error
+		prefix := "token "
+		if strings.HasPrefix(strings.ToLower(token), prefix) {
+			c.User, err = checkToken(username, token[len(prefix):])
+			if err != nil {
+				glog.Errorln(method, "Check token failed", err)
+				c.ErrorUnauthorized()
+				return
+			}
+			c.Namespace = c.User.Namespace
+		} else {
+			glog.Errorln(method, "Missing token prefix")
+			c.ErrorBadRequest("Invalid authorization header", nil)
+			return
+		}
+		// If no teamspace defined, then it's the user space
 		if "" == space {
 			// Check if system admin is managing user space
 			onbehalfuser := c.Ctx.Input.Header("onbehalfuser")
@@ -148,15 +145,15 @@ func (c *BaseController) Prepare() {
 				}
 			}
 		} else {
-			// check whether the user is in this team
-			//teamuser := &team2user.TeamUserModel{}
-			//if !c.IsUserSuperAdmin() && !teamuser.CheckUserTeamspace(c.User.UserID, space) {
-			//	glog.Errorf("%s user %d is not belong to teamspace %s\n", method, c.User.UserID, space)
-			//	c.ErrorUnauthorized()
-			//	return
-			//}
-			//c.Namespace = space
-			//c.NamespaceType = TeamSpace
+			//check whether the user is in this team
+			teamuser := &team2user.TeamUserModel{}
+			if !c.IsUserSuperAdmin() && !teamuser.CheckUserTeamspace(c.User.UserID, space) {
+				glog.Errorf("%s user %d is not belong to teamspace %s\n", method, c.User.UserID, space)
+				c.ErrorUnauthorized()
+				return
+			}
+			c.Namespace = space
+			c.NamespaceType = TeamSpace
 		}
 		glog.V(3).Infof("Namespace is %s and type is %v\n", c.Namespace, c.NamespaceType)
 		c.Audit.Namespace = c.Namespace
@@ -172,21 +169,19 @@ func (c *BaseController) Finish() {
 		return
 	}
 
-	// if http status code was not set, then it should be 200
 	if c.Audit.HTTPStatusCode == 0 {
 		c.Audit.HTTPStatusCode = http.StatusOK
 	}
 
-	// only update duration and status code
-	err := workPool.PostWork("update record", (&models.AuditInfo{
-		ID:             c.Audit.ID,
-		UpdateRecord:   true,
-		Duration:       int(time.Now().Sub(c.Audit.StartTime) / time.Microsecond),
-		HTTPStatusCode: c.Audit.HTTPStatusCode,
-	}).CopyCustomizedNameFrom(&c.Audit))
+	c.Audit.Namespace = c.Namespace
+
+	c.Audit.Duration = int(time.Now().Sub(c.Audit.StartTime) / time.Microsecond)
+	c.Audit.UpdateRecord = true
+	err := models.NewAuditRecord(&c.Audit).Insert()
 	if err != nil {
-		glog.Errorln(method, "update record", c.Audit.ID, "work failed", err)
+		glog.Errorf("%s insert into AuditRecord to database failed:%v\n", method, err)
 	}
+
 }
 
 //// check string parameter in url path
@@ -445,25 +440,6 @@ func (c *BaseController) IsUserSuperAdmin() bool {
 	//if user.Role == team2user.SuperAdminUser {
 	//	return true
 	//}
-	return false
-}
-
-func isNoAuth(c *BaseController) bool {
-	url := c.Audit.URL
-	method := c.Audit.Method
-	if url == "/api/v2/users/login" && method == "POST" {
-		return true
-	} else if strings.HasPrefix(url, "/spi/v2/teams/invitations?code=") && method == "GET" {
-		return true
-	} else if url == "/spi/v2/users/jointeam" && method == "POST" {
-		return true
-	} else if url == "/spi/v2/users" && method == "POST" {
-		return true
-	} else if url == "/spi/v2/users/vsettan" && method == "POST" {
-		return true
-	} else if strings.HasPrefix(c.Ctx.Request.URL.Path, "/spi/v2/oem") && method == "GET" {
-		return true
-	}
 	return false
 }
 

@@ -213,7 +213,7 @@ func (queue *StageQueue) WaitForBuildToComplete(job *v1.Job, stage models.CiStag
 		//TODO 设置3分钟超时，如无法创建container则自动停止构建
 		pod, timeout, err = HandleWaitTimeout(job, queue.ImageBuilder)
 		if err != nil {
-			glog.Infof("%s HandleWaitTimeout get: %v\n", method, err)
+			glog.Errorf("%s HandleWaitTimeout get: %v\n", method, err)
 		}
 		resultChan <- false
 		//检查是否超时
@@ -344,8 +344,15 @@ func (queue *StageQueue) WaitForBuildToComplete(job *v1.Job, stage models.CiStag
 			return http.StatusInternalServerError
 		}
 		glog.Infof(errMsg)
+
+		detail := &EmailDetail{
+			Type:    "ci",
+			Result:  "success",
+			Subject: fmt.Sprintf(`'%s'构建成功`, stage.StageName),
+			Body:    fmt.Sprintf(`构建流程%s成功完成一次构建`, stage.StageName),
+		}
+		detail.SendEmailUsingFlowConfig(queue.Namespace, stage.FlowId)
 		return common.STATUS_SUCCESS
-		//TODO 通知执行成功邮件
 
 	}
 
@@ -376,7 +383,14 @@ func (queue *StageQueue) WaitForBuildToComplete(job *v1.Job, stage models.CiStag
 	if errMsg != "" {
 		errMsg = "构建发生未知错误"
 	}
-	//TODO 通知失败邮件
+
+	detail := &EmailDetail{
+		Type:    "ci",
+		Result:  "failed",
+		Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+		Body:    fmt.Sprintf(`%s <br/>请点击<a href="%s?%s">此处</a>查看EnnFlow详情.`, errMsg, common.FlowDetailUrl, stage.FlowId),
+	}
+	detail.SendEmailUsingFlowConfig(queue.Namespace, stage.FlowId)
 	glog.Infof("%s kubernetes run the job failed:%s\n", method, errMsg)
 
 	return common.STATUS_FAILED
@@ -738,7 +752,7 @@ func (queue *StageQueue) StartStageBuild(stage models.CiStages, index int) (Stag
 
 		}
 
-		if repo.UserInfo == "" {
+		if repo.Namespace == "" {
 			glog.Errorf("%s  find one repo failed err:%v\n", method, err)
 			stageBuildResp.Message = "No repo auth info found"
 			return stageBuildResp, http.StatusNotFound

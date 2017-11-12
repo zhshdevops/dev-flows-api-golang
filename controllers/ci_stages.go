@@ -52,6 +52,10 @@ func (stage *CiStagesController) AddOrUpdateDockerfile() {
 	method := "CiStagesController.AddOrUpdateDockerfile"
 	flowId := stage.Ctx.Input.Param(":flow_id")
 	stageId := stage.Ctx.Input.Param(":stage_id")
+
+	stage.Audit.SetOperationType(models.AuditOperationUpdate)
+	stage.Audit.SetResourceType(models.AuditResourceCIDockerfiles)
+
 	var dockerRequest models.CiDockerfile
 	body := stage.Ctx.Input.RequestBody
 	if string(body) == "" {
@@ -114,7 +118,8 @@ func (stage *CiStagesController) AddDockerfile() {
 	flowId := stage.Ctx.Input.Param(":flow_id")
 
 	stageId := stage.Ctx.Input.Param(":stage_id")
-
+	stage.Audit.SetOperationType(models.AuditOperationCreate)
+	stage.Audit.SetResourceType(models.AuditResourceCIDockerfiles)
 	body := stage.Ctx.Input.RequestBody
 
 	if string(body) == "" {
@@ -197,6 +202,10 @@ func (stage *CiStagesController) RemoveDockerfile() {
 
 	stageId := stage.Ctx.Input.Param(":stage_id")
 
+	stage.Audit.SetResourceID(stageId)
+	stage.Audit.SetOperationType(models.AuditOperationDelete)
+	stage.Audit.SetResourceType(models.AuditResourceCIDockerfiles)
+
 	ciDockerfile := models.NewCiDockerfile()
 
 	result, err := ciDockerfile.RemoveDockerfile(stage.Namespace, flowId, stageId)
@@ -258,6 +267,10 @@ func (stage *CiStagesController) RemoveStage() {
 	flowId := stage.Ctx.Input.Param(":flow_id")
 
 	stageId := stage.Ctx.Input.Param(":stage_id")
+
+	stage.Audit.SetResourceID(stageId)
+	stage.Audit.SetOperationType(models.AuditOperationDelete)
+	stage.Audit.SetResourceType(models.AuditResourceStages)
 	//检查是否为flow的最后一个stage
 	stages, err := models.NewCiStage().FindExpectedLast(flowId, stageId)
 	if err != nil || stages.StageName == "" {
@@ -276,17 +289,17 @@ func (stage *CiStagesController) RemoveStage() {
 			return
 		}
 
-		_,err=models.NewCiScripts().DeleteScriptByID(containerInfo.Scripts_id)
-		if err!=nil{
+		_, err = models.NewCiScripts().DeleteScriptByID(containerInfo.Scripts_id)
+		if err != nil {
 			glog.Errorf("%s DeleteScriptByID failed:%v\n", method, err)
 
 		}
 
 	}
 
-	_,err=models.NewCiStage().DeleteById(stageId)
-	if err!=nil{
-		glog.Errorf("%s delete stage by id %s from database failed:%v\n", method, stageId,err)
+	_, err = models.NewCiStage().DeleteById(stageId)
+	if err != nil {
+		glog.Errorf("%s delete stage by id %s from database failed:%v\n", method, stageId, err)
 		stage.ResponseErrorAndCode("delete stage"+stageId+" failed", http.StatusInternalServerError)
 		return
 	}
@@ -330,6 +343,7 @@ func (stage *CiStagesController) ListStages() {
 	return
 
 }
+
 //{"DockerfileFrom":1,"registryType":1,"imageTagType":2,
 //"noCache":false,"image":"xinzhiyuntest","project":"qinzhao-harbor","projectId":7,
 //"DockerfileName":"Dockerfile","DockerfilePath":"/"}
@@ -340,6 +354,10 @@ func (stage *CiStagesController) CreateStage() {
 	method := "controllers/CiStagesController.CreateStage"
 
 	flowId := stage.Ctx.Input.Param(":flow_id")
+
+	stage.Audit.SetOperationType(models.AuditOperationCreate)
+	stage.Audit.SetResourceType(models.AuditResourceStages)
+
 	if string(stage.Ctx.Input.RequestBody) == "" {
 		glog.Errorf("%s %s\n", method, "the request body is empty")
 		stage.ResponseErrorAndCode("the request body is empty", http.StatusBadRequest)
@@ -446,7 +464,7 @@ func (stage *CiStagesController) CreateStage() {
 	}
 
 	// 自定义类型时，检查是否设置了自定义类型的文本
-	if CUSTOM_STAGE_TYPE == buildType &&( stageInfo.Metadata.CustomType == "" ||
+	if CUSTOM_STAGE_TYPE == buildType && ( stageInfo.Metadata.CustomType == "" ||
 		strings.TrimSpace(stageInfo.Metadata.CustomType) == "") {
 		stage.ResponseErrorAndCode(".metadata.customType is required with custom stage type", http.StatusForbidden)
 		return
@@ -576,7 +594,7 @@ func (stage *CiStagesController) CreateStage() {
 	stageDb.CustomType = stageInfo.Metadata.CustomType
 	stageDb.Image = stageInfo.Spec.Container.Image
 	stageDb.CiEnabled = stageInfo.Spec.Ci.Enabled
-	stageDb.FlowId=flowId
+	stageDb.FlowId = flowId
 	//ci config
 	ciConfig, err := json.Marshal(stageInfo.Spec.Ci.CiConfig)
 	if err != nil {
@@ -598,13 +616,13 @@ func (stage *CiStagesController) CreateStage() {
 		}
 		stageDb.BuildInfo = string(buildInfo)
 	}
-	glog.Infof("stageDb.BuildInfo:%v\n",stageDb.BuildInfo)
+	glog.Infof("stageDb.BuildInfo:%v\n", stageDb.BuildInfo)
 	//事物处理
 	recordDB := func() bool {
 		trans := transaction.New()
 		trans.Do(func() {
 			_, err := models.NewCiStage().InsertOneStage(stageDb, trans.O())
-			if err != nil  {
+			if err != nil {
 				trans.Rollback(method, "insert stage info to database failed", err)
 			}
 
@@ -612,7 +630,7 @@ func (stage *CiStagesController) CreateStage() {
 			if err != nil {
 				trans.Rollback(method, "get nil targets from database failed", err)
 			}
-			glog.Info("links info :%#v\n",links)
+			glog.Info("links info :%#v\n", links)
 			ciLink := models.CiStageLinks{
 				SourceId: stageDb.StageId,
 				FlowId:   flowId,
@@ -625,8 +643,8 @@ func (stage *CiStagesController) CreateStage() {
 				}
 				//存在tail时，更新旧tail的target为新建的stage
 				if len(links) == 1 {
-					oldTail:=models.CiStageLinks{
-						TargetId:stageDb.StageId,
+					oldTail := models.CiStageLinks{
+						TargetId: stageDb.StageId,
 					}
 					//如果指定了旧tail与当前stage的link directories，则一并更新
 					//更新link
@@ -645,7 +663,7 @@ func (stage *CiStagesController) CreateStage() {
 
 	if !recordDB() {
 
-		stage.ResponseErrorAndCode("the database happend error",http.StatusInternalServerError)
+		stage.ResponseErrorAndCode("the database happend error", http.StatusInternalServerError)
 		return
 	}
 
@@ -752,6 +770,10 @@ func (stage *CiStagesController) UpdateStage() {
 	flowId := stage.Ctx.Input.Param(":flow_id")
 
 	stageId := stage.Ctx.Input.Param(":stage_id")
+
+	stage.Audit.SetResourceID(stageId)
+	stage.Audit.SetOperationType(models.AuditOperationUpdate)
+	stage.Audit.SetResourceType(models.AuditResourceStages)
 
 	if string(stage.Ctx.Input.RequestBody) == "" {
 		glog.Errorf("%s %s\n", method, "the request body is empty")
@@ -869,8 +891,8 @@ func (stage *CiStagesController) UpdateStage() {
 	}
 
 	// 自定义类型时，检查是否设置了自定义类型的文本
-	if CUSTOM_STAGE_TYPE == buildType &&( stageInfo.Metadata.CustomType == "" ||
-		strings.TrimSpace(stageInfo.Metadata.CustomType) == "" ){
+	if CUSTOM_STAGE_TYPE == buildType && ( stageInfo.Metadata.CustomType == "" ||
+		strings.TrimSpace(stageInfo.Metadata.CustomType) == "" ) {
 		stage.ResponseErrorAndCode(".metadata.customType is required with custom stage type", http.StatusForbidden)
 		return
 	}
@@ -1036,7 +1058,7 @@ func (stage *CiStagesController) UpdateStage() {
 		stageRec.BuildInfo = buidInfoStr
 		glog.Infof("%s stage rec: %v\n", method, buidInfoStr)
 	}
-	glog.Infof("===stageRec===%#v\n",stageRec)
+	glog.Infof("===stageRec===%#v\n", stageRec)
 	err = models.NewCiStage().UpdateById(stageId, stageRec)
 	if err != nil {
 		glog.Errorf("%s update failed: %v\n", method, err)

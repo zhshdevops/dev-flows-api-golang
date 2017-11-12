@@ -105,6 +105,10 @@ func (cf *CiFlowsController) CreateCIFlow() {
 	body := cf.Ctx.Input.RequestBody
 	glog.Infof("%s request body:%s\n", body)
 	yamlInfo := cf.GetString("o")
+
+	cf.Audit.SetOperationType(models.AuditOperationCreate)
+	cf.Audit.SetResourceType(models.AuditResourceFlows)
+
 	contentType := cf.Ctx.Input.Header("content-type")
 	if yamlInfo == "yaml" || contentType == "application/yaml" {
 		//TODO 暂时不支持yaml创建
@@ -211,6 +215,8 @@ func (cf *CiFlowsController) UpdateCIRules() {
 		return
 	}
 
+	cf.Audit.SetOperationType(models.AuditOperationUpdate)
+	cf.Audit.SetResourceType(models.AuditResourceCIRules)
 	var ci models.Ci
 	err := json.Unmarshal(cirule, &ci)
 	if err != nil {
@@ -401,6 +407,11 @@ func (cf *CiFlowsController) RemoveCIFlow() {
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
+
+	cf.Audit.SetResourceID(flow_id)
+	cf.Audit.SetOperationType(models.AuditOperationDelete)
+	cf.Audit.SetResourceType(models.AuditResourceFlows)
+
 	ciflow := models.NewCiFlows()
 	flowinfo, err := ciflow.FindFlowById(namespace, flow_id)
 	if err != nil {
@@ -473,6 +484,9 @@ func (cf *CiFlowsController) UpdateCIFlow() {
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
+	cf.Audit.SetResourceID(flow_id)
+	cf.Audit.SetOperationType(models.AuditOperationUpdate)
+	cf.Audit.SetResourceType(models.AuditResourceFlows)
 	body := cf.Ctx.Input.RequestBody
 	glog.Infof("%s request body: %s\n", method, string(body))
 	var updateFlowReqBody models.UpdateFlowReqBody
@@ -673,6 +687,10 @@ func (cf *CiFlowsController) CreateCDRule() {
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
+
+	cf.Audit.SetOperationType(models.AuditOperationCreate)
+	cf.Audit.SetResourceType(models.AuditResourceCDRules)
+
 	body := cf.Ctx.Input.RequestBody
 	glog.Infof("%s RequestBody=%v\n", method, string(body))
 	var cdRuleReq models.CdRuleReq
@@ -774,7 +792,9 @@ func (cf *CiFlowsController) RemoveCDRule() {
 	flowId := cf.Ctx.Input.Param(":flow_id")
 
 	ruleId := cf.Ctx.Input.Param(":rule_id")
-
+	cf.Audit.SetResourceID(ruleId)
+	cf.Audit.SetOperationType(models.AuditOperationDelete)
+	cf.Audit.SetResourceType(models.AuditResourceCDRules)
 	namespace := cf.Namespace
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
@@ -810,6 +830,11 @@ func (cf *CiFlowsController) UpdateCDRule() {
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
+
+	cf.Audit.SetResourceID(ruleId)
+	cf.Audit.SetOperationType(models.AuditOperationUpdate)
+	cf.Audit.SetResourceType(models.AuditResourceCDRules)
+
 	var cdRuleReq models.CdRuleReq
 	cdRule := models.CDRules{}
 
@@ -899,6 +924,11 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		cf.ResponseErrorAndCode("RequestBody is empty", http.StatusBadRequest)
 		return
 	}
+
+
+	cf.Audit.SetOperationType(models.AuditOperationStart)
+	cf.Audit.SetResourceType(models.AuditResourceBuilds)
+
 	var bodyReqBody models.BuildReqbody
 	glog.Infof("%s request body===================:%v\n", method, string(body))
 	err := json.Unmarshal(body, &bodyReqBody)
@@ -1068,6 +1098,9 @@ func (cf *CiFlowsController) StopBuild() {
 	stageId := cf.Ctx.Input.Param(":stage_id")
 
 	buildId := cf.Ctx.Input.Param(":build_id")
+
+	cf.Audit.SetOperationType(models.AuditOperationStop)
+	cf.Audit.SetResourceType(models.AuditResourceBuilds)
 
 	stageInfo, err := models.NewCiStage().FindOneById(stageId)
 	if err != nil {
