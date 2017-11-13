@@ -380,7 +380,7 @@ func (queue *StageQueue) WaitForBuildToComplete(job *v1.Job, stage models.CiStag
 		return http.StatusInternalServerError
 	}
 
-	if errMsg != "" {
+	if errMsg == "" {
 		errMsg = "构建发生未知错误"
 	}
 
@@ -613,7 +613,7 @@ func (queue *StageQueue) StartStageBuild(stage models.CiStages, index int) (Stag
 		stageBuildResp.Setting = volumeMapping
 		return stageBuildResp, respCode
 	}
-
+	//get harbor server url
 	queue.GetHarborServer()
 
 	var buildInfo models.BuildInfo
@@ -893,7 +893,7 @@ func (queue *StageQueue) Run() (FlowBuilResp, int) {
 				queue.SetFailedStatus()
 				//通知websocket 失败
 				NotifyFlowStatus(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_FAILED)
-				resp.Message = "Unexpected error 构建失败 flowid=" + queue.FlowId
+				resp.Message ="EnnFlow["+ queue.CiFlow.Name+"]构建失败"
 				return resp, code
 			}
 

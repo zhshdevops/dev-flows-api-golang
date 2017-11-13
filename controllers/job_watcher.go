@@ -197,8 +197,10 @@ func JobWatcher(socket socketio.Socket) {
 		var resp WatchBuildResp
 		var flow FlowBuildStatusInfo
 		socket.On(StageBuildStatusSocket, func(msg string) {
+			glog.Infof("%s==============>>user StageBuildStatusSocket<<===========%s\n", method,StageBuildStatusSocket)
 			Event := StageBuildStatusSocket
 			err := json.Unmarshal([]byte(msg), &watchMessage)
+			glog.Infof("%s message===StageBuildStatusSocket:%s\n", method, StageBuildStatusSocket)
 			if err != nil {
 				glog.Infof("%s message===:%v\n", method, msg)
 				glog.Errorf("%s json unmarshal failed====>%s %v\n", method, Event, err)
@@ -221,6 +223,8 @@ func JobWatcher(socket socketio.Socket) {
 		})
 
 		socket.On(FlowBuildStatus, func(msg string) {
+			glog.Infof("%s==============>>user FlowBuildStatus<<===========%s\n", method,FlowBuildStatus)
+			glog.Infof("%s message===FlowBuildStatus:%s\n", method, FlowBuildStatus)
 			Event := FlowBuildStatus
 			err := json.Unmarshal([]byte(msg), &flow)
 			if err != nil {
@@ -395,6 +399,9 @@ func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket)
 
 // 通知前端
 func emitStatus(socket socketio.Socket, flowId, stageId, stageBuildId string, buildStatus int) {
+
+	glog.Infof("emitStatus notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
+
 	message := struct {
 		FlowId       string `json:"flowId"`
 		StageId      string `json:"stageId"`
@@ -422,6 +429,9 @@ func emitStatus(socket socketio.Socket, flowId, stageId, stageBuildId string, bu
 	return
 }
 func emitStatusNew(socket net.Conn, flowId, stageId, stageBuildId string, buildStatus int, op ws.OpCode) {
+
+	glog.Infof("emitStatusNew notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
+
 	message := struct {
 		FlowId       string `json:"flowId"`
 		StageId      string `json:"stageId"`
@@ -453,6 +463,7 @@ func emitStatusNew(socket net.Conn, flowId, stageId, stageBuildId string, buildS
 }
 
 func emitError(socket socketio.Socket, flowId, stageId, stageBuildId string, Status int, message string) {
+	glog.Infof("emitError notisyflowstatus flowsid=%s,status=%d ", flowId, Status)
 	var resp WatchBuildResp
 	resp.Status = Status
 	messageResp := struct {
@@ -497,6 +508,7 @@ func emitErrorNew(socket net.Conn, flowId, stageId, stageBuildId string, Status 
 }
 
 func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId string) {
+	glog.Infof("saveSocketAndBuild flowsid=%s,stageId=%d ", flowId,stageId)
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//保存build id对应的socket
@@ -516,6 +528,7 @@ func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId st
 }
 
 func saveSocketAndBuildNew(socket net.Conn, socketId string, stageBuildId, flowId, stageId string, op ws.OpCode) {
+
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//保存build id对应的socket
@@ -536,6 +549,7 @@ func saveSocketAndBuildNew(socket net.Conn, socketId string, stageBuildId, flowI
 }
 
 func notifyFlow(flowId, flowBuildId string, status int) {
+	glog.Infof("notifyFlow flowsid=%s,status=%d ", flowId, status)
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 	method := "notifyFlow"
@@ -569,6 +583,7 @@ func notifyFlowNew(flowId, flowBuildId string, status int) {
 
 }
 func emitStatusOfFlow(socket socketio.Socket, flowId, flowBuildId string, buildStatus int) {
+	glog.Infof("Intoing notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
 	message := struct {
 		FlowId      string `json:"flowId"`
 		FlowBuildId string `json:"flowBuildId"`
@@ -599,7 +614,7 @@ func emitErrorOfFlow(socket socketio.Socket, flowId, flowBuildId, message string
 }
 
 func notifyNewBuild(stageId, stageBuildId string, status int) {
-
+	glog.Infof("==========>>>notifyNewBuild stageBuildId:%s,status=%d\n",stageBuildId,status)
 	method := "notifyNewBuild"
 	if stageId == "" || stageBuildId == "" {
 		return
@@ -617,11 +632,12 @@ func notifyNewBuild(stageId, stageBuildId string, status int) {
 }
 
 func notify(stageBuildId string, status int) {
+
 	method := "notify"
 	if stageBuildId == "" {
 		return
 	}
-
+	glog.Infof("notify stageBuildId:%s\n",stageBuildId)
 	if socketidMap, ok := SOCKETS_OF_BUILD_MAPPING[stageBuildId]; ok {
 		SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 		defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
@@ -760,7 +776,7 @@ func doStart() {
 				glog.Errorf("%s the pod watch the chan is closed\n", method)
 				continue
 			}
-			glog.Infof("Job watcher is ready the pod event type=%s\n", event.Type)
+			glog.Infof("Job watcher is ready the job event type=%s\n", event.Type)
 
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if !parseIsOk {
