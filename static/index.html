@@ -16,7 +16,7 @@
 <body>
 <ul id="messages"></ul>
 <form action="">
-    <input id="m" autocomplete="off" /><button>Send</button>
+    <input id="m" autocomplete="off" /><button id="socketd">Send</button>
 </form>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.4/socket.io.min.js"></script>
 <script src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
@@ -24,12 +24,23 @@
 <script>
     const socket = io('http://127.0.0.1:8090', {
         transports:['websocket'],
-        path: "/stagebuild/log/"
+        path: "/socket.io/",
+        path: "/stagebuild/status/"
+//        path: "/stagebuild/log/"
     });
 
-    socket.emit("ciLogs", JSON.stringify({"flowId":"llslsdls","flowBuildId":"flowBuildId","stageBuildId":"stageBuildId"}))
-    socket.on("ciLogs", function (data) {
-        console.log(data)
+    $("#socketd").click(function () {
+        alert("dasda");
+        socket.emit("stageBuildStatus", JSON.stringify({"flowId":"dad","watchedBuilds":[{"stageBuildId":"","stageId":""}]}))
+        socket.on("stageBuildStatus", function (data) {
+            console.log(data)
+        })
+
+//        alert("dasda");
+//        socket.emit("ciLogs", JSON.stringify({"flowId":"llslsdls","flowBuildId":"flowBuildId","stageBuildId":"stageBuildId"}))
+//        socket.on("ciLogs", function (data) {
+//            console.log(data)
+//        })
     })
 </script>
 </body>

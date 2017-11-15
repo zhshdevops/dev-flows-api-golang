@@ -36,7 +36,8 @@ var (
 
 		isDebug = beego.AppConfig.String("RunMode") != "pro"
 		// debug 模式下，允许延迟设置数据库
-		if host == "" || user == "" || pass == "" {
+		//if host == "" || user == "" || pass == "" {
+		if host == "" || user == ""  {
 			err = fmt.Errorf("MySQL配置有误, host:%s, port:%s, user:%s, pass:%s, if you're running in tests, you can ignore it", host, port, user, pass)
 			return
 		}

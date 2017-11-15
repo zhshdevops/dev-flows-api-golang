@@ -7,6 +7,14 @@ import (
 
 func init() {
 
+	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:AuthController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:AuthController"],
+		beego.ControllerComments{
+			Method: "AuthByToken",
+			Router: `/`,
+			AllowHTTPMethods: []string{"GET"},
+			MethodParams: param.Make(),
+			Params: nil})
+
 	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CDRulesController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CDRulesController"],
 		beego.ControllerComments{
 			Method: "GetDeploymentCDRule",
@@ -476,6 +484,14 @@ func init() {
 			Method: "CreateWebSocketConn",
 			Router: `/`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:StatsController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:StatsController"],
+		beego.ControllerComments{
+			Method: "CollectServerStats",
+			Router: `/`,
+			AllowHTTPMethods: []string{"GET"},
 			MethodParams: param.Make(),
 			Params: nil})
 

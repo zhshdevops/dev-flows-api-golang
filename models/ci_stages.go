@@ -547,7 +547,7 @@ func FormatStageInfo(stage Stages) (stage_info Stage_info) {
 			return
 		}
 	}
-	glog.Infof("stage.Target_id==",stage.Target_id)
+	glog.Infof("stage.Target_id==%s\n",stage.Target_id)
 	if stage.Target_id != "" {
 		stage_info.Link.Enabled = stage.Link_enabled
 		stage_info.Link.Target = stage.Target_id

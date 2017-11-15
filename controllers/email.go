@@ -17,7 +17,7 @@ import (
 var ErrMultiOrNoMailConfig = errors.New("multi or no mail config")
 var ErrWrongConfigFormat = errors.New("config in wrong format")
 
-func getMailConfig() (config *models.MailConfig, err error) {
+func getMailConfig() (config models.MailConfig, err error) {
 	var configs []models.Configs
 	if configs, err = new(models.Configs).GetByType("mail"); err != nil {
 		return
@@ -26,8 +26,7 @@ func getMailConfig() (config *models.MailConfig, err error) {
 		err = ErrMultiOrNoMailConfig
 		return
 	}
-	config = new(models.MailConfig)
-	err = json.Unmarshal([]byte(configs[0].ConfigDetail), config)
+	err = json.Unmarshal([]byte(configs[0].ConfigDetail), &config)
 	return
 }
 

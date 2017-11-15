@@ -308,7 +308,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
 		Name:            SCM_CONTAINER_NAME,
-		Image:           buildInfo.ScmImage,
+		//Image:           buildInfo.ScmImage,
+		Image:           "harbor.enncloud.cn/qinzhao-harbor/clone-repo:v2.2",
 		ImagePullPolicy: "Always",
 	}
 	initContainer.Env = []apiv1.EnvVar{
@@ -587,7 +588,7 @@ func (builder *ImageBuilder) WaitForJob(namespace, jobName string, buildWithDepe
 		glog.Errorf("%s WatchJob failed:%v\n", method, err)
 	}
 
-	glog.Infof("WatchJob result:%v\n", WatchRespData)
+	glog.Infof("WatchJob result:%#v\n", WatchRespData)
 
 	statusMessage.JobStatus = WatchRespData
 	return statusMessage
@@ -1033,7 +1034,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				watchRespData.Failed = dm.Status.Failed
 				watchRespData.Active = dm.Status.Active
 				//job执行失败
-				glog.Errorf("%s the job [%s] run failed\n", method, jobName)
+				glog.Warningf("%s the job [%s] run failed\n", method, jobName)
 				if len(dm.Status.Conditions) != 0 {
 					watchRespData.Status = string(dm.Status.Conditions[0].Status)
 					watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)

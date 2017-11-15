@@ -31,7 +31,6 @@ func NewGitlabClient(Gitlab_url, Access_token string) *GitlabClient {
 	if Gitlab_url == "" || Access_token == "" {
 		return nil
 	}
-	Access_token = "y257A49sSm2F1zvZs9r5"
 	glog.Infof("method=%s\n", Gitlab_url)
 	droneGitlab := Gitlab_url
 
@@ -90,9 +89,16 @@ func (g *GitlabClient) GetUserInfo() (UserInfo, error) {
 
 }
 
-func (g *GitlabClient) GetUserAndOrgs() ([]UserInfo, error) {
+func (g *GitlabClient) GetUserAndOrgs() (userInfos []UserInfo, err error) {
+	user, err := g.GetUserInfo()
+	if err != nil {
+		glog.Errorf("GetUserAndOrgs failed:%v\n", err)
+	}
 
-	return nil, nil
+	userInfos = make([]UserInfo, 0)
+
+	userInfos = append(userInfos, user)
+	return
 }
 
 func (g *GitlabClient) GetUserOrgs() ([]UserInfo, error) {
@@ -291,6 +297,7 @@ type GitLabBranch struct {
 	Branch string `json:"name"`
 	Commit Commit `json:"commit"`
 }
+
 //[{"name":"master","commit":{"id":"547a32660b42256e5ec02e9ac8589a8329d5d11e",
 //"short_id":"547a3266","title":"Update README.md","created_at":"2017-08-02T15:19:49.000+08:00",
 //"parent_ids":["3b94d14ea8586afceb4414191018373604f7422f"],"message":"Update README.md",
@@ -316,7 +323,6 @@ func (g *GitlabClient) GetRepoAllBranches(repoName string, repoId int) ([]Branch
 		return branchs, err
 	}
 
-
 	var branch BranchResp
 	for _, lab := range gitlabBranchList {
 		branch.Branch = lab.Branch
@@ -338,9 +344,9 @@ func (g *GitlabClient) GetRepoAllBranches(repoName string, repoId int) ([]Branch
 //"committer_email":"admin@example.com"},"release":{"tag_name":"demo","description":"的"}}]
 
 type GitLabTags struct {
-	Tag string `json:"name"`
+	Tag         string `json:"name"`
 	Description string `json:"message"`
-	Commit Commit `json:"commit"`
+	Commit      Commit `json:"commit"`
 }
 
 func (g *GitlabClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, error) {
@@ -364,11 +370,11 @@ func (g *GitlabClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, error
 	var tag Tag
 	for _, lab := range gitlabTags {
 		tag.Tag = lab.Tag
-		tag.Description=lab.Description
+		tag.Description = lab.Description
 		tag.Commit_id = lab.Commit.Id
-		tag.CommitterName=lab.Commit.Committer_name
-		tag.Message= lab.Commit.Message
-		tag.Committed_date=lab.Commit.Committed_date
+		tag.CommitterName = lab.Commit.Committer_name
+		tag.Message = lab.Commit.Message
+		tag.Committed_date = lab.Commit.Committed_date
 		tags = append(tags, tag)
 
 	}
@@ -378,7 +384,7 @@ func (g *GitlabClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, error
 //repoFullName is gitlab_project_id
 func (g *GitlabClient) GetOneWebhook(repoFullName, webHookId string) (WebhookResp, error) {
 	var hook WebhookResp
-	url, err := g.GetUrl(fmt.Sprintf("/projects/%s/hooks/%s", repoFullName,webHookId), nil)
+	url, err := g.GetUrl(fmt.Sprintf("/projects/%s/hooks/%s", repoFullName, webHookId), nil)
 	if err != nil {
 		return hook, err
 	}

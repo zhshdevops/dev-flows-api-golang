@@ -158,8 +158,12 @@ func (ci *CiFlowBuildLogs) FindLastBuildOfFlowWithStages(flowId string, orms ...
 	return
 }
 
+type FlowBuildStats struct {
+	Status                int `orm:"column(status)" json:"buildId"`
+	Count                 int `orm:"column(count)" json:"flow_id"`
+}
 //Query failed/running/success flow builds
-func (ci *CiFlowBuildLogs) QueryFlowBuildStats(namespace string, orms ...orm.Ormer) (cFbl []CiFlowBuildLogs, total int64, err error) {
+func (ci *CiFlowBuildLogs) QueryFlowBuildStats(namespace string, orms ...orm.Ormer) (cFbl []FlowBuildStats, total int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()

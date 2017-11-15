@@ -196,7 +196,7 @@ func (cf *CiFlows) ListFlowsAndLastBuild(namespace string, isBuildImage int, orm
 	}
 	total, err = o.Raw(sql, namespace, namespace, namespace, isBuildImage).QueryRows(&listFlowsInfo)
 	if err != nil {
-		glog.Errorf("ListFlowsAndLastBuild get data from database failed%v", err)
+		glog.Errorf("ListFlowsAndLastBuild get data from database failed:%v\n", err)
 	}
 	return
 

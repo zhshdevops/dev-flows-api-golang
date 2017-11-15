@@ -794,6 +794,7 @@ func checkTokenDemo(token, namespace, teamspace string) bool {
 	userToken := md5.Sum([]byte(userModel.APIToken))
 	return token == fmt.Sprintf("%x", userToken)
 }
+
 func newId(r *http.Request) string {
 
 	hash := fmt.Sprintf("%s %s", r.RemoteAddr, time.Now())

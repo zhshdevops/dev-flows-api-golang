@@ -26,6 +26,14 @@ type FlowBuilResp struct {
 	Message      string `json:"message,omitempty"`
 	FlowBuildId  string `json:"flowBuildId,omitempty"`
 	StageBuildId string `json:"stageBuildId,omitempty"`
+	HttpCode  string `json:"http_code"`
+	FlowId string `json:"flow_id"`
+	Status int `json:"status"`
+	
+}
+type CloseSocketResp struct {
+	Status  int `json:"status"`
+	Message string `json:"message"`
 }
 
 //StartFlowBuild event 是CI的触发条件
@@ -496,7 +504,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	if pod.ObjectMeta.Name != "" {
 		buildRec.PodName = pod.ObjectMeta.Name
 		buildRec.NodeName = pod.Spec.NodeName
-		buildRec.JobName=job.ObjectMeta.Name
+		buildRec.JobName = job.ObjectMeta.Name
 	}
 	if buildRec.PodName != "" {
 		updateResult, err := models.NewCiStageBuildLogs().UpdatePodNameAndJobNameByBuildId(buildRec, ciStagebuildLogs.BuildId)
@@ -800,6 +808,7 @@ func WaitForBuildToComplete(job *v1.Job, imageBuilder *models.ImageBuilder, user
 				models.NewCiFlowBuildLogs().UpdateById(newBuild.EndTime, int(newBuild.Status), stageBuild.FlowBuildId)
 			}
 			NotifyFlowStatus(stage.FlowId, stageBuild.FlowBuildId, int(newBuild.Status))
+			//NotifyFlowStatusNew(stage.FlowId, stageBuild.FlowBuildId, int(newBuild.Status))
 		}
 
 		if errMsg != "" {

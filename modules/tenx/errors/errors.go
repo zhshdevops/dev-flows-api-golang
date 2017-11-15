@@ -302,6 +302,12 @@ func NewSuccessStatus(results interface{}) *StatusError {
 	}
 }
 
+func NewSuccessDataStatus(results interface{}) *StatusError {
+	return &StatusError{
+		Data:   results,
+	}
+}
+
 func NewSuccessStatusDevops(results interface{}, TotalDevops int64) *StatusError {
 	return &StatusError{
 		ResultsDevops: results,

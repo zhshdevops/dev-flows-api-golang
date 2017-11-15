@@ -35,14 +35,15 @@ func (cf *CiFlowsController) GetCIFlows() {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
 	isBuildImage, _ := cf.GetInt("isBuildImage", 0)
-	glog.Infof("============userName=%s\n",cf.User.Username)
-	glog.Info("namespace=%s\n",namespace)
+	glog.Infof("============userName=%s\n", cf.User.Username)
+	glog.Info("namespace=%s\n", namespace)
 	listFlowsData, total, err := ciflows.ListFlowsAndLastBuild(namespace, isBuildImage)
 	if err != nil || total == 0 {
 		glog.Errorf("%s not found the list flow %s\n", method, err)
 		cf.ResponseErrorAndCode("No flow added yet", http.StatusOK)
 		return
 	}
+
 	var flowList []models.ListFlowsInfoResp
 	var flowInfo models.ListFlowsInfoResp
 	flowList = make([]models.ListFlowsInfoResp, 0)
@@ -925,7 +926,6 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		return
 	}
 
-
 	cf.Audit.SetOperationType(models.AuditOperationStart)
 	cf.Audit.SetResourceType(models.AuditResourceBuilds)
 
@@ -940,29 +940,34 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 
 	//不传event参数 event 是代码分支
 	//result, httpStatusCode := StartFlowBuild(cf.User, flowId, bodyReqBody.StageId, "", bodyReqBody.Options)
-	imageBuild:=models.NewImageBuilder(client.ClusterID)
-	stagequeue,result, httpStatusCode:=NewStageQueue(cf.User,bodyReqBody,"",cf.Namespace,flowId,imageBuild)
-	if httpStatusCode == http.StatusOK {
-		result, httpStatusCode=stagequeue.Run()
-	}
+	imageBuild := models.NewImageBuilder(client.ClusterID)
+	stagequeue, result, httpStatusCode := NewStageQueue(cf.User, bodyReqBody, "", cf.Namespace, flowId, imageBuild)
+
+	glog.Infof("=========httpStatusCode:%d, result:%s\n", httpStatusCode,result)
 
 	if httpStatusCode == http.StatusOK {
-		cf.ResponseResultAndStatusDevops(result, httpStatusCode)
+		FlowBuild, code := stagequeue.Run()
+		var Resp interface{}
+
+		Resp = struct {
+			FlowBuildId  string `json:"flowBuildId"`
+			StageBuildId string `json:"stageBuildId"`
+		}{
+			FlowBuildId:  FlowBuild.FlowBuildId,
+			StageBuildId: FlowBuild.StageBuildId,
+		}
+		glog.Infof("==============>>Resp:%v\n",Resp)
+		if code == http.StatusOK {
+			cf.ResponseResultAndStatusDevops(Resp, http.StatusOK)
+			return
+		}
+		cf.ResponseErrorAndCode(FlowBuild.Message, http.StatusInternalServerError)
 		return
 	}
 
-	var Resp string
-	stagebuild, ok := result.(StageBuildResp)
-	if ok {
-		Resp = stagebuild.Message
-	} else {
-		flowResp, ok := result.(FlowBuilResp)
-		if ok {
-			Resp = flowResp.Message
-		}
-	}
-	cf.ResponseErrorAndCode(Resp, httpStatusCode)
+	cf.ResponseErrorAndCode("服务异常,请稍后再识试", http.StatusInternalServerError)
 	return
+
 }
 
 type StageBuilds struct {
@@ -1186,7 +1191,7 @@ func (cf *CiFlowsController) StopBuild() {
 	}
 
 	//更新flow构建状态
-	NotifyFlowStatus(flowId, flowBuildId, common.STATUS_FAILED)
+	NotifyFlowStatusNew(flowId, flowBuildId, common.STATUS_FAILED)
 	_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 	if err != nil {
 		glog.Errorf("%s update flowBuild log failed: %v \n", method, err)
@@ -1405,7 +1410,10 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			glog.Errorf("%s get pod events failed: %v\n", method, err)
 		}
 		data, _ := json.Marshal(eventlist.Items)
-		cf.Ctx.ResponseWriter.Write(data)
+		if string(data)!=""{
+			cf.Ctx.ResponseWriter.Write(data)
+		}
+
 	}
 
 	if LogData == "" {
@@ -1414,7 +1422,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	}
 	if LogData == "" {
-		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志已被删除，paas平台只保留7天之内的日志信息</font>`))
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志已被删除，PAAS平台只保留7天之内的日志信息</font>`))
 		return
 	}
 	cf.Ctx.ResponseWriter.Write([]byte(LogData))

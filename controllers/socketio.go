@@ -15,18 +15,28 @@ import (
 	"io"
 )
 
-var StageBuildLog, StageBuildStatus *socketio.Server
+var StageBuildLog, StageBuildStatus, SocketId *socketio.Server
 
 func init() {
 	NewStageBuildSocket()
 }
 
 func NewStageBuildSocket() {
-	var trans =[]string{"websocket"}
-
 	var err error
+
 	method := "NewStageBuildSocket"
-	StageBuildLog, err = socketio.NewServer(trans)
+
+	StageBuildStatus, err = socketio.NewServer(nil)
+	if err != nil {
+		glog.Errorf("%s new StageBuildStatus failed:==>[%s]\n", method, err)
+		panic(err)
+		return
+	}
+
+	go BuildStatusSocketio()
+
+
+	StageBuildLog, err = socketio.NewServer(nil)
 	if err != nil {
 		glog.Errorf("%s New StageBuildLog failed:==>[%s]\n", method, err)
 		panic(err)
@@ -35,67 +45,34 @@ func NewStageBuildSocket() {
 
 	go BuildLogSocketio()
 
-	StageBuildStatus, err = socketio.NewServer(nil)
+
+
+	SocketId, err = socketio.NewServer(nil)
 	if err != nil {
 		glog.Errorf("%s new StageBuildStatus failed:==>[%s]\n", method, err)
 		panic(err)
 		return
 	}
-	go BuildStatusSocketio()
+	Socketio()
+}
+
+func Socketio() {
+	method := "Socketio"
+	SocketId.On("connection", func(so socketio.Socket) {
+		glog.Infof("%s Socketio user build log socket id is: %s\n", method, so.Id())
+
+	})
+
 }
 
 func BuildLogSocketio() {
-	method:="BuildLogSocketio"
-	StageBuildLog.On("connection", func(so socketio.Socket) {
-		glog.Infof("%s connect user build log socket id is: %s\n", method,so.Id())
-		SocketController(so)
-	})
-
-}
-
-
-func BuildStatusSocketio() {
-	method:="BuildStatusSocketio"
-	StageBuildStatus.On("connection", func(so socketio.Socket) {
-		glog.Infof("%s connect user build status socket id is: %s\n",method, so.Id())
-		JobWatcher(so)
-	})
-
-}
-//判断stage构建状态，如果已为失败或构建完成，则从ElasticSearch中获取日志
-//如构建中，则从k8s API获取实时日志
-type BuildMessage struct {
-	FlowId        string `json:"flowId"`
-	FlowBuildId   string `json:"flowBuildId"`
-	StageBuildId  string `json:"stageBuildId"`
-	StageId       string `json:"stageId"`
-	ContainerName string `json:"containerName"`
-	PodName       string `json:"podName"`
-	JobName       string `json:"jobName"`
-	NodeName      string `json:"nodeName"`
-	Status        int    `json:"status"`
-	ControllerUid string `json:"controller_id"`
-	LogData       string `json:"logData"`
-	ClusterId     string `json:"cluster_id"`
-}
-
-const CILOG = "ciLogs"
-const TailLines = 200
-const POD_INIT = "pod-init"
-const GET_LOG_RETRY_COUNT = 3
-const GET_LOG_RETRY_MAX_INTERVAL = 30
-
-var SocketLogRespData = make(chan interface{}, 4096)
-
-//判断stage构建状态，如果已为失败或构建完成，则从ElasticSearch中获取日志
-//如构建中，则从k8s API获取实时日志
-//SocketController
-func SocketController(socket socketio.Socket) {
-	method := "SocketController"
-	defer socket.Disconnect()
-	go func() {
+	method := "BuildLogSocketio"
+	StageBuildLog.On("connection", func(socket socketio.Socket) {
+		glog.Infof("%s connect user build log socket id is: %s\n", method, socket.Id())
 		var buildMessage BuildMessage
-		socket.On("ciLogs", func(msg string) {
+		socket.On(CILOG, func(msg string) {
+
+			glog.Infof("%s==============>>进来了===user BuildLogSocketio<<===========%s\n", method, StageBuildStatusSocket)
 
 			err := json.Unmarshal([]byte(msg), &buildMessage)
 			if err != nil {
@@ -133,9 +110,120 @@ func SocketController(socket socketio.Socket) {
 			socket.Disconnect()
 			return
 		})
-	}()
+	})
 
 }
+
+func BuildStatusSocketio() {
+	method := "BuildStatusSocketio"
+	StageBuildStatus.On("connection", func(socket socketio.Socket) {
+		glog.Infof("%s connect user build status socket id is: %s\n", method, socket.Id())
+		method := "JobWatcher"
+
+		var watchMessage WatchBuildInfo
+		var resp WatchBuildResp
+		var flow FlowBuildStatusInfo
+		socket.On(StageBuildStatusSocket, func(msg string) {
+			glog.Infof("%s==============>>进来了===user StageBuildStatusSocket<<===========%s\n", method, StageBuildStatusSocket)
+			Event := StageBuildStatusSocket
+			err := json.Unmarshal([]byte(msg), &watchMessage)
+			glog.Infof("%s message===StageBuildStatusSocket:%s\n", method, StageBuildStatusSocket)
+			if err != nil {
+				glog.Infof("%s message===:%v\n", method, msg)
+				glog.Errorf("%s json unmarshal failed====>%s %v\n", method, Event, err)
+				resp.Status = 400
+				resp.Results = "json unmarshal failed"
+				socket.Emit(StageBuildStatusSocket, resp)
+
+				return
+			}
+
+			if watchMessage.FlowId == "" || watchMessage.WatchedBuilds == nil {
+				glog.Errorf("%s Missing Parameters====>%s %v\n", method, Event, watchMessage)
+				resp.Status = 400
+				resp.Results = "Missing Parameters"
+				socket.Emit(StageBuildStatusSocket, resp)
+				return
+			}
+
+			Watch(watchMessage.FlowId, watchMessage, socket)
+
+		})
+
+		socket.On(FlowBuildStatus, func(msg string) {
+			glog.Infof("%s==============>>user FlowBuildStatus<<===========%s\n", method, FlowBuildStatus)
+			glog.Infof("%s message===FlowBuildStatus:%s\n", method, FlowBuildStatus)
+			Event := FlowBuildStatus
+			err := json.Unmarshal([]byte(msg), &flow)
+			if err != nil {
+				glog.Errorf("%s json unmarshal failed====> %s %v\n", method, Event, err)
+				resp.Status = 400
+				resp.Results = "json unmarshal failed"
+				socket.Emit(FlowBuildStatus, resp)
+				return
+			}
+
+			if len(flow.FlowIds) == 0 {
+				glog.Errorf("%s Missing Parameters====>%s %v\n", method, Event, flow)
+				resp.Status = 400
+				resp.Results = "Missing Parameters"
+				socket.Emit(FlowBuildStatus, resp)
+				return
+			}
+
+			for _, flowId := range flow.FlowIds {
+				Watch(flowId, watchMessage, socket)
+			}
+
+		})
+
+		socket.On("stopWatch", func() {
+			glog.Infof("%s==============>>user stopWatch<<===========\n", method)
+			removeSocket(socket)
+			return
+
+		})
+
+		socket.On("disconnect", func() {
+			glog.Infof("%s==============>>user disconnected<<===========\n", method)
+			removeSocket(socket)
+			socket.Emit("user disconnected")
+			return
+
+		})
+		socket.On("error", func(err error) {
+			glog.Errorf("%s socket error:%v\n", method, err)
+			socket.Emit("error", err)
+			return
+		})
+	})
+
+}
+
+//判断stage构建状态，如果已为失败或构建完成，则从ElasticSearch中获取日志
+//如构建中，则从k8s API获取实时日志
+type BuildMessage struct {
+	FlowId        string `json:"flowId"`
+	FlowBuildId   string `json:"flowBuildId"`
+	StageBuildId  string `json:"stageBuildId"`
+	StageId       string `json:"stageId"`
+	ContainerName string `json:"containerName"`
+	PodName       string `json:"podName"`
+	JobName       string `json:"jobName"`
+	NodeName      string `json:"nodeName"`
+	Status        int    `json:"status"`
+	ControllerUid string `json:"controller_id"`
+	LogData       string `json:"logData"`
+	ClusterId     string `json:"cluster_id"`
+}
+
+const CILOG = "ciLogs"
+const TailLines = 200
+const POD_INIT = "pod-init"
+const GET_LOG_RETRY_COUNT = 3
+const GET_LOG_RETRY_MAX_INTERVAL = 30
+
+var SocketLogRespData = make(chan interface{}, 4096)
 
 //GetStageBuildLogsFromK8S
 func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket) {
@@ -144,7 +232,7 @@ func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket)
 
 	imageBuilder := models.NewImageBuilder()
 
-	build, err := GetValidStageBuild(buildMessage.FlowId,buildMessage.StageId,buildMessage.StageBuildId)
+	build, err := GetValidStageBuild(buildMessage.FlowId, buildMessage.StageId, buildMessage.StageBuildId)
 	if err != nil {
 		glog.Errorf("%s GetValidStageBuild failed===>%v\n", method, err)
 		socket.Emit(CILOG, err)
@@ -183,7 +271,6 @@ func GetLogsFromK8S(imageBuilder *models.ImageBuilder, namespace, jobName, podNa
 	imageBuilder.WatchEvent(namespace, podName, socket)
 	WaitForLogs(imageBuilder, namespace, podName, models.SCM_CONTAINER_NAME, socket)
 	WaitForLogs(imageBuilder, namespace, podName, models.BUILDER_CONTAINER_NAME, socket)
-
 
 }
 

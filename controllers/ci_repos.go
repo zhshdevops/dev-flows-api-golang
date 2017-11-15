@@ -319,6 +319,7 @@ func (cirepo *CiReposController) AddRepository() {
 		cirepo.ResponseErrorAndCode("get user and orgs failed", http.StatusInternalServerError)
 		return
 	}
+	glog.Infof("userInfo========%v\n", userInfo)
 	repoInfo.AccessUserName = userInfo[0].Login
 	repoInfo.AccessToken = body.PrivateToken
 	repoInfo.AccessTokenSecret = body.AccessTokenSecret
@@ -546,11 +547,21 @@ func (cirepo *CiReposController) GetSupportedRepos() {
 
 	if CLIENT_ID == "" || CLIENT_SECRET == "" || GITHUB_REDIRECT_URL == "" {
 
-		cirepo.ResponseSuccess(supportedRepos[1:4])
+		data, err := json.Marshal(supportedRepos[1:4])
+		if err != nil {
+			glog.Errorf("json marshal failed:%v\n", err)
+		}
+		cirepo.Ctx.ResponseWriter.Write(data)
+		cirepo.Ctx.ResponseWriter.Status = http.StatusOK
 		return
 	}
 
-	cirepo.ResponseSuccess(supportedRepos)
+	data, err := json.Marshal(supportedRepos)
+	if err != nil {
+		glog.Errorf("json marshal failed:%v\n", err)
+	}
+	cirepo.Ctx.ResponseWriter.Write(data)
+	cirepo.Ctx.ResponseWriter.Status = http.StatusOK
 	return
 }
 
@@ -699,6 +710,7 @@ func (cirepo *CiReposController) GetTags() {
 
 		cirepo.ResponseResultAndStatusDevops(tags, http.StatusOK)
 	}
+
 	cirepo.ResponseResultAndStatusDevops("", http.StatusOK)
 	return
 
@@ -741,9 +753,10 @@ func (cirepo *CiReposController) GetBranches() {
 		return
 	}
 
-	glog.V(1).Infof("%s projectId=%d the branchs  info: %v", method, projectId, branchs)
+	glog.V(1).Infof("%s projectId=%d,repoType=%s,  the branchs  info: %v", method, projectId, repoType, branchs)
 
 	cirepo.ResponseSuccessCIRuleDevops(branchs)
+
 	return
 
 }

@@ -220,10 +220,10 @@ func (queue *StageQueue) WaitForBuildToComplete(job *v1.Job, stage models.CiStag
 		select {
 		case <-time.After(3 * time.Minute):
 			wg.Done()
-			glog.Infof("Kubernetes Job start timeout:%s\n", timeout)
+			glog.Infof("Kubernetes Job start timeout:%q\n", timeout)
 		case <-resultChan:
 			wg.Done()
-			glog.Infof("Kubernetes Job not timeout:%s\n", timeout)
+			glog.Infof("Kubernetes Job not timeout:%q\n", timeout)
 		}
 
 	}()
@@ -384,13 +384,13 @@ func (queue *StageQueue) WaitForBuildToComplete(job *v1.Job, stage models.CiStag
 		errMsg = "构建发生未知错误"
 	}
 
-	detail := &EmailDetail{
-		Type:    "ci",
-		Result:  "failed",
-		Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
-		Body:    fmt.Sprintf(`%s <br/>请点击<a href="%s?%s">此处</a>查看EnnFlow详情.`, errMsg, common.FlowDetailUrl, stage.FlowId),
-	}
-	detail.SendEmailUsingFlowConfig(queue.Namespace, stage.FlowId)
+	//detail := &EmailDetail{
+	//	Type:    "ci",
+	//	Result:  "failed",
+	//	Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+	//	Body:    fmt.Sprintf(`%s <br/>请点击<a href="%s?%s">此处</a>查看EnnFlow详情.`, errMsg, common.FlowDetailUrl, stage.FlowId),
+	//}
+	//detail.SendEmailUsingFlowConfig(queue.Namespace, stage.FlowId)
 	glog.Infof("%s kubernetes run the job failed:%s\n", method, errMsg)
 
 	return common.STATUS_FAILED
@@ -583,6 +583,7 @@ func (queue *StageQueue) SetSuncessStatus() {
 func (queue *StageQueue) NotifyFlowStatus(flowId, flowBuildId string, status int) {
 
 	NotifyFlowStatus(flowId, flowBuildId, status)
+	//NotifyFlowStatusNew(flowId, flowBuildId, status)
 
 }
 
@@ -856,10 +857,9 @@ func (queue *StageQueue) StartStageBuild(stage models.CiStages, index int) (Stag
 
 }
 
-func (queue *StageQueue) Run() (FlowBuilResp, int) {
+func (queue *StageQueue) Run()(FlowBuilResp,int) {
 	method := "StageQueue"
 	var resp FlowBuilResp
-	var code int
 	//判断是否该EnnFlow当前有执行中
 	err := queue.CheckIfBuiding(queue.FlowId)
 	if err != nil {
@@ -877,36 +877,40 @@ func (queue *StageQueue) Run() (FlowBuilResp, int) {
 	//开始使用websocket通知前端,开始构建
 	queue.NotifyFlowStatus(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_BUILDING)
 
-	for index, stage := range queue.StageList {
-		if index != 0 {
-			queue.InsertStageBuildLog(stage)
-		}
-		//开始使用websocket通知前端,开始构建 开始此次构建
-		if common.STATUS_BUILDING == queue.StageBuildLog.Status {
-			glog.Infof("%s ======get build status============stageBuildRec:%#v\n", method, queue.StageBuildLog)
-			// Only use namespace for teamspace scope
-			respStage, code := queue.StartStageBuild(stage, index)
-			//构建失败
-			if code != 200 {
-				glog.Infof("%s Run failed respStage:%v\n", method, respStage)
-				//修改FlowBuildLog
-				queue.SetFailedStatus()
-				//通知websocket 失败
-				NotifyFlowStatus(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_FAILED)
-				resp.Message ="EnnFlow["+ queue.CiFlow.Name+"]构建失败"
-				return resp, code
+	go func() {
+		for index, stage := range queue.StageList {
+			if index != 0 {
+				queue.InsertStageBuildLog(stage)
 			}
-
-			if index == (queue.LengthOfStage() - 1) {
-				queue.SetSuncessStatus()
+			//开始使用websocket通知前端,开始构建 开始此次构建
+			if common.STATUS_BUILDING == queue.StageBuildLog.Status {
+				glog.Infof("%s ======get build status============stageBuildRec:%#v\n", method, queue.StageBuildLog)
+				// Only use namespace for teamspace scope
+				respStage, code := queue.StartStageBuild(stage, index)
+				glog.Infof("%s resp code:%d\n", method, code)
+				//构建失败
+				if code != 200 {
+					glog.Infof("%s Run failed respStage:%v\n", method, respStage)
+					//修改FlowBuildLog
+					queue.SetFailedStatus()
+					//通知websocket 失败
+					NotifyFlowStatus(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_FAILED)
+					//NotifyFlowStatusNew(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_FAILED)
+					return
+				}
+				if index == (queue.LengthOfStage() - 1) {
+					queue.SetSuncessStatus()
+					//NotifyFlowStatusNew(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_SUCCESS)
+					NotifyFlowStatus(queue.FlowId, queue.StageBuildLog.FlowBuildId, common.STATUS_SUCCESS)
+					glog.Infof("resp.StageBuildId=%s\n", resp.StageBuildId)
+					return
+				}
 			}
-
 		}
-	}
-	resp.Message = "构建成功"
+	}()
+
 	resp.FlowBuildId = queue.FlowbuildLog.BuildId
 	resp.StageBuildId = queue.StageBuildLog.BuildId
-
-	return resp, code
+	return resp, http.StatusOK
 
 }

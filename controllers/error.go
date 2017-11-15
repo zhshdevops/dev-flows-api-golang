@@ -35,6 +35,20 @@ func (e *ErrorController) ResponseSuccess(results interface{}) {
 	e.writeResponseBody(resp)
 }
 
+
+func (e *ErrorController) ResponseSupportSuccess(results interface{}) {
+	body := errors.NewSuccessStatus(results)
+	resp, err := json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		glog.Errorf("Marshal %v failed, error:%s\n", body, err)
+		e.ErrorInternalServerError(err)
+		return
+	}
+	e.writeResponseBody(resp)
+}
+
+
+
 func (e *ErrorController) ResponseSuccessDevops(results interface{}, total int64) {
 	body := errors.NewSuccessStatusDevops(results, total)
 	resp, err := json.MarshalIndent(body, "", "  ")

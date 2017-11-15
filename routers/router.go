@@ -70,11 +70,23 @@ func init() {
 				&controllers.CiFlowBuildLogsController{},
 			),
 		),
+		beego.NSNamespace("/auth",
+			beego.NSInclude(
+				&controllers.AuthController{},
+			),
+		),
+		beego.NSNamespace("/stats",
+			beego.NSInclude(
+				&controllers.StatsController{},
+			),
+		),
+
 
 	)
 
 	beego.AddNamespace(ns)
-	//beego.Handler("/stagebuild/log/",controllers.NewJobWatcherSocket().Handler)
+	//beego.Handler("/stagebuild/status/",controllers.NewJobWatcherSocket().Handler)
+	beego.Handler("/socket.io/", controllers.SocketId)
 	beego.Handler("/stagebuild/log/", controllers.StageBuildLog)
 	beego.Handler("/stagebuild/status/", controllers.StageBuildStatus)
 

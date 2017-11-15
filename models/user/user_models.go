@@ -87,7 +87,7 @@ func (u *UserModel) FindByToken(orms ...orm.Ormer) (uint32, error) {
 	return sqlstatus.ParseErrorCode(err)
 }
 
-func (u *UserModel) IsHaveAuthor(orms ...orm.Ormer) (uint32, error) {
+func (u *UserModel) IsHaveAuthor(namespace string,orms ...orm.Ormer) (uint32, error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -96,7 +96,7 @@ func (u *UserModel) IsHaveAuthor(orms ...orm.Ormer) (uint32, error) {
 	}
 	SELECT_USER_HAVE_THE_TEAMSPACE := "select * from tenx_users t1 inner join tenx_team_user_ref t2 on t1.user_id = t2.user_id " +
 		"inner join tenx_team_space t3 on t2.team_id = t3.team_id where t1.user_id = ? and t3.namespace = ?"
-	err := o.Raw(SELECT_USER_HAVE_THE_TEAMSPACE, u.UserID, u.Namespace).QueryRow(u)
+	err := o.Raw(SELECT_USER_HAVE_THE_TEAMSPACE, u.UserID, namespace).QueryRow(u)
 	return sqlstatus.ParseErrorCode(err)
 }
 

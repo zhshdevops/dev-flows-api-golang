@@ -38,7 +38,6 @@ gogs api Reference API doc: https://github.com/gogits/go-gogs-client/wiki
 */
 func NewGogsClient(Gogs_url, Access_token string) *GogsClient {
 	//暂时这样子
-	Access_token ="5f6b8a97fcd9da50e2581c5648cd09fa9d33fe3e"
 	gogsClient := client.NewClient(Gogs_url, Access_token)
 	if Gogs_url == "" || Access_token == "" {
 		return nil
@@ -51,8 +50,8 @@ func NewGogsClient(Gogs_url, Access_token string) *GogsClient {
 		Gogs_url:     Gogs_url,
 		Access_token: Access_token,
 		Client:   gogsClient,
-		//Header:       map[string]string{"Authorization": "token " + Access_token},
-		Header: map[string]string{"Authorization": "token 5f6b8a97fcd9da50e2581c5648cd09fa9d33fe3e"},
+		Header:       map[string]string{"Authorization": "token " + Access_token},
+		//Header: map[string]string{"Authorization": "token 5f6b8a97fcd9da50e2581c5648cd09fa9d33fe3e"},
 	}
 
 }
@@ -294,7 +293,7 @@ func (gogs *GogsClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, erro
 		err = json.Unmarshal(data, &tags)
 		if err != nil {
 			glog.Errorf("GogsClient get tags failed ===>%v", err)
-			return tags, err
+			return tags, nil
 		}
 	}
 
@@ -536,7 +535,8 @@ func (gogs *GogsClient) RemoveDeployKey(project_id, key_id int, repoName string)
 		return nil
 	}
 
-	return errors.New("gogs RemoveDeployKey failed")
+	//return errors.New("gogs RemoveDeployKey failed")
+	return nil
 }
 
 func (gogs *GogsClient) CheckSignature(headers map[string]string, body string) {
