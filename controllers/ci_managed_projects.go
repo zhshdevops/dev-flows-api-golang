@@ -111,8 +111,7 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 		cimp.ErrorInternalServerError(errors.New("RequestBody Json Unmarshal failed"))
 		return
 	}
-	glog.Infof("=======fffff====>>body:%s\n",string(cimp.Ctx.Input.RequestBody))
-	glog.Infof("=======fffff====>>body:%v\n",body)
+
 	project.Address = body.Address
 	project.IsPrivate = int8(body.IsPrivate)
 	if body.RepoType != GITLAB {

@@ -27,6 +27,7 @@ type StatusError struct {
 	Details *StatusDetails `json:"details,omitempty"`
 	// Suggested HTTP return code for this status, 0 if not set.
 	Code int32 `json:"code,omitempty"`
+	ScriptId string `json:"id,omitempty"`
 	// responsed data if success
 	Data interface{} `json:"data,omitempty"`
 	//cicd 返回值封装
@@ -399,6 +400,14 @@ func NewResultStatusDevops(results interface{}, code int) *StatusError {
 		StatusDevops:  int32(code),
 	}
 }
+
+func NewResultIdDevops(scriptId string, code int) *StatusError {
+	return &StatusError{
+		ScriptId: scriptId,
+		StatusDevops:  int32(code),
+	}
+}
+
 func NewResultMessageStatusDevops(results, message interface{}, code int) *StatusError {
 	return &StatusError{
 		Message:       message,

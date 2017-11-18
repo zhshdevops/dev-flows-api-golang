@@ -192,6 +192,23 @@ func (e *ErrorController) ResponseResultAndStatusDevops(results interface{}, sta
 	e.writeResponseBody(resp)
 }
 
+func (e *ErrorController) ResponseScriptAndStatusDevops(results string, status int) {
+	body := errors.NewResultIdDevops(results, status)
+	resp, err := json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		glog.Errorf("Marshal %v failed, error:%s\n", body, err)
+		e.ErrorInternalServerError(err)
+		return
+	}
+	if http.StatusOK != status {
+		e.writeResponseHeader(status)
+	}
+	e.writeResponseBody(resp)
+}
+
+
+
+
 func (e *ErrorController) ResponseMessageAndResultAndStatusDevops(results interface{}, message interface{}, status int) {
 	body := errors.NewResultMessageStatusDevops(results, message, status)
 	resp, err := json.MarshalIndent(body, "", "  ")
