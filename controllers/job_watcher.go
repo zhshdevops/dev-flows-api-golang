@@ -406,9 +406,9 @@ func removeSocket(socket socketio.Socket) {
 	removeFromMapping_FlowMapping(socket.Id())
 }
 
-//func init() {
-//	go doStart()
-//}
+func init() {
+	go doStart()
+}
 
 func doStart() {
 Begin:
