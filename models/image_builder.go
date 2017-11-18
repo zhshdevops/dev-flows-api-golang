@@ -127,6 +127,9 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	}
 	// Bind to specified node selector
 	BIND_BUILD_NODE := os.Getenv("BIND_BUILD_NODE")
+	if BIND_BUILD_NODE==""{
+		BIND_BUILD_NODE="true"
+	}
 	if BIND_BUILD_NODE == "true" {
 		jobTemplate.Spec.Template.Spec.NodeSelector = map[string]string{
 			"system/build-node": "true",
@@ -235,9 +238,10 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	//环境变量
 	env := make([]apiv1.EnvVar, 0)
 	if len(buildInfo.Env) != 0 {
-		copy(env, buildInfo.Env)
+		env=append(env,buildInfo.Env...)
 	}
-
+	glog.Infof("ENV==========%v\n",env)
+	glog.Infof("buildInfo.Env==========%v\n",buildInfo.Env)
 	// Used to build docker images burnabybull
 	if buildInfo.Type == 3 {
 		// Check the name of type of target image to build
@@ -309,8 +313,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
 		Name: SCM_CONTAINER_NAME,
-		//Image:           buildInfo.ScmImage,
-		Image:           "harbor.enncloud.cn/qinzhao-harbor/clone-repo:v2.2",
+		Image:           buildInfo.ScmImage,
+		//Image:           "harbor.enncloud.cn/qinzhao-harbor/clone-repo:v2.2",
 		ImagePullPolicy: "Always",
 	}
 	initContainer.Env = []apiv1.EnvVar{
@@ -421,13 +425,15 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 			}, )
 		}
 
-		if (e.Name == "SCRIPT_ENTRY_INFO" || e.Name == "SCRIPT_URL") && "" != e.Value && buildInfo.Type == 3 {
+		if (e.Name == "SCRIPT_ENTRY_INFO" || e.Name == "SCRIPT_URL") && "" != e.Value && buildInfo.Type != 3 {
 			initContainer.Env = append(initContainer.Env, apiv1.EnvVar{
 				Name:  e.Name,
 				Value: e.Value,
 			}, )
 		}
 	}
+
+
 
 	jobTemplate.ObjectMeta.GenerateName = builder.genJobName(buildInfo.FlowName, buildInfo.StageName)
 	jobTemplate.ObjectMeta.Namespace = buildInfo.Namespace
@@ -439,6 +445,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	}
 
 	jobContainer.Env = env
+
+	glog.Infof("=========jobContainer.Env:%v\n",jobContainer.Env)
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
 	dataJob, _ := json.Marshal(jobTemplate)
 	glog.V(1).Infof("%s ============>>jobTemplate=[%v]\n", method, string(dataJob))

@@ -368,7 +368,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 			return stageBuildResp, http.StatusInternalServerError
 		}
 		if containerInfo.Scripts_id != "" {
-			MakeScriptEntryEnvForInitContainer(user, containerInfo)
+			MakeScriptEntryEnvForInitContainer(user, &containerInfo)
 		}
 		//容器的启动命令
 		if len(containerInfo.Command) != 0 {
@@ -530,7 +530,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 	return string(data), http.StatusOK
 }
 
-func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo models.Container) {
+func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo *models.Container) {
 	scriptID := containerInfo.Scripts_id
 	userName := user.Username
 	userToken := ""
@@ -539,7 +539,7 @@ func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo mode
 	}
 	//TODO 加密解密的问题
 	containerInfo.Command = []string{fmt.Sprintf("/app/%s", scriptID)}
-	containerInfo.Env = []apiv1.EnvVar{
+	containerInfo.Env=append(containerInfo.Env,[]apiv1.EnvVar{
 		{
 			Name:  "SCRIPT_ENTRY_INFO",
 			Value: scriptID + ":" + userName + ":" + userToken,
@@ -548,7 +548,7 @@ func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo mode
 			Name:  "SCRIPT_URL",
 			Value: common.ScriptUrl,
 		},
-	}
+	}...)
 
 }
 

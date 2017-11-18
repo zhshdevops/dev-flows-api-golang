@@ -32,5 +32,5 @@ func init() {
 	FlowDetailUrl = USERPORTAL_URL + "/ci_cd/tenx_flow/tenx_flow_build"
 
 	WebHookUrlPrefix = DEVOPS_EXTERNAL_PROTOCOL + "://" + DEVOPS_EXTERNAL_HOST + "/api/v2/devops/managed-projects/webhooks/"
-	ScriptUrl = DEVOPS_EXTERNAL_PROTOCOL + "://" + DEVOPS_EXTERNAL_HOST + "/api/v2/devops/managed-projects/ci-scripts"
+	ScriptUrl = DEVOPS_EXTERNAL_PROTOCOL + "://" + DEVOPS_EXTERNAL_HOST + "/api/v2/devops/ci-scripts"
 }

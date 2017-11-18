@@ -57,7 +57,7 @@ func (cs *CiScripts) UpdateScriptByID(id, script string, orms ...orm.Ormer) erro
 	ciScripts.ID = id
 	ciScripts.Content = script
 	num, err := o.Update(&ciScripts, "content")
-	if err != nil || num < 1 {
+	if err != nil  {
 		return fmt.Errorf("UpdateScriptByID failed %d  %v", num, err)
 	}
 	return nil

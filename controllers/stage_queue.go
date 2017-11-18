@@ -699,12 +699,12 @@ func (queue *StageQueue) StartStageBuild(stage models.CiStages, index int) (Stag
 			return stageBuildResp, http.StatusInternalServerError
 		}
 		if containerInfo.Scripts_id != "" {
-			MakeScriptEntryEnvForInitContainer(queue.User, containerInfo)
+			MakeScriptEntryEnvForInitContainer(queue.User, &containerInfo)
 		}
 		//容器的启动命令
-		if len(containerInfo.Command) != 0 {
-			buildInfo.Command = containerInfo.Command
-		}
+		//if len(containerInfo.Command) != 0 {
+		//	buildInfo.Command = containerInfo.Command
+		//}
 		//镜像args命令
 		buildInfo.Build_command = containerInfo.Args
 		//镜像的环境变量
