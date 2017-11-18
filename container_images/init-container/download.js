@@ -19,8 +19,8 @@ const SECRET_KEY = 'dazyunsecretkeysforuserstenx20141019generatedKey'
 const ENV = process.env
 const SCRIPT_ENTRY_INFO = ENV.SCRIPT_ENTRY_INFO
 const SCRIPT_URL = ENV.SCRIPT_URL
- // const SCRIPT_ENTRY_INFO = 'K9/N3ccZiEr85Y/zMKLjUGob3HvgWbV+9oM0Hv/2LAeebeQ8+KVQZ8nvlk9VlrP0AuSYF3ex93O8b+qI+kddssdHEgdi/I6pgf7ZZGlXw6R5wu99Z1+Vk0yII//t3nQhrTit27uY7uG08eCezvIBMlah9gLFRph36KU8mDlB4O69zBATmQP6AudzRgh6HCm9zhsmjBr0ImC5fRummhpNFJyXHTYm'
- // const SCRIPT_URL = 'https://paasdev.enncloud.cn:38090/api/v2/devops/ci-scripts'
+//  const SCRIPT_ENTRY_INFO = 'SCRIPT-5WKSwXhqRLF4:dujingya:sncrlgdehhsqcqjububttvahyfgqqdmacuayymvyljpirsle'
+//  const SCRIPT_URL = 'http://10.39.0.102:8090/api/v2/devops/ci-scripts'
 
 // Disabled rejecting self-signed certificates
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
