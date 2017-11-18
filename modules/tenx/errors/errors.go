@@ -26,22 +26,23 @@ type StatusError struct {
 	// the reason type.
 	Details *StatusDetails `json:"details,omitempty"`
 	// Suggested HTTP return code for this status, 0 if not set.
-	Code int32 `json:"code,omitempty"`
+	Code     int32 `json:"code,omitempty"`
 	ScriptId string `json:"id,omitempty"`
 	// responsed data if success
 	Data interface{} `json:"data,omitempty"`
 	//cicd 返回值封装
 	StatusDevops  int32 `json:"status,omitempty"`
 	TotalDevops   int64 `json:"total,omitempty"`
+	Script        interface{} `json:"script,omitempty"`
 	ResultsDevops interface{} `json:"results,omitempty"`
 	// A human-readable description of the status of this operation.
-	Message   interface{} `json:"message,omitempty"`
-	ProjectId interface{} `json:"project_id,omitempty"`
-	Warnings  interface{} `json:"warnings,omitempty"`
-	FlowId    string `json:"flow_id,omitempty"`
-	FlowBuildId    string `json:"flowBuildId,omitempty"`
-	RuleId    interface{} `json:"rule_id,omitempty"`
-	ImageList interface{} `json:"images,omitempty"`
+	Message     interface{} `json:"message,omitempty"`
+	ProjectId   interface{} `json:"project_id,omitempty"`
+	Warnings    interface{} `json:"warnings,omitempty"`
+	FlowId      string `json:"flow_id,omitempty"`
+	FlowBuildId string `json:"flowBuildId,omitempty"`
+	RuleId      interface{} `json:"rule_id,omitempty"`
+	ImageList   interface{} `json:"images,omitempty"`
 }
 
 // StatusDetails is a set of additional properties that MAY be set by the
@@ -305,7 +306,7 @@ func NewSuccessStatus(results interface{}) *StatusError {
 
 func NewSuccessDataStatus(results interface{}) *StatusError {
 	return &StatusError{
-		Data:   results,
+		Data: results,
 	}
 }
 
@@ -363,15 +364,13 @@ func NewSuccessStatusFlowDevops(message interface{}, flowId string) *StatusError
 	}
 }
 
-
 func NewSuccessStatusFlowBuildIdDevops(message interface{}, flowBuildId string) *StatusError {
 	return &StatusError{
-		FlowBuildId:       flowBuildId,
+		FlowBuildId:  flowBuildId,
 		Message:      message,
 		StatusDevops: http.StatusOK,
 	}
 }
-
 
 func NewSuccessStatusAndMessageDevops(message interface{}) *StatusError {
 	return &StatusError{
@@ -401,10 +400,17 @@ func NewResultStatusDevops(results interface{}, code int) *StatusError {
 	}
 }
 
+func NewResultScriptStatusDevops(results interface{}, code int) *StatusError {
+	return &StatusError{
+		Script: results,
+		StatusDevops:  int32(code),
+	}
+}
+
 func NewResultIdDevops(scriptId string, code int) *StatusError {
 	return &StatusError{
-		ScriptId: scriptId,
-		StatusDevops:  int32(code),
+		ScriptId:     scriptId,
+		StatusDevops: int32(code),
 	}
 }
 

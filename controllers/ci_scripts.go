@@ -62,7 +62,7 @@ func (cs *CiScriptsController) GetScriptByID() {
 		}
 
 	}
-	cs.ResponseResultAndStatusDevops(ciScript, http.StatusOK)
+	cs.ResponseResultScriptAndStatusDevops(ciScript, http.StatusOK)
 	return
 }
 
