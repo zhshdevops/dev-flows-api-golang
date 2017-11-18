@@ -155,7 +155,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Name:  s.config.Cookie,
 		Value: sid,
 	})
-	fmt.Println("=======================>>call  s.eio.ServeHTTP method<<==========")
+
 	conn.(*serverConn).ServeHTTP(w, r)
 }
 

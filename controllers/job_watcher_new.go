@@ -5,16 +5,16 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/1.4/pkg/labels"
+	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/client-go/1.4/pkg/watch"
 	"encoding/json"
 	"fmt"
 	//"sync"
 
 	"dev-flows-api-golang/models/common"
 	"dev-flows-api-golang/modules/client"
-	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
+	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	//"github.com/gorilla/websocket"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -521,11 +521,11 @@ Begin:
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
 		return
 	}
-	listOptions := v1.ListOptions{
-		LabelSelector: labelsSel.String(),
+	listOptions := api.ListOptions{
+		LabelSelector: labelsSel,
 	}
 
-	watchInterface, err := client.KubernetesClientSet.BatchV1Client.Jobs("qinzhao").Watch(listOptions)
+	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs("").Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s get watchInterface failed %v\n", method, err)
 		return

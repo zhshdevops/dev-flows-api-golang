@@ -72,7 +72,7 @@ func (c *Client) Do(method, url, opaque string, body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("Error while building gitlab request")
 	}
 
-	req.Header.Set("Private-Token", fmt.Sprintf(" %s", c.Token))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
 
 	if len(opaque) > 0 {
 		req.URL.Opaque = opaque
@@ -89,7 +89,7 @@ func (c *Client) Do(method, url, opaque string, body []byte) ([]byte, error) {
 	}
 
 	if resp.StatusCode >= 400 {
-		err = fmt.Errorf("*Gitlab.buildAndExecRequest failed: <%d> %s %v", resp.StatusCode, req.URL)
+		err = fmt.Errorf("*Gitlab.buildAndExecRequest failed: <%d> %s", resp.StatusCode, req.URL)
 	}
 
 	return contents, err

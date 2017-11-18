@@ -8,7 +8,9 @@ import (
 	"time"
 	"dev-flows-api-golang/modules/client"
 	"fmt"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	//"k8s.io/client-go/1.4/pkg/api/v1"
+
 	"net/http"
 	"dev-flows-api-golang/util/uuid"
 )
@@ -90,8 +92,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			}
 			continue
 		}
-		option := v1.GetOptions{}
-		deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName, option)
+		deployment, err := k8sClient.ExtensionsClient.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName)
 		if err != nil {
 			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
 
@@ -174,7 +175,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 
-			dp, err := k8sClient.ExtensionsV1beta1Client.Deployments(dep.Namespace).Update(dep.Deployment)
+			dp, err := k8sClient.ExtensionsClient.Deployments(dep.Namespace).Update(dep.Deployment)
 			if err != nil {
 
 				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp, err)

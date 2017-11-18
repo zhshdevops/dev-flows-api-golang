@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"github.com/golang/glog"
 )
 
 type baseHandler struct {
@@ -137,7 +136,6 @@ func (h *baseHandler) broadcastName(room string) string {
 }
 
 func (h *socketHandler) onPacket(decoder *decoder, packet *packet) ([]interface{}, error) {
-	glog.Infoln("comeing socketHandler.onPacket ==========>")
 	var message string
 	switch packet.Type {
 	case _CONNECT:

@@ -4,14 +4,14 @@ import (
 	"github.com/googollee/go-socket.io"
 	"github.com/golang/glog"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/1.4/pkg/labels"
+	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/client-go/1.4/pkg/watch"
 	"fmt"
 
 	"dev-flows-api-golang/models/common"
 	"dev-flows-api-golang/modules/client"
-	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
+	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	//"github.com/gorilla/websocket"
 	"sync"
 	//"golang.org/x/net/websocket"
@@ -82,8 +82,6 @@ const StopWatch = "stopWatch"
 
 
 func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket) {
-	//con,err:=websocket.Upgrader{}.Upgrade()
-	//con.
 	method := "jobwatch.Watch"
 	var i int
 	var watchedBuildslen = len(watchBuildInfo.WatchedBuilds)
@@ -106,7 +104,8 @@ func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket)
 	}
 
 	for _, stageBuild := range watchBuildInfo.WatchedBuilds {
-		if stageBuild.StageId == "" { //如果是没有对应的stageId
+		if stageBuild.StageId == "" { //如果没有对应的stageId
+			//通知前端
 			emitError(socket, flowId, stageBuild.StageId, stageBuild.StageBuildId, 400, "Stage id should be specified")
 			return
 		}
@@ -137,6 +136,7 @@ func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket)
 			//未获取到build时，返回错误
 			glog.Errorf("%s GetValidStageBuild failed==>:%v\n", method, err)
 			emitError(socket, flowId, stageBuild.StageId, stageBuild.StageBuildId, 400, fmt.Sprintf("%s", err))
+
 		} else if build.Status == common.STATUS_SUCCESS || build.Status == common.STATUS_FAILED {
 			//状态为成功或失败时，返回状态
 			emitStatus(socket, flowId, stageBuild.StageId, stageBuild.StageBuildId, int(build.Status))
@@ -157,7 +157,7 @@ func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket)
 // 通知前端
 func emitStatus(socket socketio.Socket, flowId, stageId, stageBuildId string, buildStatus int) {
 
-	glog.Infof("emitStatus notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
+	glog.Infof("通知前端 emitStatus notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
 
 	message := struct {
 		FlowId       string `json:"flowId"`
@@ -209,7 +209,7 @@ func emitError(socket socketio.Socket, flowId, stageId, stageBuildId string, Sta
 }
 
 func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId string) {
-	glog.Infof("saveSocketAndBuild flowsid=%s,stageId=%d ", flowId, stageId)
+	glog.Infof("saveSocketAndBuild flowsid=%s,stageId=%s\n ", flowId, stageId)
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//保存build id对应的socket
@@ -233,7 +233,7 @@ func saveSocketAndBuild(socket socketio.Socket, stageBuildId, flowId, stageId st
 }
 
 func notifyFlow(flowId, flowBuildId string, status int) {
-	glog.Infof("notifyFlow flowsid=%s,status=%d ", flowId, status)
+	glog.Infof("通知 flow 执行结果 :notifyFlow flowsid=%s,status=%d ", flowId, status)
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 	method := "notifyFlow"
@@ -243,7 +243,8 @@ func notifyFlow(flowId, flowBuildId string, status int) {
 
 	if socketidMap, ok := SOCKETS_OF_FLOW_MAPPING[flowId]; ok {
 		for key, socketMap := range socketidMap {
-			glog.Infof("%s the socket id is %s\n", method, key)
+
+			glog.Infof("%s 存在对应的阶段任务: the socket id is %s\n", method, key)
 			emitStatusOfFlow(socketMap, flowId, flowBuildId, status)
 		}
 	}
@@ -251,7 +252,7 @@ func notifyFlow(flowId, flowBuildId string, status int) {
 }
 
 func emitStatusOfFlow(socket socketio.Socket, flowId, flowBuildId string, buildStatus int) {
-	glog.Infof("Intoing notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
+	glog.Infof("通知前端某个子任务的状态 Intoing notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
 	message := struct {
 		FlowId      string `json:"flowId"`
 		FlowBuildId string `json:"flowBuildId"`
@@ -300,12 +301,11 @@ func notifyNewBuild(stageId, stageBuildId string, status int) {
 }
 
 func notify(stageBuildId string, status int) {
-
+	glog.Infof("通知前端:stageBuildId的状态==============>>%s,status=%d\n",stageBuildId,status)
 	method := "notify"
 	if stageBuildId == "" {
 		return
 	}
-	glog.Infof("notify stageBuildId:%s\n", stageBuildId)
 	if socketidMap, ok := SOCKETS_OF_BUILD_MAPPING[stageBuildId]; ok {
 		SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 		defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
@@ -337,7 +337,7 @@ func handleNoWatchedExist(socket socketio.Socket) {
 }
 
 func removeStagesAndBuilds(socket socketio.Socket) bool {
-	glog.Infof("removeStagesAndBuilds:%s\n",socket)
+	glog.Infof("删除 stage build 的状态 removeStagesAndBuilds:%s\n",socket)
 	return removeFromMapping_StageMapping(socket.Id()) &&
 		removeFromMapping_BuildMapping(socket.Id())
 }
@@ -379,7 +379,7 @@ func removeFromMapping_StageMapping(socketId string) bool {
 
 //delete flow
 func removeFromMapping_FlowMapping(socketId string) bool {
-	glog.Infof("removeFromMapping_FlowMapping:%s\n",socketId)
+	glog.Infof("删除flow的 removeFromMapping_FlowMapping:%s\n",socketId)
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//socket没有对应的object时，不用删除
@@ -397,7 +397,7 @@ func removeFromMapping_FlowMapping(socketId string) bool {
 }
 
 func NotifyFlowStatus(flowId, flowBuildId string, status int) {
-	glog.Infof("Intoing notisyflowstatus flowsid=%s,status=%d ", flowId, status)
+	glog.Infof("通知前端 flow 的状态 :Intoing notisyflowstatus flowsid=%s,status=%d ", flowId, status)
 	notifyFlow(flowId, flowBuildId, status)
 }
 
@@ -422,11 +422,11 @@ Begin:
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
 		return
 	}
-	listOptions := v1.ListOptions{
-		LabelSelector: labelsSel.String(),
+	listOptions := api.ListOptions{
+		LabelSelector: labelsSel,
 	}
 
-	watchInterface, err := client.KubernetesClientSet.BatchV1Client.Jobs("").Watch(listOptions)
+	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs("qinzhao").Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s get watchInterface failed %v\n", method, err)
 		return
@@ -451,7 +451,7 @@ Begin:
 			}
 
 			if event.Type == watch.Deleted {
-				glog.Infof("%s A job is deleted:%v\n", event)
+				glog.Infof("构建成功 %s A job is deleted:%v\n", event)
 				if dm.ObjectMeta.Labels["stage-build-id"] != "" {
 					if dm.Status.Succeeded >= 1 {
 						//构建成功
@@ -464,18 +464,22 @@ Begin:
 				}
 
 			} else if event.Type == watch.Added {
+				glog.Infoln("收到added事件，等待中的stage build开始构建 namespace=",dm.ObjectMeta.Namespace)
 				//收到added事件，等待中的stage build开始构建
 				notifyNewBuild(dm.ObjectMeta.Labels["stage-id"],
 					dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_BUILDING)
 			} else if dm.Status.Succeeded >= 1 {
 				//job执行成功
+				glog.Infoln("namespace=",dm.ObjectMeta.Namespace)
 				glog.Infof("===================>>Succeeded")
 				notify(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_SUCCESS)
 			} else if dm.Status.Failed >= 1 {
 				//job执行失败
+				glog.Infoln("namespace=",dm.ObjectMeta.Namespace)
 				glog.Infof("===================>>failed")
 				notify(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_FAILED)
 			} else if dm.Spec.Parallelism == Int32Toint32Point(0) {
+				glog.Infoln("namespace=",dm.ObjectMeta.Namespace)
 				//停止job时
 				//判断enncloud-builder-succeed label是否存在，从而确定执行成功或失败，并通知
 				if dm.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {

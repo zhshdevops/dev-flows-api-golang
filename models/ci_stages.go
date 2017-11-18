@@ -9,7 +9,7 @@ import (
 	"errors"
 	"encoding/json"
 	"dev-flows-api-golang/models/common"
-	apiv1 "k8s.io/client-go/pkg/api/v1"
+	apiv1 "k8s.io/client-go/1.4/pkg/api/v1"
 )
 
 type CiStages struct {
@@ -395,7 +395,6 @@ func (cs *CiStages) FindWithLinksByFlowId(flowId string) (stages []Stages, total
 	//查询link信息
 		"join tenx_ci_stage_links as link on last_build_status.stage_id = source_id " +
 		"order by seq"
-	glog.Infof(" FindWithLinksByFlowId of sql:[%s]\n", sql)
 	total, err = o.Raw(sql, flowId).QueryRows(&stages)
 	return
 }

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"encoding/json"
 	"dev-flows-api-golang/ci/coderepo"
-	"k8s.io/client-go/pkg/apis/batch/v1"
+	"k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	sqlstatus "dev-flows-api-golang/models/sql/status"
-	apiv1 "k8s.io/client-go/pkg/api/v1"
+	apiv1 "k8s.io/client-go/1.4/pkg/api/v1"
 	"dev-flows-api-golang/models"
 	"net/http"
 	"dev-flows-api-golang/modules/client"
@@ -471,7 +471,7 @@ func StartStageBuild(user *user.UserModel, stage models.CiStages, ciStagebuildLo
 		buildInfo.BUILD_INFO_TYPE = 2 //显示没有下一个stage
 	}
 
-	//buildCluster = "CID-d7d3eb44c1db"
+	buildCluster = "CID-d7d3eb44c1db"
 
 	imageBuilder := models.NewImageBuilder(buildCluster)
 	//构建job的参数以及执行job命令

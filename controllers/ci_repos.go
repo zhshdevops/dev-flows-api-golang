@@ -709,6 +709,8 @@ func (cirepo *CiReposController) GetTags() {
 		glog.V(1).Infof("%s the tags info: %v", method, tags)
 
 		cirepo.ResponseResultAndStatusDevops(tags, http.StatusOK)
+
+		return
 	}
 
 	cirepo.ResponseResultAndStatusDevops("", http.StatusOK)

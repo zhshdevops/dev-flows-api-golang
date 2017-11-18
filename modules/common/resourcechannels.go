@@ -15,15 +15,16 @@
 package common
 
 import (
-	"k8s.io/client-go/kubernetes"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1api "k8s.io/client-go/pkg/api/v1"
-	v1alpha1apps "k8s.io/client-go/pkg/apis/apps/v1beta1"
-	v1batch "k8s.io/client-go/pkg/apis/batch/v1"
-	v1beta1extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/1.4/kubernetes"
+	v1core "k8s.io/client-go/1.4/kubernetes/typed/core/v1"
+	v1api "k8s.io/client-go/1.4/pkg/api/v1"
+	v1alpha1apps "k8s.io/client-go/1.4/pkg/apis/apps/v1alpha1"
+	v1batch "k8s.io/client-go/1.4/pkg/apis/batch/v1"
+	v1beta1extensions "k8s.io/client-go/1.4/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/1.4/pkg/labels"
+	"k8s.io/client-go/1.4/pkg/fields"
+
+	v1 "k8s.io/client-go/1.4/pkg/api"
 )
 
 // ResourceChannels struct holds channels to resource lists. Each list channel is paired with
@@ -102,7 +103,7 @@ func GetSecretListChannel(client *kubernetes.Clientset, nsQuery *NamespaceQuery,
 	}
 
 	go func() {
-		list, err := client.CoreV1Client.Secrets(nsQuery.ToRequestParam()).List(listEverything)
+		list, err := client.CoreClient.Secrets(nsQuery.ToRequestParam()).List(listEverything)
 		var filteredItems []v1api.Secret
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -135,7 +136,7 @@ func GetServiceListChannel(client *kubernetes.Clientset, nsQuery *NamespaceQuery
 		Error: make(chan error, numReads),
 	}
 	go func() {
-		list, err := client.CoreV1Client.Services(nsQuery.ToRequestParam()).List(listEverything)
+		list, err := client.CoreClient.Services(nsQuery.ToRequestParam()).List(listEverything)
 		var filteredItems []v1api.Service
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -167,7 +168,7 @@ func GetNodeListChannel(client *kubernetes.Clientset, numReads int) NodeListChan
 	}
 
 	go func() {
-		list, err := client.CoreV1Client.Nodes().List(listEverything)
+		list, err := client.CoreClient.Nodes().List(listEverything)
 		for i := 0; i < numReads; i++ {
 			channel.List <- list
 			channel.Error <- err
@@ -192,7 +193,7 @@ func GetNamespaceListChannel(client *kubernetes.Clientset, numReads int) Namespa
 	}
 
 	go func() {
-		list, err := client.CoreV1Client.Namespaces().List(listEverything)
+		list, err := client.CoreClient.Namespaces().List(listEverything)
 		for i := 0; i < numReads; i++ {
 			channel.List <- list
 			channel.Error <- err
@@ -210,13 +211,13 @@ type EventListChannel struct {
 
 // GetEventListChannel returns a pair of channels to an Event list and errors that both must be read
 // numReads times.
-func GetEventListChannel(client v1core.CoreV1Client,
+func GetEventListChannel(client v1core.CoreClient,
 	nsQuery *NamespaceQuery, numReads int) EventListChannel {
 	return GetEventListChannelWithOptions(client, nsQuery, listEverything, numReads)
 }
 
 // GetEventListChannelWithOptions is GetEventListChannel plus list options.
-func GetEventListChannelWithOptions(client v1core.CoreV1Client,
+func GetEventListChannelWithOptions(client v1core.CoreClient,
 	nsQuery *NamespaceQuery, options v1.ListOptions, numReads int) EventListChannel {
 	channel := EventListChannel{
 		List:  make(chan *v1api.EventList, numReads),
@@ -249,13 +250,13 @@ type PodListChannel struct {
 
 // GetPodListChannel returns a pair of channels to a Pod list and errors that both must be read
 // numReads times.
-func GetPodListChannel(client v1core.CoreV1Client,
+func GetPodListChannel(client v1core.CoreClient,
 	nsQuery *NamespaceQuery, numReads int) PodListChannel {
 	return GetPodListChannelWithOptions(client, nsQuery, listEverything, numReads)
 }
 
 // GetPodListChannelWithOptions is GetPodListChannel plus listing options.
-func GetPodListChannelWithOptions(client v1core.CoreV1Client, nsQuery *NamespaceQuery,
+func GetPodListChannelWithOptions(client v1core.CoreClient, nsQuery *NamespaceQuery,
 	options v1.ListOptions, numReads int) PodListChannel {
 
 	channel := PodListChannel{
@@ -300,7 +301,7 @@ func GetReplicationControllerListChannel(client *kubernetes.Clientset,
 
 
 	go func() {
-		list, err := client.CoreV1Client.ReplicationControllers(nsQuery.ToRequestParam()).List(listEverything)
+		list, err := client.CoreClient.ReplicationControllers(nsQuery.ToRequestParam()).List(listEverything)
 		var filteredItems []v1api.ReplicationController
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -334,7 +335,7 @@ func GetDeploymentListChannel(client *kubernetes.Clientset,
 	}
 
 	go func() {
-		list, err := client.ExtensionsV1beta1Client.Deployments(nsQuery.ToRequestParam()).List(listEverything)
+		list, err := client.ExtensionsClient.Deployments(nsQuery.ToRequestParam()).List(listEverything)
 		var filteredItems []v1beta1extensions.Deployment
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -374,7 +375,7 @@ func GetReplicaSetListChannelWithOptions(client *kubernetes.Clientset,
 	}
 
 	go func() {
-		list, err := client.ExtensionsV1beta1Client.ReplicaSets(nsQuery.ToRequestParam()).List(options)
+		list, err := client.ExtensionsClient.ReplicaSets(nsQuery.ToRequestParam()).List(options)
 		var filteredItems []v1beta1extensions.ReplicaSet
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -407,7 +408,7 @@ func GetDaemonSetListChannel(client *kubernetes.Clientset,
 	}
 
 	go func() {
-		list, err := client.ExtensionsV1beta1Client.DaemonSets(nsQuery.ToRequestParam()).List(listEverything)
+		list, err := client.ExtensionsClient.DaemonSets(nsQuery.ToRequestParam()).List(listEverything)
 		var filteredItems []v1beta1extensions.DaemonSet
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -440,7 +441,7 @@ func GetJobListChannel(client *kubernetes.Clientset,
 	}
 
 	go func() {
-		list, err := client.BatchV1Client.Jobs(nsQuery.ToRequestParam()).List(listEverything)
+		list, err := client.BatchClient.Jobs(nsQuery.ToRequestParam()).List(listEverything)
 		var filteredItems []v1batch.Job
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -459,7 +460,7 @@ func GetJobListChannel(client *kubernetes.Clientset,
 
 // PetSetListChannel is a list and error channels to Nodes.
 type PetSetListChannel struct {
-	List  chan *v1alpha1apps.StatefulSetList
+	List  chan *v1alpha1apps.PetSetList
 	Error chan error
 }
 
@@ -475,13 +476,13 @@ func GetPetSetListChannel(client *kubernetes.Clientset,
 func GetPetSetListChannelWithOptions(client *kubernetes.Clientset, nsQuery *NamespaceQuery,
 	options v1.ListOptions, numReads int) PetSetListChannel {
 	channel := PetSetListChannel{
-		List:  make(chan *v1alpha1apps.StatefulSetList, numReads),
+		List:  make(chan *v1alpha1apps.PetSetList, numReads),
 		Error: make(chan error, numReads),
 	}
 
 	go func() {
-		petSets, err := client.StatefulSets(nsQuery.ToRequestParam()).List(options)
-		var filteredItems []v1alpha1apps.StatefulSet
+		petSets, err := client.PetSets(nsQuery.ToRequestParam()).List(options)
+		var filteredItems []v1alpha1apps.PetSet
 		for _, item := range petSets.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
 				filteredItems = append(filteredItems, item)
@@ -505,7 +506,7 @@ type ConfigMapListChannel struct {
 
 // GetConfigMapListChannel returns a pair of channels to a ConfigMap list and errors that
 // both must be read numReads times.
-func GetConfigMapListChannel(client v1core.CoreV1Client, nsQuery *NamespaceQuery, numReads int) ConfigMapListChannel {
+func GetConfigMapListChannel(client v1core.CoreClient, nsQuery *NamespaceQuery, numReads int) ConfigMapListChannel {
 
 	channel := ConfigMapListChannel{
 		List:  make(chan *v1api.ConfigMapList, numReads),
@@ -545,7 +546,7 @@ func GetPersistentVolumeListChannel(client *kubernetes.Clientset, numReads int) 
 	}
 
 	go func() {
-		list, err := client.CoreV1Client.PersistentVolumes().List(listEverything)
+		list, err := client.CoreClient.PersistentVolumes().List(listEverything)
 		for i := 0; i < numReads; i++ {
 			channel.List <- list
 			channel.Error <- err
@@ -578,7 +579,7 @@ func GetPersistentVolumeClaimListChannelWithOptions(client *kubernetes.Clientset
 	}
 
 	go func() {
-		list, err := client.CoreV1Client.PersistentVolumeClaims(nsQuery.ToRequestParam()).List(options)
+		list, err := client.PersistentVolumeClaims(nsQuery.ToRequestParam()).List(options)
 		var filteredItems []v1api.PersistentVolumeClaim
 		for _, item := range list.Items {
 			if nsQuery.Matches(item.ObjectMeta.Namespace) {
@@ -596,8 +597,8 @@ func GetPersistentVolumeClaimListChannelWithOptions(client *kubernetes.Clientset
 
 }
 var listEverything = v1.ListOptions{
-	LabelSelector: labels.Everything().String(),
-	FieldSelector: fields.Everything().String(),
+	LabelSelector: labels.Everything(),
+	FieldSelector: fields.Everything(),
 }
 
 

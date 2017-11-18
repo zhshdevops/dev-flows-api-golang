@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"dev-flows-api-golang/modules/log"
 	"net/http"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/ghodss/yaml"
 )
 
@@ -716,9 +715,8 @@ func (cf *CiFlowsController) CreateCDRule() {
 		return
 	}
 
-	option := v1.GetOptions{}
-	deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(namespace).
-		Get(cdRuleReq.Binding_service.Deployment_name, option)
+	deployment, err := k8sClient.ExtensionsClient.Deployments(namespace).
+		Get(cdRuleReq.Binding_service.Deployment_name)
 	if err != nil || deployment.Status.AvailableReplicas <= 0 {
 		glog.Errorf("k8sClient get deployment failed or Failed to validate service information %s %v \n", method, err)
 		cf.ResponseErrorAndCode("您的服务不存在或者该服务已经停止", http.StatusUnauthorized)
@@ -1268,6 +1266,8 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>`))
 		return
 	}
+
+	glog.Infof("build.PodName====%s\n",build)
 
 	if build.PodName == "" {
 		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)

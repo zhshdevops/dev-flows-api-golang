@@ -3,26 +3,27 @@ package models
 import (
 	"os"
 	"dev-flows-api-golang/modules/client"
-	apiv1 "k8s.io/client-go/pkg/api/v1"
 
-	api "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/fields"
-	"strings"
-	"dev-flows-api-golang/models/common"
 	"github.com/golang/glog"
-	k8sWatch "k8s.io/apimachinery/pkg/watch"
+	k8sWatch "k8s.io/client-go/1.4/pkg/watch"
 	"io"
 	//"text/template"
 	"fmt"
 	"time"
 	//"encoding/json"
-	"k8s.io/apimachinery/pkg/watch"
-	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
+	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	"github.com/googollee/go-socket.io"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"html/template"
 	//"dev-flows-api-golang/util/rand"
+
+	//v1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
+	apiv1 "k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/client-go/1.4/pkg/labels"
+	"k8s.io/client-go/1.4/pkg/fields"
+	"strings"
+	"dev-flows-api-golang/models/common"
+	"encoding/json"
 )
 
 const (
@@ -307,7 +308,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	//构造init container
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
-		Name:            SCM_CONTAINER_NAME,
+		Name: SCM_CONTAINER_NAME,
 		//Image:           buildInfo.ScmImage,
 		Image:           "harbor.enncloud.cn/qinzhao-harbor/clone-repo:v2.2",
 		ImagePullPolicy: "Always",
@@ -430,13 +431,19 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 
 	jobTemplate.ObjectMeta.GenerateName = builder.genJobName(buildInfo.FlowName, buildInfo.StageName)
 	jobTemplate.ObjectMeta.Namespace = buildInfo.Namespace
+
 	jobTemplate.Spec.Template.Spec.InitContainers = append(jobTemplate.Spec.Template.Spec.InitContainers, initContainer)
+	dataInitContainerJob, _ := json.Marshal(jobTemplate.Spec.Template.Spec.InitContainers)
+	jobTemplate.Spec.Template.ObjectMeta.Annotations = map[string]string{
+		"pod.alpha.kubernetes.io/init-containers": string(dataInitContainerJob),
+	}
+
 	jobContainer.Env = env
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
-	glog.V(7).Infof("%s jobTemplate=[%v]\n", method, jobTemplate)
-	glog.V(7).Infof("%s namespace=%v\n", method, jobTemplate.Namespace)
+	dataJob, _ := json.Marshal(jobTemplate)
+	glog.V(1).Infof("%s ============>>jobTemplate=[%v]\n", method, string(dataJob))
 
-	return builder.Client.BatchV1Client.Jobs(buildInfo.Namespace).Create(jobTemplate)
+	return builder.Client.BatchClient.Jobs(buildInfo.Namespace).Create(jobTemplate)
 
 }
 
@@ -501,7 +508,7 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string) (apiv1.Pod, error
 		return podList, err
 	}
 	listOptions := api.ListOptions{
-		LabelSelector: labelsSel.String(),
+		LabelSelector: labelsSel,
 	}
 	pods, err := builder.Client.Pods(namespace).List(listOptions)
 	if err != nil {
@@ -527,8 +534,7 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string) (apiv1.Pod, error
 func (builder *ImageBuilder) WaitForJob(namespace, jobName string, buildWithDependency bool) StatusMessage {
 	var statusMessage StatusMessage
 	method := "models/ImageBuilder/WaitForJob"
-	option := v1.GetOptions{}
-	job, err := builder.Client.BatchV1Client.Jobs(namespace).Get(jobName, option)
+	job, err := builder.Client.BatchClient.Jobs(namespace).Get(jobName)
 	if err != nil {
 		glog.Errorf("%s get job %s from kubernetes failed:%v\n", method, jobName, err)
 		statusMessage.Phase = PodUnknown
@@ -685,7 +691,7 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (PodStatus, err
 
 	podName := ""
 	listOptions := api.ListOptions{
-		LabelSelector: labelSelector.String(),
+		LabelSelector: labelSelector,
 		Watch:         true,
 	}
 	// 请求watch api监听pod发生的事件
@@ -780,13 +786,14 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (PodStatus, err
 
 func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socketio.Socket) {
 	method := "WatchEvent"
+	glog.Infoln("Begin watch kubernetes event=====>>")
 	fieldSelector, err := fields.ParseSelector(fmt.Sprintf("involvedObject.kind=pod,involvedObject.name=%s", podName))
 	if nil != err {
 		glog.Errorf("%s: Failed to parse field selector: %v\n", method, err)
 		return
 	}
 	options := api.ListOptions{
-		FieldSelector: fieldSelector.String(),
+		FieldSelector: fieldSelector,
 		Watch:         true,
 	}
 
@@ -941,11 +948,11 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 	var watchRespData WatchJobRespData
 
 	glog.Infof("%s begin watch job jobName=[%s]  namespace=[%s]\n", method, jobName, namespace)
-	opts := v1.ListOptions{
+	opts := api.ListOptions{
 		Watch: true,
 	}
 
-	watchInterface, err := builder.Client.Jobs(namespace).Watch(opts)
+	watchInterface, err := builder.Client.BatchClient.Jobs(namespace).Watch(opts)
 	if err != nil {
 		glog.Errorf("%s  %s\n", method, ">>>>>>断言失败<<<<<<")
 		watchRespData.Succeeded = 0
@@ -992,7 +999,7 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				watchRespData.ForcedStop = true
 
 			}
-			if event.Type == watch.Deleted {
+			if event.Type == k8sWatch.Deleted {
 				//收到deleted事件，job可能被第三方删除
 				glog.Errorf("%s  %s\n", method, " 收到deleted事件，job可能被第三方删除")
 				watchRespData.Succeeded = dm.Status.Succeeded
@@ -1027,9 +1034,9 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				}
 
 				return watchRespData, nil
-			//} else if dm.Status.Failed >=1 && dm.Spec.Completions == Int32Toint32Point(1) &&
-			//	dm.Status.CompletionTime == nil && dm.Status.Succeeded==0{
-			} else if dm.Status.Failed >=1 {
+				//} else if dm.Status.Failed >=1 && dm.Spec.Completions == Int32Toint32Point(1) &&
+				//	dm.Status.CompletionTime == nil && dm.Status.Succeeded==0{
+			} else if dm.Status.Failed >= 1 {
 				watchRespData.Succeeded = dm.Status.Succeeded
 				watchRespData.Failed = dm.Status.Failed
 				watchRespData.Active = dm.Status.Active
@@ -1107,6 +1114,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		Follow:     follow,
 		Timestamps: true,
 	}
+	glog.Infof("%s socket get pods log readCloser faile from kubernetes:podName==>%s\n", method, podName)
 	readCloser, err := builder.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 	if err != nil {
 		glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
@@ -1163,7 +1171,7 @@ func (builder *ImageBuilder) GetJobEvents(namespace, jobName, podName string) (*
 		return eventList, err
 	}
 	options := api.ListOptions{
-		FieldSelector: fieldSelector.String(),
+		FieldSelector: fieldSelector,
 	}
 	return builder.Client.Events(namespace).List(options)
 
@@ -1183,7 +1191,7 @@ func (builder *ImageBuilder) GetPodEvents(namespace, podName, typeSelector strin
 	}
 
 	options := api.ListOptions{
-		FieldSelector: fieldSelector.String(),
+		FieldSelector: fieldSelector,
 	}
 	return builder.Client.Events(namespace).List(options)
 
@@ -1191,10 +1199,7 @@ func (builder *ImageBuilder) GetPodEvents(namespace, podName, typeSelector strin
 
 func (builder *ImageBuilder) GetJob(namespace, jobName string) (*v1beta1.Job, error) {
 
-	options := v1.GetOptions{
-
-	}
-	return builder.Client.BatchV1Client.Jobs(namespace).Get(jobName, options)
+	return builder.Client.BatchClient.Jobs(namespace).Get(jobName)
 
 }
 
@@ -1205,7 +1210,7 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 		return job, err
 	}
 	glog.Infof("Will stop the job %s\n", jobName)
-	job.Spec.Parallelism = Int32Toint32Point(0)
+	//job.Spec.Parallelism = Int32Toint32Point(0)
 	if forced {
 		//parallelism设为0，pod会被自动删除，但job会保留 *****
 		//用来判断是否手动停止
@@ -1217,7 +1222,7 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	//job watcher用来获取运行结果 失败的时候 会加个label 标识失败 1表示手动停止 0 表示由于某种原因自动执行失败
 	job.ObjectMeta.Labels["enncloud-builder-succeed"] = fmt.Sprintf("%d", succeeded)
 
-	return builder.Client.BatchV1Client.Jobs(namespace).Update(job)
+	return builder.Client.BatchClient.Jobs(namespace).Update(job)
 
 }
 

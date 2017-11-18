@@ -10,7 +10,7 @@ import (
 	"dev-flows-api-golang/models"
 	"fmt"
 	"dev-flows-api-golang/models/common"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/api/v1"
 	"text/template"
 	"io"
 )
@@ -35,7 +35,6 @@ func NewStageBuildSocket() {
 
 	go BuildStatusSocketio()
 
-
 	StageBuildLog, err = socketio.NewServer(nil)
 	if err != nil {
 		glog.Errorf("%s New StageBuildLog failed:==>[%s]\n", method, err)
@@ -44,8 +43,6 @@ func NewStageBuildSocket() {
 	}
 
 	go BuildLogSocketio()
-
-
 
 	SocketId, err = socketio.NewServer(nil)
 	if err != nil {
@@ -68,11 +65,11 @@ func Socketio() {
 func BuildLogSocketio() {
 	method := "BuildLogSocketio"
 	StageBuildLog.On("connection", func(socket socketio.Socket) {
-		glog.Infof("%s connect user build log socket id is: %s\n", method, socket.Id())
+		glog.Infof("%s connect user build log  实时日志获取 socket id is: %s\n", method, socket.Id())
 		var buildMessage BuildMessage
 		socket.On(CILOG, func(msg string) {
 
-			glog.Infof("%s==============>>进来了===user BuildLogSocketio<<===========%s\n", method, StageBuildStatusSocket)
+			glog.Infof("%s==============>>实时日志获取===user BuildLogSocketio<<===========%s\n", method, CILOG)
 
 			err := json.Unmarshal([]byte(msg), &buildMessage)
 			if err != nil {
@@ -119,12 +116,13 @@ func BuildStatusSocketio() {
 	StageBuildStatus.On("connection", func(socket socketio.Socket) {
 		glog.Infof("%s connect user build status socket id is: %s\n", method, socket.Id())
 		method := "JobWatcher"
+		glog.Infof("%s==============>>构建状态获取 one===user StageBuildStatusSocket<<========\n", method)
 
 		var watchMessage WatchBuildInfo
 		var resp WatchBuildResp
 		var flow FlowBuildStatusInfo
 		socket.On(StageBuildStatusSocket, func(msg string) {
-			glog.Infof("%s==============>>进来了===user StageBuildStatusSocket<<===========%s\n", method, StageBuildStatusSocket)
+			glog.Infof("%s==============>>构建状态获取 two===user StageBuildStatusSocket<<===========msg=[%s]\n", method, msg)
 			Event := StageBuildStatusSocket
 			err := json.Unmarshal([]byte(msg), &watchMessage)
 			glog.Infof("%s message===StageBuildStatusSocket:%s\n", method, StageBuildStatusSocket)
@@ -227,7 +225,7 @@ var SocketLogRespData = make(chan interface{}, 4096)
 
 //GetStageBuildLogsFromK8S
 func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket) {
-
+	glog.Infoln("开始从kubernetes搜集日志======================>>")
 	method := "GetStageBuildLogsFromK8S"
 
 	imageBuilder := models.NewImageBuilder()
@@ -238,7 +236,8 @@ func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket)
 		socket.Emit(CILOG, err)
 		return
 	}
-
+	glog.Infoln("build info ==========>>jobName:%s\n", build.JobName)
+	//正在等待中
 	if build.Status == common.STATUS_WAITING {
 		buildStatus := struct {
 			BuildStatus string `json:"buildStatus"`
@@ -249,6 +248,7 @@ func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket)
 		socket.Emit(CILOG, buildStatus)
 		return
 	}
+	//
 	if build.PodName == "" {
 		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
 		if err != nil || podName == "" {
@@ -268,8 +268,11 @@ func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket)
 
 //GetLogsFromK8S
 func GetLogsFromK8S(imageBuilder *models.ImageBuilder, namespace, jobName, podName string, socket socketio.Socket) {
+
 	imageBuilder.WatchEvent(namespace, podName, socket)
+
 	WaitForLogs(imageBuilder, namespace, podName, models.SCM_CONTAINER_NAME, socket)
+
 	WaitForLogs(imageBuilder, namespace, podName, models.BUILDER_CONTAINER_NAME, socket)
 
 }

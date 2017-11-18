@@ -15,7 +15,7 @@
 package common
 
 import (
-	v1api "k8s.io/client-go/pkg/api/v1"
+	v1api "k8s.io/client-go/1.4/pkg/api/v1"
 )
 
 // PodInfo represents aggregate information about controller's pods.

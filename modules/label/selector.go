@@ -7,9 +7,9 @@
 package label
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
-	//"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/1.4/pkg/labels"
+	"k8s.io/client-go/1.4/pkg/selection"
+	"k8s.io/client-go/1.4/pkg/util/sets"
 )
 
 type Requirement struct {
@@ -27,7 +27,7 @@ func NewLabelSelector(rs []*Requirement) (labels.Selector, error) {
 		req *labels.Requirement
 	)
 	for _, v := range rs {
-		req, err = labels.NewRequirement(v.Key, v.Operator, v.Values)
+		req, err = labels.NewRequirement(v.Key, v.Operator, sets.NewString(v.Values...))
 		if err != nil {
 			return nil, err
 		}

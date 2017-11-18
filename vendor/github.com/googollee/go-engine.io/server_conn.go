@@ -12,7 +12,6 @@ import (
 	"github.com/googollee/go-engine.io/message"
 	"github.com/googollee/go-engine.io/parser"
 	"github.com/googollee/go-engine.io/transport"
-	"github.com/golang/glog"
 )
 
 type MessageType message.MessageType
@@ -85,7 +84,6 @@ type serverConn struct {
 var InvalidError = errors.New("invalid transport")
 
 func newServerConn(id string, w http.ResponseWriter, r *http.Request, callback serverCallback) (*serverConn, error) {
-	glog.Infoln("coming the newServerConn <<====")
 	transportName := r.URL.Query().Get("transport")
 	creater := callback.transports().Get(transportName)
 	if creater.Name == "" {

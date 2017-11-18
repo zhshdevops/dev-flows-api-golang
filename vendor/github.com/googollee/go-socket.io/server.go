@@ -4,7 +4,6 @@ import (
 	"github.com/googollee/go-engine.io"
 	"net/http"
 	"time"
-	"github.com/golang/glog"
 )
 
 // Server is the server of socket.io.
@@ -85,7 +84,6 @@ func (s *Server) SetAdaptor(adaptor BroadcastAdaptor) {
 
 // ServeHTTP handles http requests.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.Infoln("========>>comeint package go-socket.io ServeHTTP<<======")
 	s.eio.ServeHTTP(w, r)
 }
 
@@ -100,11 +98,9 @@ func (s *Server) loop() {
 		if err != nil {
 			return
 		}
-		soc := newSocket(conn, s.baseHandler)
+		s := newSocket(conn, s.baseHandler)
 		go func(s *socket) {
 			s.loop()
-		}(soc)
-
-		//soc.loop()
+		}(s)
 	}
 }

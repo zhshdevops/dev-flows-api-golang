@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"dev-flows-api-golang/models/cluster"
 	"dev-flows-api-golang/models"
 	"github.com/golang/glog"
 	"gopkg.in/gomail.v2"
@@ -17,9 +18,9 @@ import (
 var ErrMultiOrNoMailConfig = errors.New("multi or no mail config")
 var ErrWrongConfigFormat = errors.New("config in wrong format")
 
-func getMailConfig() (config models.MailConfig, err error) {
-	var configs []models.Configs
-	if configs, err = new(models.Configs).GetByType("mail"); err != nil {
+func getMailConfig() (config cluster.MailConfig, err error) {
+	var configs []cluster.Configs
+	if configs, err = new(cluster.Configs).GetByType("mail"); err != nil {
 		return
 	}
 	if configs == nil || len(configs) != 1 {

@@ -8,7 +8,6 @@ import (
 	"github.com/googollee/go-engine.io/parser"
 	"github.com/googollee/go-engine.io/transport"
 	"github.com/gorilla/websocket"
-	"github.com/golang/glog"
 )
 
 type Server struct {
@@ -17,9 +16,6 @@ type Server struct {
 }
 
 func NewServer(w http.ResponseWriter, r *http.Request, callback transport.Callback) (transport.Server, error) {
-	//var upgrader = websocket.Upgrader{}
-	//conn, err :=upgrader.Upgrade(w,r,nil)
-	glog.Infoln("Upgrade========Upgrade")
 	conn, err := websocket.Upgrade(w, r, nil, 10240, 10240)
 	if err != nil {
 		return nil, err
@@ -31,7 +27,6 @@ func NewServer(w http.ResponseWriter, r *http.Request, callback transport.Callba
 	}
 
 	go ret.serveHTTP(w, r)
-	// ret.serveHTTP(w, r)
 
 	return ret, nil
 }

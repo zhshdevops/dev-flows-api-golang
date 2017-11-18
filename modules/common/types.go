@@ -11,7 +11,8 @@
 package common
 
 import (
-	unversioned "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/1.4/pkg/api/unversioned"
+	v1api "k8s.io/client-go/1.4/pkg/api/v1"
 )
 
 // ObjectMeta is metadata about an instance of a resource.
@@ -70,7 +71,7 @@ type ListMeta struct {
 
 // NewObjectMeta returns internal endpoint name for the given service properties, e.g.,
 // NewObjectMeta creates a new instance of ObjectMeta struct based on K8s object meta.
-func NewObjectMeta(k8SObjectMeta unversioned.ObjectMeta) ObjectMeta {
+func NewObjectMeta(k8SObjectMeta v1api.ObjectMeta) ObjectMeta {
 	return ObjectMeta{
 		Name:              k8SObjectMeta.Name,
 		Namespace:         k8SObjectMeta.Namespace,

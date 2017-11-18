@@ -111,6 +111,8 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 		cimp.ErrorInternalServerError(errors.New("RequestBody Json Unmarshal failed"))
 		return
 	}
+	glog.Infof("=======fffff====>>body:%s\n",string(cimp.Ctx.Input.RequestBody))
+	glog.Infof("=======fffff====>>body:%v\n",body)
 	project.Address = body.Address
 	project.IsPrivate = int8(body.IsPrivate)
 	if body.RepoType != GITLAB {
@@ -156,7 +158,8 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 
 	// Check if the project url alreay exists for svn repo
 	if project.RepoType == "svn" {
-
+		project.Username=body.Username
+		project.Password=body.Password
 		err = results.FindProjectByAddressType(cimp.Namespace, project.Address, project.RepoType)
 		if err != nil {
 			parResultNUmber, _ := sqlstatus.ParseErrorCode(err)
@@ -184,7 +187,7 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 		scmResult = err
 	} else if project.RepoType == "svn" {
 
-		glog.Infof("%s Adding a new SVN repository\n", method)
+		glog.Infof("%s Adding a new SVN repository:body\n", method,)
 		// Update user/password if found for each add action
 		project.SourceFullName = project.Address
 		project.IsPrivate = 0 //公有

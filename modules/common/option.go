@@ -12,8 +12,8 @@ import (
 
 	"fmt"
 
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/client-go/1.4/pkg/fields"
 )
 
 // if fsel is str, should follow this form:

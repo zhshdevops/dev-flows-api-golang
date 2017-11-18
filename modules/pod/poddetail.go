@@ -12,11 +12,11 @@ package pod
 
 import (
 	"github.com/golang/glog"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1api "k8s.io/client-go/pkg/api/v1" // v1api.ConfigMapList, v1v1v1api.Pod, v1api.PodPhase
+	v1core "k8s.io/client-go/1.4/kubernetes/typed/core/v1"
+	v1api "k8s.io/client-go/1.4/pkg/api/v1" // v1api.ConfigMapList, v1v1v1api.Pod, v1api.PodPhase
 
 	"dev-flows-api-golang/modules/common"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 )
 
 // PodDetail is a presentation layer view of Kubernetes PodDetail resource.
@@ -76,7 +76,7 @@ type EnvVar struct {
 
 // GetPodDetail returns the details (PodDetail) of a named Pod from a particular
 // namespace.
-func GetPodDetail(client v1core.CoreV1Client, namespace, name string) (*PodDetail, error) {
+func GetPodDetail(client v1core.CoreClient, namespace, name string) (*PodDetail, error) {
 
 	glog.V(4).Infof("Getting details of %s pod in %s namespace", name, namespace)
 
@@ -84,8 +84,7 @@ func GetPodDetail(client v1core.CoreV1Client, namespace, name string) (*PodDetai
 		ConfigMapList: common.GetConfigMapListChannel(client, common.NewSameNamespaceQuery(namespace), 1),
 		// PodMetrics:    common.GetPodMetricsChannel(heapsterClient, name, namespace),   // hide it for now
 	}
-	option:=v1.GetOptions{}
-	pod, err := client.Pods(namespace).Get(name,option)
+	pod, err := client.Pods(namespace).Get(name)
 
 	if err != nil {
 		return nil, err

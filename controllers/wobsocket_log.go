@@ -24,9 +24,9 @@ import (
 	clientmodule "dev-flows-api-golang/modules/client"
 	streamClient "dev-flows-api-golang/modules/client"
 
-	k8sWatch "k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/pkg/api/v1"
-	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
+	k8sWatch "k8s.io/client-go/1.4/pkg/watch"
+	"k8s.io/client-go/1.4/pkg/api/v1"
+	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
 
 	"dev-flows-api-golang/models"
 	"bytes"
@@ -626,7 +626,7 @@ func handleLogWebsocket(conn *websocket.Conn, s *SocketLogController, channel ch
 	if nil != logStruct.ContainerName {
 		containerName = logStruct.ContainerName
 	} else {
-		podDetail, err := pod.GetPodDetail(*client.CoreV1Client, namespace, logStruct.Name)
+		podDetail, err := pod.GetPodDetail(*client.CoreClient, namespace, logStruct.Name)
 		if nil != err {
 			haveErr = true
 			beego.Error(method, "Get the pod which name is "+logStruct.Name, err)

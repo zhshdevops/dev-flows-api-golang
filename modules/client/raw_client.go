@@ -3,14 +3,14 @@ package client
 import (
 	"fmt"
 	"io"
+	"k8s.io/client-go/1.4/kubernetes"
+	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/watch"
+	"k8s.io/client-go/1.4/rest"
+	"k8s.io/client-go/1.4/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/1.4/tools/clientcmd/api"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // NewK8sClientSet creates a set of new Kubernetes Apiserver clients. When apiserverHost param is empty
@@ -36,7 +36,7 @@ func NewK8sClientSet(clusterName, apiserverProtocol, apiserverHost, apiserverTok
 
 func NewConfig(clusterName, apiserverProtocol, apiserverHost, apiserverToken, apiVersion string) (*rest.Config, error) {
 	config := clientcmdapi.NewConfig()
-	config.Clusters[clusterName] = &clientcmdapi.Cluster{Server: fmt.Sprintf("%s://%s", apiserverProtocol, apiserverHost), InsecureSkipTLSVerify: true}
+	config.Clusters[clusterName] = &clientcmdapi.Cluster{Server: fmt.Sprintf("%s://%s", apiserverProtocol, apiserverHost), InsecureSkipTLSVerify: true,APIVersion:apiVersion}
 	config.AuthInfos[clusterName] = &clientcmdapi.AuthInfo{Token: apiserverToken}
 	config.Contexts[clusterName] = &clientcmdapi.Context{
 		Cluster:  clusterName,
@@ -87,10 +87,10 @@ func (s *Stream) WatchResource(resourceType string) (watch.Interface, error) {
 	var result watch.Interface
 	var werr error
 	if resourceType == "pod" {
-		result, werr = s.cs.CoreV1Client.RESTClient().Get().Prefix("watch").Resource("pods").VersionedParams(&options, api.ParameterCodec).Watch()
+		result, werr = s.cs.CoreClient.Get().Prefix("watch").Resource("pods").VersionedParams(&options, api.ParameterCodec).Watch()
 	}
 	if resourceType == "job" || resourceType == "app" {
-		result, werr = s.cs.ExtensionsV1beta1Client.RESTClient().Get().Prefix("watch").Resource("job").VersionedParams(&options, api.ParameterCodec).Watch()
+		result, werr = s.cs.ExtensionsClient.Get().Prefix("watch").Resource("job").VersionedParams(&options, api.ParameterCodec).Watch()
 	}
 	if werr != nil {
 		return nil, werr
@@ -111,6 +111,6 @@ func (s *Stream) FollowLog(podName, containerName string, tail int64) (io.ReadCl
 		tail = 100
 	}
 	logOption.TailLines = &tail
-	reader, err := s.cs.CoreV1Client.Pods(s.k8sNs).GetLogs(podName, logOption).Stream()
+	reader, err := s.cs.CoreClient.Pods(s.k8sNs).GetLogs(podName, logOption).Stream()
 	return reader, err
 }

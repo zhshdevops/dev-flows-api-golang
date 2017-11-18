@@ -28,14 +28,15 @@
         path: "/stagebuild/status/"
 //        path: "/stagebuild/log/"
     });
+    socket.on("connect",function () {
+
+    })
 
     $("#socketd").click(function () {
-        alert("dasda");
-        socket.emit("stageBuildStatus", JSON.stringify({"flowId":"dad","watchedBuilds":[{"stageBuildId":"","stageId":""}]}))
+        socket.emit("stageBuildStatus", JSON.stringify({"flowId":"CIFID-H1brxegb7Z","watchedBuilds":[{"stageBuildId":"SBID-BvixnaVbwLtb","stageId":"CISID-H1T4exbXb"}]}))
         socket.on("stageBuildStatus", function (data) {
-            console.log(data)
+            console.log("==========================>>>",data)
         })
-
 //        alert("dasda");
 //        socket.emit("ciLogs", JSON.stringify({"flowId":"llslsdls","flowBuildId":"flowBuildId","stageBuildId":"stageBuildId"}))
 //        socket.on("ciLogs", function (data) {
