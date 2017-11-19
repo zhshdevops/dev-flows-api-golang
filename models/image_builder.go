@@ -3,7 +3,7 @@ package models
 import (
 	"os"
 	"dev-flows-api-golang/modules/client"
-
+	"github.com/astaxie/beego/context"
 	"github.com/golang/glog"
 	k8sWatch "k8s.io/client-go/1.4/pkg/watch"
 	"io"
@@ -793,8 +793,11 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (PodStatus, err
 }
 
 func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socketio.Socket) {
+	if podName==""{
+		glog.Errorf("the podName is empty")
+	}
 	method := "WatchEvent"
-	glog.Infoln("Begin watch kubernetes event=====>>")
+	glog.Infoln("Begin watch kubernetes Event=====>>")
 	fieldSelector, err := fields.ParseSelector(fmt.Sprintf("involvedObject.kind=pod,involvedObject.name=%s", podName))
 	if nil != err {
 		glog.Errorf("%s: Failed to parse field selector: %v\n", method, err)
@@ -1109,10 +1112,9 @@ func Int64Toint64Point(input int64) *int64 {
 }
 
 //ESgetLogFromK8S 从Elaticsearch 获取日志失败就从kubernetes 获取日志
-func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName string) string {
+func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName string,ctx *context.Context) {
 	method := "ESgetLogFromK8S"
-	completeLogs := ""
-	follow := false
+	follow := true
 	previous := false
 
 	opt := &apiv1.PodLogOptions{
@@ -1126,8 +1128,8 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 	readCloser, err := builder.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 	if err != nil {
 		glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
-
-		return ""
+		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s",`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+		return
 	}
 
 	data := make([]byte, 1024*1024, 1024*1024)
@@ -1137,18 +1139,19 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			if err == io.EOF {
 				glog.Infof("%s [Enn Flow API ] finish get log of %s.%s!\n", method, podName, containerName)
 				glog.Infof("Get log successfully from kubernetes\n")
-				return completeLogs
+				ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s",`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+				return
 			}
-
+			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s",`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
-			return ""
+			return
 		}
 
-		completeLogs += template.HTMLEscapeString(string(data[:n]))
+		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s<br/>",template.HTMLEscapeString(string(data[:n])))))
 
 	}
 
-	return completeLogs
+	return
 
 }
 

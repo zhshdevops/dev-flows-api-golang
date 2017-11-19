@@ -14,6 +14,10 @@ type CiScriptsController struct {
 	BaseController
 }
 
+type ScriptContent struct {
+	Content string `json:"content"`
+}
+
 //@router / [POST]
 func (cs *CiScriptsController) AddScript() {
 	method := " CiScriptsController.AddScript"
@@ -21,14 +25,23 @@ func (cs *CiScriptsController) AddScript() {
 	cs.Audit.SetOperationType(models.AuditOperationCreate)
 	cs.Audit.SetResourceType(models.AuditResourceOnlineScript)
 
-	contet := string(cs.Ctx.Input.RequestBody)
-	if contet == "" {
+	content := string(cs.Ctx.Input.RequestBody)
+	if content == "" {
 		cs.ResponseErrorAndCode("the script content is empty", http.StatusBadRequest)
+		return
+	}
+
+	var scriptContent ScriptContent
+
+	err:=json.Unmarshal(cs.Ctx.Input.RequestBody,&scriptContent)
+	if err!=nil{
+		glog.Errorf("%s json unmarshal failed:%v\n",method,err)
+		cs.ResponseErrorAndCode("the script content is empty  ", http.StatusBadRequest)
 		return
 	}
 	id := uuid.NewScriptID()
 	ciScript := &models.CiScripts{}
-	num, err := ciScript.AddScript(id, contet)
+	num, err := ciScript.AddScript(id, scriptContent.Content)
 	if err != nil {
 		glog.Errorf("%s AddScript err:%v, num=%d\n", method, err, num)
 		cs.ResponseErrorAndCode("add script failed", http.StatusConflict)

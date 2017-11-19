@@ -941,7 +941,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	imageBuild := models.NewImageBuilder(client.ClusterID)
 	stagequeue, result, httpStatusCode := NewStageQueue(cf.User, bodyReqBody, "", cf.Namespace, flowId, imageBuild)
 
-	glog.Infof("=========httpStatusCode:%d, result:%s\n", httpStatusCode,result)
+	glog.Infof("=========httpStatusCode:%d, result:%s\n", httpStatusCode, result)
 
 	if httpStatusCode == http.StatusOK {
 		FlowBuild, code := stagequeue.Run()
@@ -954,7 +954,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 			FlowBuildId:  FlowBuild.FlowBuildId,
 			StageBuildId: FlowBuild.StageBuildId,
 		}
-		glog.Infof("==============>>Resp:%v\n",Resp)
+		glog.Infof("==============>>Resp:%v\n", Resp)
 		if code == http.StatusOK {
 			cf.ResponseResultAndStatusDevops(Resp, http.StatusOK)
 			return
@@ -1267,7 +1267,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		return
 	}
 
-	glog.Infof("build.PodName====%s\n",build)
+	glog.Infof("Build info====%s\n", build)
 
 	if build.PodName == "" {
 		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
@@ -1298,27 +1298,51 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		return
 	}
 	// get logs from kubernetes client function
-	getLogFromK8S := func() string {
+	getLogFromK8S := func() {
 		glog.Infof("will get log from kubernetes.......\n")
-		return imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.SCM_CONTAINER_NAME) +
-			imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.BUILDER_CONTAINER_NAME)
+		imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.SCM_CONTAINER_NAME, cf.Ctx)
+		imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.BUILDER_CONTAINER_NAME, cf.Ctx)
+		return
 	}
 
-	LogData := ""
+	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`-------------------------- 子任务容器: 仅显示最近  200  条日志 ---------------<br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
+
+	//如果创建失败
+	if build.Status == 1 {
+		eventlist, err := imageBuilder.GetPodEvents(namespace, build.PodName, "type!=Normal")
+		if err != nil {
+			glog.Errorf("%s get pod events failed: %v\n", method, err)
+		}
+		if len(eventlist.Items) != 0 {
+			for _, event := range eventlist.Items {
+
+				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s `, event.CreationTimestamp.Format("2006/01/02 15:04:05"), event.Type, event.Message)))
+
+			}
+
+		}
+	}
+
 	//get log client
 	logClient := log.NewLoggingClient(cluster.APIProtocol, cluster.APIHost, PluginNamespace,
 		LoggingService+":"+strconv.Itoa(LoggingServicePort), cluster.APIToken)
+	if logClient == nil {
+		glog.Infof("will get log form kubernetes=======>>")
+		getLogFromK8S()
+		//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`))
+		cf.Ctx.ResponseWriter.Status = 200
+		return
+	}
 
 	response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME, startTime, client.ClusterID)
 	if err != nil {
-		logsData := getLogFromK8S()
-		glog.Infof(" log info  [%s]\n", logsData)
+		glog.Infof("will get log form kubernetes=======>>")
+		getLogFromK8S()
 		glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
-		if logsData == "" {
-			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
-			return
-		}
-		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
+		cf.Ctx.ResponseWriter.Status = 200
+		//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 		return
 	}
 
@@ -1328,13 +1352,26 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		if len(hits) != 0 {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
-					LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font>        %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
+
+					if len(hit.Source.Log) != 0 {
+
+						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
+
+					}
+					//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 				}
 			}
 
 		}
 
 		//glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
+	} else if startTime.Format("2006.01.02") == endTime.Format("2006.01.02") {
+		glog.Infof("will get log form kubernetes=======>>")
+		//from kubernetes get logs
+		getLogFromK8S()
+		//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`))
+		cf.Ctx.ResponseWriter.Status = 200
+		return
 	}
 
 	//for {
@@ -1358,14 +1395,11 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 		response, err := logClient.GetEnnFlowLog(namespace, build.PodName, models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME, endTime, client.ClusterID)
 		if err != nil {
-			logsData := getLogFromK8S()
-			glog.Infof(" log info  [%s]\n", logsData)
+			glog.Infof("will get log form kubernetes=======>>")
+			getLogFromK8S()
 			glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
-			if logsData == "" {
-				cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
-				return
-			}
-			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
+			cf.Ctx.ResponseWriter.Status = 200
+			//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 			return
 		}
 
@@ -1375,13 +1409,23 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			if len(hits) != 0 {
 				for _, hit := range hits {
 					if hit.Source.Kubernetes["pod_name"] == build.PodName {
-						LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
+
+						if len(hit.Source.Log) != 0 {
+							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
+							//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
+						}
 					}
 				}
 
 			}
 
 			glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
+		} else {
+			glog.Infof("will get log form kubernetes=======>>")
+			getLogFromK8S()
+			//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`))
+			cf.Ctx.ResponseWriter.Status = 200
+			return
 		}
 
 		//for {
@@ -1403,30 +1447,9 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		//}
 
 	}
-	//如果创建失败
-	if build.Status == 1 {
-		eventlist, err := imageBuilder.GetPodEvents(namespace, build.PodName, "type!=Normal")
-		if err != nil {
-			glog.Errorf("%s get pod events failed: %v\n", method, err)
-		}
-		data, _ := json.Marshal(eventlist.Items)
-		if string(data)!=""{
-			cf.Ctx.ResponseWriter.Write(data)
-		}
-
-	}
-
-	if LogData == "" {
-		glog.Infof("getLogFromK8S():%s\n", getLogFromK8S())
-		LogData = getLogFromK8S()
-
-	}
-	if LogData == "" {
-		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志已被删除，PAAS平台只保留7天之内的日志信息</font>`))
-		return
-	}
-	cf.Ctx.ResponseWriter.Write([]byte(LogData))
+	cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 	return
+
 }
 
 //@router /:flow_id/stages/:stage_id/builds/:stage_build_id/events [GET]

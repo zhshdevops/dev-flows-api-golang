@@ -65,7 +65,7 @@ func Socketio() {
 func BuildLogSocketio() {
 	method := "BuildLogSocketio"
 	StageBuildLog.On("connection", func(socket socketio.Socket) {
-		glog.Infof("%s connect user build log  实时日志获取 socket id is: %s\n", method, socket.Id())
+		glog.Infof("%s connect user build log  获取构建实时日志 socket id is: %s\n", method, socket.Id())
 		var buildMessage BuildMessage
 		socket.On(CILOG, func(msg string) {
 
@@ -225,7 +225,7 @@ var SocketLogRespData = make(chan interface{}, 4096)
 
 //GetStageBuildLogsFromK8S
 func GetStageBuildLogsFromK8S(buildMessage BuildMessage, socket socketio.Socket) {
-	glog.Infoln("开始从kubernetes搜集日志======================>>")
+	glog.Infoln("开始从kubernetes搜集实时日志======================>>")
 	method := "GetStageBuildLogsFromK8S"
 
 	imageBuilder := models.NewImageBuilder()
@@ -300,7 +300,7 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 		Follow:     follow,
 		Timestamps: true,
 	}
-	//相应websocket的请求
+	//websocket的请求
 	if socket != nil {
 		readCloser, err := imageBuild.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 		if err != nil {
@@ -346,7 +346,6 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 			socket.Emit(CILOG, message)
 
 		}
-		//相应ES获取日志的请求
 	} else {
 		glog.Errorf("the socket is nil\n")
 	}

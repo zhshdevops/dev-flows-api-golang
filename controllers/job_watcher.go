@@ -157,7 +157,7 @@ func Watch(flowId string, watchBuildInfo WatchBuildInfo, socket socketio.Socket)
 // 通知前端
 func emitStatus(socket socketio.Socket, flowId, stageId, stageBuildId string, buildStatus int) {
 
-	glog.Infof("通知前端 emitStatus notisyflowstatus flowsid=%s,status=%d ", flowId, buildStatus)
+	glog.Infof("通知前端某子任务的状态 emitStatus  flowsId=%s,status=%d ", flowId, buildStatus)
 
 	message := struct {
 		FlowId       string `json:"flowId"`
@@ -187,7 +187,7 @@ func emitStatus(socket socketio.Socket, flowId, stageId, stageBuildId string, bu
 }
 
 func emitError(socket socketio.Socket, flowId, stageId, stageBuildId string, Status int, message string) {
-	glog.Infof("emitError notisyflowstatus flowsid=%s,status=%d ", flowId, Status)
+	glog.Infof("emitError flowsid=%s,status=%d ", flowId, Status)
 	var resp WatchBuildResp
 	resp.Status = Status
 	messageResp := struct {
@@ -329,6 +329,7 @@ func notify(stageBuildId string, status int) {
 	}
 
 }
+//websocket 通过前端关闭
 func handleNoWatchedExist(socket socketio.Socket) {
 	// if (!BUILDS_OF_SOCKET_MAPPING[socket.id] ||
 	//       Object.keys(BUILDS_OF_SOCKET_MAPPING[socket.id]).length < 1) {
@@ -360,7 +361,7 @@ func removeFromMapping_BuildMapping(socketId string) bool {
 
 //delete stage
 func removeFromMapping_StageMapping(socketId string) bool {
-	glog.Infof("removeFromMapping_StageMapping:%s\n",socketId)
+	glog.Infof("删除 stage 对应的socket removeFromMapping_StageMapping:%s\n",socketId)
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	defer SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 	//socket没有对应的object时，不用删除

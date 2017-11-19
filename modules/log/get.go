@@ -65,7 +65,7 @@ var (
 	logCiCdRequest =`{
       "from" : 0,
       "sort": [
-        {"time_nano"  : {"order" : "desc"}}
+        {"time_nano"  : {"order" : "asc"}}
       ],
       "query": {
         "bool": {
