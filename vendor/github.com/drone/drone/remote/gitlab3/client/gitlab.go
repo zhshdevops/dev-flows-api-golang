@@ -72,7 +72,7 @@ func (c *Client) Do(method, url, opaque string, body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("Error while building gitlab request")
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+	req.Header.Set("Private-Token", fmt.Sprintf(" %s", c.Token))
 
 	if len(opaque) > 0 {
 		req.URL.Opaque = opaque

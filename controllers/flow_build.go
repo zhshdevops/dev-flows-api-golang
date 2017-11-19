@@ -953,11 +953,11 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 	//终止job
 	glog.Infof("%s - stop job=[%s]\n", method, job.ObjectMeta.Name)
 	//1 代表手动停止 0表示程序停止
-	_, err = imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
-	if err != nil {
-		glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
-	}
-	timeout = true
+	//_, err = imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+	//if err != nil {
+	//	glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
+	//}
+	//timeout = true
 	return
 
 }

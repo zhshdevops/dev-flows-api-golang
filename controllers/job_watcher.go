@@ -426,7 +426,7 @@ Begin:
 		LabelSelector: labelsSel,
 	}
 
-	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs("qinzhao").Watch(listOptions)
+	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs("").Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s get watchInterface failed %v\n", method, err)
 		return
