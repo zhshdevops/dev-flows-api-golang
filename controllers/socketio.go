@@ -68,9 +68,7 @@ func BuildLogSocketio() {
 		glog.Infof("%s connect user build log  获取构建实时日志 socket id is: %s\n", method, socket.Id())
 		var buildMessage BuildMessage
 		socket.On(CILOG, func(msg string) {
-
 			glog.Infof("%s==============>>实时日志获取===user BuildLogSocketio<<===========%s\n", method, CILOG)
-
 			err := json.Unmarshal([]byte(msg), &buildMessage)
 			if err != nil {
 				glog.Errorf("%s json unmarshal failed====>\n", method, err)
@@ -85,7 +83,6 @@ func BuildLogSocketio() {
 				socket.Disconnect()
 				return
 			}
-
 			GetStageBuildLogsFromK8S(buildMessage, socket)
 			//TODO 结束的时候的问题
 			//socket.emit('ciLogs-ended', 'Failed to get logs')
@@ -122,7 +119,7 @@ func BuildStatusSocketio() {
 		var resp WatchBuildResp
 		var flow FlowBuildStatusInfo
 		socket.On(StageBuildStatusSocket, func(msg string) {
-			glog.Infof("%s==============>>构建状态获取 two===user StageBuildStatusSocket<<===========msg=[%s]\n", method, msg)
+			glog.Infof("%s==affffff====StageBuildStatusSocket========>>构建状态获取 two===user StageBuildStatusSocket<<===========msg=[%s]\n", method, msg)
 			Event := StageBuildStatusSocket
 			err := json.Unmarshal([]byte(msg), &watchMessage)
 			glog.Infof("%s message===StageBuildStatusSocket:%s\n", method, StageBuildStatusSocket)
@@ -331,7 +328,7 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 				}
 				return
 			}
-
+			glog.Infof("==========>>string(data[:n])==>%s\n",string(data[:n]))
 			logMessage := &LogMessage{
 				Name: containerName,
 				Log:  template.HTMLEscapeString(string(data[:n])),

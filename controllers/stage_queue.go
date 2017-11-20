@@ -129,9 +129,10 @@ func NewStageQueue(user *user.UserModel, buildReqbody models.BuildReqbody, event
 			return queue, resp, http.StatusNotFound
 		}
 		queue.TotalStage = total
-		copy(stageList, stages)
-	}
 
+		stageList = append(stageList, stages...)
+
+	}
 	queue.StageList = stageList
 
 	return queue, resp, http.StatusOK
@@ -794,7 +795,7 @@ func (queue *StageQueue) StartStageBuild(stage models.CiStages, index int) (Stag
 	}
 
 	//buildCluster = "CID-f794208bc85f"
-	glog.Infoln("buildCluster===================",buildCluster)
+	glog.Infoln("buildCluster===================", buildCluster)
 	//queue.ImageBuilder = models.NewImageBuilder(buildCluster)
 
 	//构建job的参数以及执行job命令
@@ -850,11 +851,11 @@ func (queue *StageQueue) StartStageBuild(stage models.CiStages, index int) (Stag
 	if status == common.STATUS_FAILED {
 
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
-		stageBuildResp.Message=fmt.Sprintf("构建任务%s失败\n",stage.StageId)
+		stageBuildResp.Message = fmt.Sprintf("构建任务%s失败\n", stage.StageId)
 		respCode = http.StatusConflict
 
 	} else {
-		stageBuildResp.Message=fmt.Sprintf("构建任务%s成功\n",stage.StageId)
+		stageBuildResp.Message = fmt.Sprintf("构建任务%s成功\n", stage.StageId)
 		respCode = http.StatusOK
 	}
 
@@ -887,13 +888,13 @@ func (queue *StageQueue) Run() (FlowBuilResp, int) {
 			if index != 0 {
 				queue.InsertStageBuildLog(stage)
 			}
-			glog.Infof("第%d次构建================<<<\n",index+1)
+			glog.Infof("第%d次构建================<<<\n", index+1)
 			//开始使用websocket通知前端,开始构建 开始此次构建
 			if common.STATUS_BUILDING == queue.StageBuildLog.Status {
 				glog.Infof("%s ======get build status============stageBuildRec:%#v\n", method, queue.StageBuildLog)
 				// Only use namespace for teamspace scope
 				respStage, code := queue.StartStageBuild(stage, index)
-				glog.Infof("%s resp code:%d,respStage:%v\n", method, code,respStage)
+				glog.Infof("%s resp code:%d,respStage:%v\n", method, code, respStage)
 				//构建失败
 				if code != 200 {
 					glog.Infof("%s Run failed respStage:%v\n", method, respStage)

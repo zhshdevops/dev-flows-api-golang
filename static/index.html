@@ -24,24 +24,23 @@
 <script>
     const socket = io('http://127.0.0.1:8090', {
         transports:['websocket'],
-        path: "/socket.io/",
-        path: "/stagebuild/status/"
-//        path: "/stagebuild/log/"
+//        path: "/socket.io/",
+//        path: "/stagebuild/status/"
+        path: "/stagebuild/log/"
     });
-    socket.on("connect",function () {
 
-    })
 
     $("#socketd").click(function () {
-        socket.emit("stageBuildStatus", JSON.stringify({"flowId":"CIFID-H1brxegb7Z","watchedBuilds":[{"stageBuildId":"SBID-BvixnaVbwLtb","stageId":"CISID-H1T4exbXb"}]}))
-        socket.on("stageBuildStatus", function (data) {
-            console.log("==========================>>>",data)
-        })
-//        alert("dasda");
-//        socket.emit("ciLogs", JSON.stringify({"flowId":"llslsdls","flowBuildId":"flowBuildId","stageBuildId":"stageBuildId"}))
-//        socket.on("ciLogs", function (data) {
-//            console.log(data)
+//        socket.emit("stageBuildStatus", JSON.stringify({"flowId":"CIFID-H1brxegb7Z","watchedBuilds":[{"stageBuildId":"SBID-BvixnaVbwLtb","stageId":"CISID-H1T4exbXb"}]}))
+//        socket.on("stageBuildStatus", function (data) {
+//            console.log("==========================>>>",data)
 //        })
+
+        socket.emit("ciLogs", JSON.stringify({"flowId":"CIFID-H1brxegb7Z","stageId":"CISID-H1T4exbXb","stageBuildId":"stageBuildId"}))
+        socket.on("ciLogs", function (data) {
+            console.log(data)
+        })
+
     })
 </script>
 </body>

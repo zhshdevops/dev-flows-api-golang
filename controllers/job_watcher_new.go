@@ -26,10 +26,12 @@ import (
 //=================================new
 type SocketsOfBuildNew struct {
 	FlowId   string `json:"flowId"`
-	StageId  string `json:"stage_id"`
 	Conn     net.Conn
 	Op       ws.OpCode
 	SocketId string
+	StageId      string `json:"stageId"`
+	StageBuildId string `json:"stageBuildId"`
+	BuildStatus  int `json:"buildStatus"`
 }
 
 // 保存stage build id对应的所有socket
@@ -99,7 +101,6 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 
 			go func() {
 				for {
-
 					select {
 					case res, ok := <-FlowResp:
 						glog.Infof("%s %s", res, ok)
@@ -346,6 +347,7 @@ func notifyFlowNew(flowId, flowBuildId string, status int) {
 	}
 
 }
+
 func emitStatusOfFlowNew(socket net.Conn, flowId, flowBuildId string, buildStatus int, op ws.OpCode) {
 	glog.Infof("Intoing emitStatusOfFlowNew flowsid=%s,status=%d ", flowId, buildStatus)
 	message := struct {

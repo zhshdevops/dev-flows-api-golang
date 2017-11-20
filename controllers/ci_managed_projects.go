@@ -295,8 +295,8 @@ func (cimp *CiManagedProjectsController) RemoveManagedProject() {
 		err = project.ClearIntegrationParts(namespace)
 		if err != nil {
 			glog.Errorf("%s clear Integration failed: %v\n", method, err)
-			cimp.ResponseErrorAndCode("clear  Stage "+stage.StageName+" Integration failed ", http.StatusInternalServerError)
-			return
+			//cimp.ResponseErrorAndCode("clear  Stage "+stage.StageName+" Integration failed ", http.StatusInternalServerError)
+			//return
 		}
 
 	} else if project.RepoType == "svn" {
