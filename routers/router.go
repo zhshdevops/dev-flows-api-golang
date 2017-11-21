@@ -85,9 +85,9 @@ func init() {
 	)
 
 	beego.AddNamespace(ns)
-	//beego.Handler("/stagebuild/status/",controllers.NewJobWatcherSocket().Handler)
+	beego.Handler("/stagebuild/status/", controllers.NewJobWatcherSocket().Handler)
 	beego.Handler("/socket.io/", controllers.SocketId)
-	beego.Handler("/stagebuild/log/", controllers.StageBuildLog)
-	beego.Handler("/stagebuild/status/", controllers.StageBuildStatus)
+	//beego.Handler("/stagebuild/log/", controllers.StageBuildLog)
+	//beego.Handler("/stagebuild/status/", controllers.StageBuildStatus)
 
 }

@@ -127,8 +127,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	}
 	// Bind to specified node selector
 	BIND_BUILD_NODE := os.Getenv("BIND_BUILD_NODE")
-	if BIND_BUILD_NODE==""{
-		BIND_BUILD_NODE="true"
+	if BIND_BUILD_NODE == "" {
+		BIND_BUILD_NODE = "true"
 	}
 	if BIND_BUILD_NODE == "true" {
 		jobTemplate.Spec.Template.Spec.NodeSelector = map[string]string{
@@ -238,10 +238,10 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	//环境变量
 	env := make([]apiv1.EnvVar, 0)
 	if len(buildInfo.Env) != 0 {
-		env=append(env,buildInfo.Env...)
+		env = append(env, buildInfo.Env...)
 	}
-	glog.Infof("ENV==========%v\n",env)
-	glog.Infof("buildInfo.Env==========%v\n",buildInfo.Env)
+	glog.Infof("ENV==========%v\n", env)
+	glog.Infof("buildInfo.Env==========%v\n", buildInfo.Env)
 	// Used to build docker images burnabybull
 	if buildInfo.Type == 3 {
 		// Check the name of type of target image to build
@@ -312,8 +312,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	//构造init container
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
-		Name: SCM_CONTAINER_NAME,
-		Image:           buildInfo.ScmImage,
+		Name:  SCM_CONTAINER_NAME,
+		Image: buildInfo.ScmImage,
 		//Image:           "harbor.enncloud.cn/qinzhao-harbor/clone-repo:v2.2",
 		ImagePullPolicy: "Always",
 	}
@@ -433,8 +433,6 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 		}
 	}
 
-
-
 	jobTemplate.ObjectMeta.GenerateName = builder.genJobName(buildInfo.FlowName, buildInfo.StageName)
 	jobTemplate.ObjectMeta.Namespace = buildInfo.Namespace
 
@@ -446,7 +444,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 
 	jobContainer.Env = env
 
-	glog.Infof("=========jobContainer.Env:%v\n",jobContainer.Env)
+	glog.Infof("=========jobContainer.Env:%v\n", jobContainer.Env)
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
 	dataJob, _ := json.Marshal(jobTemplate)
 	glog.V(1).Infof("%s ============>>jobTemplate=[%v]\n", method, string(dataJob))
@@ -793,7 +791,7 @@ func (builder *ImageBuilder) WatchPod(namespace, jobName string) (PodStatus, err
 }
 
 func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socketio.Socket) {
-	if podName==""{
+	if podName == "" {
 		glog.Errorf("the podName is empty")
 	}
 	method := "WatchEvent"
@@ -1010,7 +1008,25 @@ func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespDa
 				watchRespData.ForcedStop = true
 
 			}
-			if event.Type == k8sWatch.Deleted {
+			if event.Type == k8sWatch.Added {
+				//收到deleted事件，job可能被第三方删除
+				glog.Infof("%s  %s\n", method, " 收到Add事件")
+				watchRespData.Succeeded = dm.Status.Succeeded
+				watchRespData.Failed = dm.Status.Failed
+				watchRespData.Active = dm.Status.Active
+				if len(dm.Status.Conditions) != 0 {
+					watchRespData.Status = string(dm.Status.Conditions[0].Status)
+					watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
+					watchRespData.Message = dm.Status.Conditions[0].Message
+					watchRespData.Reason = dm.Status.Conditions[0].Reason
+				} else {
+					watchRespData.Status = ConditionUnknown
+					watchRespData.JobConditionType = JobFailed
+					watchRespData.Message = "收到add事件"
+					watchRespData.Reason = "收到add事件"
+				}
+				//成功时并且已经完成时
+			} else if event.Type == k8sWatch.Deleted {
 				//收到deleted事件，job可能被第三方删除
 				glog.Errorf("%s  %s\n", method, " 收到deleted事件，job可能被第三方删除")
 				watchRespData.Succeeded = dm.Status.Succeeded
@@ -1112,7 +1128,7 @@ func Int64Toint64Point(input int64) *int64 {
 }
 
 //ESgetLogFromK8S 从Elaticsearch 获取日志失败就从kubernetes 获取日志
-func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName string,ctx *context.Context) {
+func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName string, ctx *context.Context) {
 	method := "ESgetLogFromK8S"
 	follow := true
 	previous := false
@@ -1128,7 +1144,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 	readCloser, err := builder.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 	if err != nil {
 		glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
-		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s",`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 		return
 	}
 
@@ -1139,15 +1155,15 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			if err == io.EOF {
 				glog.Infof("%s [Enn Flow API ] finish get log of %s.%s!\n", method, podName, containerName)
 				glog.Infof("Get log successfully from kubernetes\n")
-				ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s",`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+				ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 				return
 			}
-			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s",`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
 			return
 		}
 
-		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s<br/>",template.HTMLEscapeString(string(data[:n])))))
+		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s<br/>", template.HTMLEscapeString(string(data[:n])))))
 
 	}
 

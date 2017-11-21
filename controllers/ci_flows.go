@@ -918,17 +918,19 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	if namespace == "" {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
+
 	body := cf.Ctx.Input.RequestBody
 	if string(body) == "" {
 		glog.Warningf("%s %s\n", method, "RequestBody is empty")
 		cf.ResponseErrorAndCode("RequestBody is empty", http.StatusBadRequest)
 		return
 	}
-
+	//审计
 	cf.Audit.SetOperationType(models.AuditOperationStart)
 	cf.Audit.SetResourceType(models.AuditResourceBuilds)
 
 	var bodyReqBody models.BuildReqbody
+
 	glog.Infof("%s request body===================:%v\n", method, string(body))
 	err := json.Unmarshal(body, &bodyReqBody)
 	if err != nil {
@@ -937,30 +939,54 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		return
 	}
 
+	var ennFlow EnnFlow
+	ennFlow.FlowId = flowId
+	ennFlow.StageId = bodyReqBody.StageId
+	ennFlow.CodeBranch = bodyReqBody.Options.Branch
+	ennFlow.LoginUserName = cf.User.Username
+	ennFlow.Namespace = cf.Namespace
+
+	var conn Conn
+	if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
+		conn = con
+	}
+	//} else {
+	//	cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
+	//	return
+	//}
 	//不传event参数 event 是代码分支
-	//result, httpStatusCode := StartFlowBuild(cf.User, flowId, bodyReqBody.StageId, "", bodyReqBody.Options)
 	imageBuild := models.NewImageBuilder(client.ClusterID)
-	stagequeue, result, httpStatusCode := NewStageQueue(cf.User, bodyReqBody, "", cf.Namespace, flowId, imageBuild)
+	stagequeue := NewStageQueueNew(ennFlow, "", ennFlow.Namespace, ennFlow.LoginUserName, flowId, imageBuild, conn)
 
-	glog.Infof("=========httpStatusCode:%d, result:%s\n", httpStatusCode, result)
+	if stagequeue != nil {
+		//判断是否该EnnFlow当前有执行中
+		err := stagequeue.CheckIfBuiding(flowId)
+		if err != nil {
+			glog.Warningf("%s Too many waiting builds of:  %v\n", method, err)
+			if strings.Contains(fmt.Sprintf("%s", err), "该EnnFlow已有任务在执行,请等待执行完再试") {
+				cf.ResponseErrorAndCode("该EnnFlow ["+stagequeue.CiFlow.Name+"] 已有任务在执行,请等待执行完再试", http.StatusBadRequest)
+				return
+			} else {
+				cf.ResponseErrorAndCode("找不到对应的EnnFlow", http.StatusNotFound)
+				return
+			}
+		}
+		//开始执行 把执行日志插入到数据库
+		stagequeue.InsertLog()
 
-	if httpStatusCode == http.StatusOK {
-		FlowBuild, code := stagequeue.Run()
 		var Resp interface{}
-
 		Resp = struct {
 			FlowBuildId  string `json:"flowBuildId"`
 			StageBuildId string `json:"stageBuildId"`
 		}{
-			FlowBuildId:  FlowBuild.FlowBuildId,
-			StageBuildId: FlowBuild.StageBuildId,
+			FlowBuildId:  stagequeue.StageBuildLog.FlowBuildId,
+			StageBuildId: stagequeue.StageBuildLog.BuildId,
 		}
 		glog.Infof("==============>>Resp:%v\n", Resp)
-		if code == http.StatusOK {
-			cf.ResponseResultAndStatusDevops(Resp, http.StatusOK)
-			return
-		}
-		cf.ResponseErrorAndCode(FlowBuild.Message, http.StatusInternalServerError)
+
+		cf.ResponseResultAndStatusDevops(Resp, http.StatusOK)
+
+		stagequeue.Run()
 		return
 	}
 
@@ -1190,7 +1216,9 @@ func (cf *CiFlowsController) StopBuild() {
 	}
 
 	//更新flow构建状态
-	NotifyFlowStatusNew(flowId, flowBuildId, common.STATUS_FAILED)
+
+	NotifyFlowStatus(flowId, flowBuildId, common.STATUS_FAILED)
+
 	_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 	if err != nil {
 		glog.Errorf("%s update flowBuild log failed: %v \n", method, err)

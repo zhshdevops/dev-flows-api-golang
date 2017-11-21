@@ -26,10 +26,9 @@ type FlowBuilResp struct {
 	Message      string `json:"message,omitempty"`
 	FlowBuildId  string `json:"flowBuildId,omitempty"`
 	StageBuildId string `json:"stageBuildId,omitempty"`
-	HttpCode  string `json:"http_code"`
-	FlowId string `json:"flow_id"`
-	Status int `json:"status"`
-	
+	HttpCode     string `json:"http_code"`
+	FlowId       string `json:"flow_id"`
+	Status       int `json:"status"`
 }
 type CloseSocketResp struct {
 	Status  int `json:"status"`
@@ -539,7 +538,7 @@ func MakeScriptEntryEnvForInitContainer(user *user.UserModel, containerInfo *mod
 	}
 	//TODO 加密解密的问题
 	containerInfo.Command = []string{fmt.Sprintf("/app/%s", scriptID)}
-	containerInfo.Env=append(containerInfo.Env,[]apiv1.EnvVar{
+	containerInfo.Env = append(containerInfo.Env, []apiv1.EnvVar{
 		{
 			Name:  "SCRIPT_ENTRY_INFO",
 			Value: scriptID + ":" + userName + ":" + userToken,
@@ -930,34 +929,38 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 	}
 
 	glog.Infof("%s - pod=[%s]<<===============>>", method, pod.ObjectMeta.Name)
-	if pod.ObjectMeta.Name != "" {
 
-		glog.Infof("%s - Checking if scm container is timeout\n", method)
-		if len(pod.Status.InitContainerStatuses) > 0 &&
-			IsContainerCreated(imageBuilder.ScmName, pod.Status.InitContainerStatuses) {
-			glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n", imageBuilder.ScmName)
-			timeout = false
-			return
+	for i := 0; i < 3; i++ {
+		time.Sleep(3 * time.Second)
+		if pod.ObjectMeta.Name != "" {
+
+			glog.Infof("%s - Checking if scm container is timeout\n", method)
+			if len(pod.Status.InitContainerStatuses) > 0 &&
+				IsContainerCreated(imageBuilder.ScmName, pod.Status.InitContainerStatuses) {
+				glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n", imageBuilder.ScmName)
+				timeout = false
+				return
+			}
+
+			glog.Infof("%s - Checking if build container is timeout\n", method)
+			if len(pod.Status.ContainerStatuses) > 0 &&
+				IsContainerCreated(imageBuilder.BuilderName, pod.Status.ContainerStatuses) {
+				glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n", imageBuilder.BuilderName)
+				timeout = false
+				return
+			}
+
 		}
-
-		glog.Infof("%s - Checking if build container is timeout\n", method)
-		if len(pod.Status.ContainerStatuses) > 0 &&
-			IsContainerCreated(imageBuilder.BuilderName, pod.Status.ContainerStatuses) {
-			glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n", imageBuilder.BuilderName)
-			timeout = false
-			return
-		}
-
 	}
 
 	//终止job
 	glog.Infof("%s - stop job=[%s]\n", method, job.ObjectMeta.Name)
 	//1 代表手动停止 0表示程序停止
-	//_, err = imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
-	//if err != nil {
-	//	glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
-	//}
-	//timeout = true
+	_, err = imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
+	if err != nil {
+		glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
+	}
+	timeout = true
 	return
 
 }
