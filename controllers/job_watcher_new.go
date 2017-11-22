@@ -205,6 +205,7 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 			if event.Type == watch.Added {
 				//收到deleted事件，job可能被第三方删除
 				glog.Infof("%s %s,status:%v\n", method, "收到ADD事件,开始起job进行构建", dm.Status)
+				//return dm
 				//成功时并且已经完成时
 			} else if event.Type == watch.Deleted {
 				//收到deleted事件，job可能被第三方删除

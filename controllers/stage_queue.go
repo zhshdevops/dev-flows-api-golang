@@ -173,7 +173,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 		stageList = append(stageList, stages...)
 
 	}
-	glog.Infof("the queue length==========>>:%d\n",len(stageList))
+	glog.Infof("the queue length==========>>:%d\n", len(stageList))
 	queue.StageList = stageList
 
 	return queue
@@ -425,7 +425,6 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		errMsg = fmt.Sprintf("%s构建任务启动超时", stage.StageName)
 	}
 	glog.Infof("执行失败 Will Update State build PodName=====%d\n", queue.StageBuildLog.PodName)
-	//UpdateStatusAndHandleWaiting(queue.User, stage, *queue.StageBuildLog, queue.StageBuildLog.BuildId, options.FlowOwner)
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {
 		glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)
@@ -1046,10 +1045,20 @@ func (queue *StageQueueNew) Run() {
 				Send(queue.BuildReqbody, queue.Conn)
 
 				status := queue.StartStageBuild(stage, index)
-				if status == common.STATUS_FAILED {
+				glog.Infof("StartStageBuild build result======>%d\n", status)
 
+				if status == common.STATUS_FAILED {
+					res, err := models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_FAILED, queue.StageBuildLog.BuildId)
+					if err != nil {
+						glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
+					}
 					queue.SetFailedStatus()
 					return
+				} else {
+					res, err := models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_SUCCESS, queue.StageBuildLog.BuildId)
+					if err != nil {
+						glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
+					}
 				}
 				if index == (queue.LengthOfStage() - 1) {
 					//通知EnnFlow 成功构建

@@ -51,7 +51,7 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 		glog.Errorf("%s get %s pod failed:%v\n", method, pod.ObjectMeta.Name, err)
 	}
 
-	glog.Infof("%s - pod=[%s]<<===============>>", method, pod.ObjectMeta.Name)
+	glog.Infof("%s - podName=[%s]<<===============>>", method, pod.ObjectMeta.Name)
 
 	for i := 0; i < 5; i++ {
 		time.Sleep(5 * time.Second)
