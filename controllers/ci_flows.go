@@ -383,7 +383,7 @@ func (cf *CiFlowsController) GetCIFlowById() {
 			return
 		}
 
-		glog.Infof("%s %d get build status success:%#v", method, total, buildStages)
+		//glog.Infof("%s %d get build status success:%#v", method, total, buildStages)
 		ciflowdata.Stage_info = make([]models.Stage_info, 0)
 		if len(buildStages) != 0 {
 			for _, stage := range buildStages {
@@ -912,7 +912,9 @@ func (cf *CiFlowsController) ListBuilds() {
 
 //@router /:flow_id/builds [POST]
 func (cf *CiFlowsController) CreateFlowBuild() {
+
 	method := "controllers/CiFlowsController/CreateFlowBuild"
+
 	flowId := cf.Ctx.Input.Param(":flow_id")
 	namespace := cf.Namespace
 	if namespace == "" {
@@ -931,7 +933,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 
 	var bodyReqBody models.BuildReqbody
 
-	glog.Infof("%s request body===================:%v\n", method, string(body))
+	glog.Infof("%s request body===================>>:%v\n", method, string(body))
 	err := json.Unmarshal(body, &bodyReqBody)
 	if err != nil {
 		glog.Errorf("%s json unmarshal bodyReqBody failed: %v\n", method, err)
@@ -945,8 +947,9 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	ennFlow.CodeBranch = bodyReqBody.Options.Branch
 	ennFlow.LoginUserName = cf.User.Username
 	ennFlow.Namespace = cf.Namespace
-
+	ennFlow.UserNamespace = cf.User.Namespace
 	var conn Conn
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
 		conn = con
 	}
@@ -954,6 +957,8 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	//	cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
 	//	return
 	//}
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
+
 	//不传event参数 event 是代码分支
 	imageBuild := models.NewImageBuilder(client.ClusterID)
 	stagequeue := NewStageQueueNew(ennFlow, "", ennFlow.Namespace, ennFlow.LoginUserName, flowId, imageBuild, conn)
@@ -973,7 +978,6 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		}
 		//开始执行 把执行日志插入到数据库
 		stagequeue.InsertLog()
-
 		var Resp interface{}
 		Resp = struct {
 			FlowBuildId  string `json:"flowBuildId"`
@@ -982,7 +986,6 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 			FlowBuildId:  stagequeue.StageBuildLog.FlowBuildId,
 			StageBuildId: stagequeue.StageBuildLog.BuildId,
 		}
-		glog.Infof("==============>>Resp:%v\n", Resp)
 
 		cf.ResponseResultAndStatusDevops(Resp, http.StatusOK)
 
@@ -1119,7 +1122,10 @@ func (cf *CiFlowsController) ListStagesBuilds() {
 
 //@router /:flow_id/stages/:stage_id/builds/:build_id/stop [PUT]
 func (cf *CiFlowsController) StopBuild() {
+
 	method := "CiFlowsController.StopBuild"
+	//更新flow构建状态
+	var conn Conn
 	flowId := cf.Ctx.Input.Param(":flow_id")
 	namespace := cf.Namespace
 	if namespace == "" {
@@ -1128,6 +1134,12 @@ func (cf *CiFlowsController) StopBuild() {
 	stageId := cf.Ctx.Input.Param(":stage_id")
 
 	buildId := cf.Ctx.Input.Param(":build_id")
+
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+	if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
+		conn = con
+	}
+	SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 
 	cf.Audit.SetOperationType(models.AuditOperationStop)
 	cf.Audit.SetResourceType(models.AuditResourceBuilds)
@@ -1167,7 +1179,16 @@ func (cf *CiFlowsController) StopBuild() {
 	}
 	if total == 0 {
 		glog.Infof("%s build is not running \n", method)
-		NotifyFlowStatus(flowId, flowBuildId, common.STATUS_FAILED)
+		var ennFlow EnnFlow
+		ennFlow.FlowId = flowId
+		ennFlow.Status = http.StatusOK
+		ennFlow.Flag = 1
+		ennFlow.FlowBuildId = flowBuildId
+		ennFlow.StageId = stageId
+		ennFlow.StageBuildId = buildId
+		ennFlow.BuildStatus = common.STATUS_FAILED
+		ennFlow.Message = "停止失败"
+		Send(ennFlow, conn)
 		_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 		if err != nil {
 			glog.Errorf("%s update flowBuild log failed: %v \n", method, err)
@@ -1208,16 +1229,21 @@ func (cf *CiFlowsController) StopBuild() {
 		}
 
 		//更新stage构建状态
-
+		var ennFlow EnnFlow
+		ennFlow.FlowId = flowId
+		ennFlow.Status = http.StatusOK
+		ennFlow.Flag = 1
+		ennFlow.FlowBuildId = flowBuildId
+		ennFlow.StageId = stageId
+		ennFlow.StageBuildId = buildId
+		ennFlow.BuildStatus = common.STATUS_FAILED
+		ennFlow.Message = "停止任务成功"
+		Send(ennFlow, conn)
 		_, err = models.NewCiStageBuildLogs().UpdateBuildLogById(buildRec, build.BuildId)
 		if err != nil {
 			glog.Errorf("%s update stage build status failed : err:%v \n", method, err)
 		}
 	}
-
-	//更新flow构建状态
-
-	NotifyFlowStatus(flowId, flowBuildId, common.STATUS_FAILED)
 
 	_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 	if err != nil {
@@ -1280,10 +1306,8 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	method := "CiFlowsController/GetStageBuildLogsFromES"
 
 	flowId := cf.Ctx.Input.Param(":flow_id")
-	namespace := cf.Namespace
-	if namespace == "" {
-		namespace = cf.Ctx.Input.Header("usernmae")
-	}
+
+
 	stageId := cf.Ctx.Input.Param(":stage_id")
 	stageBuildId := cf.Ctx.Input.Param(":stage_build_id")
 
@@ -1295,7 +1319,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>`))
 		return
 	}
-
+	namespace := build.Namespace
 	glog.Infof("Build info====%s\n", build)
 
 	if build.PodName == "" {

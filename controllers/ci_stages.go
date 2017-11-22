@@ -238,7 +238,7 @@ func (stage *CiStagesController) GetDockerfile() {
 	stageId := stage.Ctx.Input.Param(":stage_id")
 
 	ciDockerfile := models.NewCiDockerfile()
-
+	glog.Infof("stage.Namespace:%s\n",stage.Namespace)
 	dockerfileInfo, err := ciDockerfile.GetDockerfile(stage.Namespace, flowId, stageId)
 	if err != nil {
 		parseNumber, _ := sqlstatus.ParseErrorCode(err)

@@ -513,7 +513,7 @@ func (s *SocketLogController) CloseWebSocket(conn *websocket.Conn) {
 	return
 }
 
-func  CheckLogData(authStruct BuildMessage) string {
+func  CheckLogData(authStruct EnnFlow) string {
 	method := "CheckLogData"
 	if authStruct.FlowId == "" || authStruct.StageId == "" || authStruct.StageBuildId == "" {
 		glog.Errorf("%s Missing parameters \n", method)

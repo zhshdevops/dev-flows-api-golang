@@ -9,19 +9,20 @@ import (
 	"dev-flows-api-golang/ci/coderepo"
 	gogsClient "github.com/gogits/go-gogs-client"
 	gitLabClientv3 "github.com/drone/drone/remote/gitlab3/client"
+	"dev-flows-api-golang/modules/client"
+	"dev-flows-api-golang/models/common"
 	"regexp"
 	"fmt"
 	"encoding/json"
 	"strings"
-	"errors"
 )
 
-type CiFlowBuildLogsController struct {
+type CiWebhooksController struct {
 	ErrorController
 }
 
 //@router /  [POST]
-func (cimp *CiFlowBuildLogsController) InvokeBuildsByWebhook() {
+func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 
 	method := "CiManagedProjectsController.InvokeBuildsByWebhook"
 	var event EventHook
@@ -102,7 +103,7 @@ func (cimp *CiFlowBuildLogsController) InvokeBuildsByWebhook() {
 		glog.V(1).Infof("Validate CI rule of each stage ...")
 
 		//create builds by ci rules
-		err = InvokeCIFlowOfStages(userModel, body, event, ciStages, project)
+		err = InvokeCIFlowOfStages(userModel, event, ciStages, project)
 		if err != nil {
 			cimp.ResponseErrorAndCode("build failed "+fmt.Sprintf("%s", err), 501)
 			return
@@ -117,7 +118,7 @@ func (cimp *CiFlowBuildLogsController) InvokeBuildsByWebhook() {
 
 }
 
-func InvokeCIFlowOfStages(user *user.UserModel, body []byte, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
+func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
 	method := "CiManagedProjectsController.invokeCIFlowOfStages"
 	glog.V(1).Infof("%s Number of stages in the list %d", method, len(stageList))
 
@@ -222,27 +223,72 @@ func InvokeCIFlowOfStages(user *user.UserModel, body []byte, event EventHook, st
 			glog.Errorf("%s no ci rule \n", method)
 			//TODO send email
 			matched = false
+			detail := &EmailDetail{
+				Type:    "ci",
+				Result:  "failed",
+				Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+				Body:    fmt.Sprintf(`没有配置CI规则`),
+			}
+			detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
 			return fmt.Errorf("no ci rule")
 		}
 
 		if matched {
 			glog.V(1).Infof("%s ---- Add to build queue ----: :%s\n", method, eventType)
-			//TODO 开始构建任务
-			//go StartFlowBuild(cimp.User, stage.FlowId, stage.StageId, event.Name, &models.Option{})
+			// 开始构建任务
+			go func() {
+				var ennFlow EnnFlow
+				ennFlow.FlowId = stage.FlowId
+				ennFlow.StageId = stage.StageId
+				ennFlow.CodeBranch = event.Name
+				ennFlow.LoginUserName = user.Username
+				ennFlow.Namespace = project.Namespace  //用来查询flow
+				ennFlow.UserNamespace = user.Namespace //用来构建
+				var conn Conn
+				SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+				if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId]; ok {
+					conn = con
+				}
+				//} else {
+				//	cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
+				//	return
+				//}
+				SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 
-			buildBody := models.BuildReqbody{
-				StageId: stage.StageId,
-				Options: &models.Option{Branch: event.Name},
-			}
-			imageBuild := models.NewImageBuilder()
-			stagequeue, result, httpStatusCode := NewStageQueue(user, buildBody, event.Name, user.Namespace, stage.FlowId, imageBuild)
-			if httpStatusCode == http.StatusOK {
-				go func() {
-					result, httpStatusCode = stagequeue.Run()
-					glog.Infof("invokeCIFlowOfStages %s %d", result, httpStatusCode)
-				}()
-			}
+				// event 是代码分支
+				imageBuild := models.NewImageBuilder(client.ClusterID)
+				stagequeue := NewStageQueueNew(ennFlow, event.Name, ennFlow.Namespace, ennFlow.LoginUserName, stage.FlowId, imageBuild, conn)
 
+				if stagequeue != nil {
+					//判断是否该EnnFlow当前有执行中
+					err := stagequeue.CheckIfBuiding(stage.FlowId)
+					if err != nil {
+						glog.Warningf("%s Too many waiting builds of:  %v\n", method, err)
+						if strings.Contains(fmt.Sprintf("%s", err), "该EnnFlow已有任务在执行,请等待执行完再试") {
+							ennFlow.Message = "该EnnFlow [" + stagequeue.CiFlow.Name + "] 已有任务在执行,请等待执行完再试"
+							ennFlow.Status = http.StatusOK
+							ennFlow.BuildStatus = common.STATUS_SUCCESS
+							ennFlow.FlowBuildId = stagequeue.FlowbuildLog.BuildId
+							ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
+							ennFlow.Flag = 1
+							Send(ennFlow, conn)
+							return
+						} else {
+							ennFlow.Message = "找不到对应的EnnFlow"
+							ennFlow.Status = http.StatusOK
+							ennFlow.BuildStatus = common.STATUS_SUCCESS
+							ennFlow.FlowBuildId = stagequeue.FlowbuildLog.BuildId
+							ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
+							ennFlow.Flag = 1
+							Send(ennFlow, conn)
+							return
+						}
+					}
+					//开始执行 把执行日志插入到数据库
+					stagequeue.InsertLog()
+					stagequeue.Run()
+				}
+			}()
 		}
 
 	}
@@ -430,11 +476,6 @@ func formateCIPushType(pushType string) string {
 
 	}
 	return pushType
-
-}
-func checkSignature() error {
-
-	return errors.New("get error failed")
 
 }
 

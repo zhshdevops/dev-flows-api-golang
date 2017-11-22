@@ -3,6 +3,7 @@ package controllers
 import (
 	"dev-flows-api-golang/models"
 	"github.com/golang/glog"
+	"net/http"
 )
 
 type CiDockerfileController struct {
@@ -13,14 +14,14 @@ type CiDockerfileController struct {
 func (dfile *CiDockerfileController)ListDockerfiles()  {
 	method:="CiDockerfileController.ListDockerfiles"
 	dockerfile:=models.CiDockerfile{}
-	namespace:=dockerfile.Namespace
+	namespace:=dfile.Namespace
 	if namespace==""{
 		namespace=dfile.Ctx.Input.Header("username")
 	}
 	data,total,err:=dockerfile.ListDockerfiles(namespace)
 	if err!=nil{
 		glog.Errorf("%s %v \n",method,err)
-		dfile.ResponseErrorAndCode("Get Form database failed",500)
+		dfile.ResponseErrorAndCode("Get Form database failed",http.StatusNotFound)
 		return
 	}
 

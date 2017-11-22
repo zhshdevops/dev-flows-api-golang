@@ -3,17 +3,11 @@ package controllers
 import (
 	"dev-flows-api-golang/models"
 	"dev-flows-api-golang/models/user"
-	//"dev-flows-api-golang/modules/tenx/errors"
 	shortid "dev-flows-api-golang/util/uuid"
-	"dev-flows-api-golang/modules/workpool"
 	"dev-flows-api-golang/models/team2user"
-	"regexp"
-
 	"flag"
-
 	"fmt"
 	"net/http"
-	"runtime"
 	"strings"
 	"time"
 	"dev-flows-api-golang/modules/client"
@@ -57,8 +51,6 @@ type response struct {
 	Message string `json:"message"`
 }
 
-var workPool *workpool.WorkPool
-
 func init() {
 	// allow specify config file path
 	configPath := flag.String("appconfig", "conf/app.conf", "config path")
@@ -71,21 +63,16 @@ func init() {
 	if err != nil {
 		panic("Load config file " + *configPath + " failed: " + err.Error())
 	}
-
-	// init audit channel and audit routine
-	workPool = workpool.New(runtime.NumCPU()*3, 100)
 }
 
 var IfCheckTocken bool
 // Prepare validation all requests
 func (c *BaseController) Prepare() {
-
 	method := "controllers/BaseController.Prepare"
 	glog.Infof("request url:%s\n", c.Ctx.Request.URL.String())
 	if strings.Contains(c.Ctx.Request.URL.String(), "managed-projects/webhooks") {
 		IfCheckTocken = true
 	}
-
 	// set audit id
 	if strings.ToUpper(c.Ctx.Request.Method) == "GET" {
 		c.Audit.Skip = true
@@ -101,17 +88,20 @@ func (c *BaseController) Prepare() {
 	c.Audit.Method = c.Ctx.Request.Method
 	c.Audit.URL = c.Ctx.Request.URL.String()
 	c.Audit.RequestBody = string(c.Ctx.Input.RequestBody)
-	if isWebSocketConnect(c) == true {
-		c.User = &user.UserModel{}
-	} else if IfCheckTocken {
+	if IfCheckTocken {
 		c.User = &user.UserModel{}
 	} else {
+
 		username := c.Ctx.Input.Header("username")
+
 		token := c.Ctx.Input.Header("authorization")
 		if len(token) == 0 {
 			token = c.Ctx.Input.Header("Authorization")
 		}
+
+		//团队空间
 		space := c.Ctx.Input.Header("teamspace")
+
 		var err error
 		prefix := "token "
 		if strings.HasPrefix(strings.ToLower(token), prefix) {
@@ -184,36 +174,6 @@ func (c *BaseController) Finish() {
 
 }
 
-//// check string parameter in url path
-//func (c *BaseController) CheckPathParamsOrRespErr(input map[string]StringInputChecker) (map[string]string, bool) {
-//	return c.checkStringParamsOrRespErr(input, "Invalid parameter in URL path")
-//}
-//
-//func (c *BaseController) CheckQueryParamsOrRespErr(input map[string]StringInputChecker) (map[string]string, bool) {
-//	return c.checkStringParamsOrRespErr(input, "Invalid parameter in query part")
-//}
-//
-//func (c *BaseController) checkStringParamsOrRespErr(input map[string]StringInputChecker, errMsg string) (map[string]string, bool) {
-//	var params map[string]string
-//	for name, checker := range input {
-//		displayed := strings.Trim(name, " :")
-//		value, err := checker(displayed, c.Ctx.Input.Query(name))
-//		if nil != err {
-//			cause := errors.StatusCause{Message: errMsg, Field: displayed}
-//			c.ErrorBadRequest(err.Error(),
-//				&errors.StatusDetails{
-//					Causes: []errors.StatusCause{cause},
-//				})
-//			return nil, false
-//		}
-//		if nil == params {
-//			params = make(map[string]string)
-//		}
-//		params[name] = value
-//	}
-//	return params, true
-//}
-
 // checkToken check user's token
 func checkToken(username, token string) (*user.UserModel, error) {
 	method := "controllers/checkToken"
@@ -225,7 +185,7 @@ func checkToken(username, token string) (*user.UserModel, error) {
 	// use cache for better performance
 	_, err := userModel.GetByName(username)
 	if err != nil {
-		return nil, fmt.Errorf("User '" + username + "' is not authorized to access TenxCloud API service.")
+		return nil, fmt.Errorf("User '" + username + "' is not authorized to access EnnCloud Devops API service.")
 	}
 	if token != userModel.APIToken {
 		glog.Errorln(method, "user", username, "token", token, "is not correct")
@@ -234,63 +194,6 @@ func checkToken(username, token string) (*user.UserModel, error) {
 
 	return userModel, nil
 }
-
-//// GetAuditInfo get audit info
-//func (c *BaseController) GetAuditInfo() {
-//	method := "controllers/BaseController.GetAuditInfo"
-//
-//	if c.Audit.Skip {
-//		return
-//	}
-//
-//	// get caller name
-//	pc, file, line, ok := runtime.Caller(1)
-//	if ok {
-//		callerName := runtime.FuncForPC(pc).Name()
-//		glog.V(7).Infoln(method, "caller info:", pc, file, line, ok)
-//		glog.V(7).Infoln(method, "caller name:", callerName)
-//
-//		// example callerName: "api-server/controllers/app.(*Controller).List"
-//		i, ok := apiAuditInfos[strings.TrimPrefix(callerName, "api-server/controllers/")]
-//		if ok {
-//			c.Audit.SetResourceType(i.res)
-//			c.Audit.SetOperationType(i.op)
-//			c.Audit.SetResourceName(c.getParameter(i.resNameKey))
-//			c.Audit.SetResourceID(c.getParameter(i.resIDKey))
-//
-//			if i.resNameInRequestBody {
-//				// resource name is in request body
-//				// store in both resource_name and resource_config
-//				c.Audit.SetResourceName(c.Audit.RequestBody)
-//			}
-//
-//			if i.res == models.AuditResourceUser && i.op == models.AuditOperationUpdate {
-//				userID, _ := c.GetInt32(":user")
-//				um := &user.UserModel{UserID: userID}
-//				um.Get()
-//				c.Audit.SetResourceName(um.Username)
-//			}
-//
-//		} else {
-//			glog.Errorln(method, "Failed to get audit info for api", callerName)
-//			glog.Errorln(method, c.Audit.Namespace, c.Audit.Method, c.Audit.URL)
-//			c.Audit.Skip = true
-//			return
-//		}
-//	} else {
-//		glog.Errorln(method, "Failed to get caller pc")
-//		glog.Errorln(method, c.Audit.Namespace, c.Audit.Method, c.Audit.URL)
-//	}
-//
-//	// make sure use ":cluster" as cluster id in routers/router.go
-//	c.Audit.SetClusterID(c.getParameter(":cluster"))
-//
-//	// Insert audit record
-//	err := workPool.PostWork("insert record", &c.Audit)
-//	if err != nil {
-//		glog.Errorln(method, "insert record", c.Audit.ID, "work failed", err)
-//	}
-//}
 
 func (c *BaseController) SetAuditInfo() *models.AuditInfo {
 	return &models.AuditInfo{
@@ -310,85 +213,6 @@ func (c *BaseController) getParameter(param string) string {
 		return ""
 	}
 	return c.GetString(param, "")
-}
-
-//IsUserCurrentTeamAdmin validates whether current user is the admin of specified team
-func (c *BaseController) IsUserCurrentTeamAdmin(teamID string) bool {
-	//method := "IsUserCurrentTeamAdmin"
-	//
-	//// Super admin can be team admin
-	//if c.IsUserSuperAdmin() {
-	//	return true
-	//}
-	// check user is a member of team and is administrator role
-	//userID := c.User.UserID
-	//role, err := team2user.NewTeamUserModel().GetRole(teamID, userID)
-	//if err == orm.ErrNoRows {
-	//	glog.Infof("user %v is not a mermber of team %v", userID, teamID)
-	//	c.ErrorUnauthorized()
-	//	return false
-	//}
-	//if err != nil {
-	//	glog.Errorln(method, "get team info failed.", err)
-	//	c.ErrorInternalServerError(err)
-	//	return false
-	//}
-	//if role == team2user.TeamNormalUser {
-	//	glog.Infof("user %v is a normal user of team %v, can't get team detail info", userID, teamID)
-	//	c.ErrorUnauthorized()
-	//	return false
-	//}
-	return true
-}
-
-// CanOperateCurrentUser check if the request can update specified user(view, update)
-// teamID: current team the request user is in (current contenxt team)
-// userID: the user that request user is trying to view
-// For /users router by now
-func (c *BaseController) CanOperateCurrentUser(teamID string, operatedUser int32) bool {
-	//method := "CanOperateCurrentUser"
-	//
-	//userID := c.User.UserID
-	//// 1. operatedUser and current user is the same
-	//if userID == operatedUser {
-	//	return true
-	//}
-	//// No team context
-	//if teamID == "" {
-	//	return false
-	//}
-	//// Super admin can operate
-	//if c.IsUserSuperAdmin() {
-	//	return true
-	//}
-	// 2. Check if request user is admin role of the team
-	// Only admin role has the posibility to view other member
-	//role, err := team2user.NewTeamUserModel().GetRole(teamID, userID)
-	//if err == orm.ErrNoRows {
-	//	glog.Errorf("user %v is not a mermber of team %v\n", userID, teamID)
-	//	return false
-	//}
-	//if err != nil {
-	//	glog.Errorln(method, "get team info of current user failed.", err)
-	//	return false
-	//}
-	//if role == team2user.TeamNormalUser {
-	//	glog.Errorf("user %v is a normal user of team %v, can't get team detail info\n", userID, teamID)
-	//	return false
-	//}
-	//// 3. Check if operatedUser is a member of the team
-	//// Don't allow to operate user outside current team context
-	//_, err = team2user.NewTeamUserModel().GetRole(teamID, operatedUser)
-	//if err == orm.ErrNoRows {
-	//	glog.Errorf("user %v is not a mermber of team %v\n", operatedUser, teamID)
-	//	return false
-	//}
-	//if err != nil {
-	//	glog.Errorln(method, "get team info of operator user failed.", err)
-	//	return false
-	//}
-
-	return true
 }
 
 // IsUserBelongsToTeam check whether the current user belows to the team
@@ -437,13 +261,8 @@ func (c *BaseController) IsUserSuperAdmin() bool {
 		glog.Errorln(method, "get user role failed", err)
 		return false
 	}
-	//if user.Role == team2user.SuperAdminUser {
-	//	return true
-	//}
+	if user.Role == team2user.SuperAdminUser {
+		return true
+	}
 	return false
-}
-
-func isWebSocketConnect(c *BaseController) bool {
-	var connectionUpgradeRegex = regexp.MustCompile("(^|.*,\\s*)upgrade($|\\s*,)")
-	return connectionUpgradeRegex.MatchString(strings.ToLower(c.Ctx.Input.Header("Connection"))) && strings.ToLower(c.Ctx.Input.Header("Upgrade")) == "websocket"
 }

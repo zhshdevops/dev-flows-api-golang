@@ -2,28 +2,21 @@ package controllers
 
 import (
 	"net/http"
-
 	"github.com/golang/glog"
-
 	"k8s.io/client-go/1.4/pkg/labels"
 	"k8s.io/client-go/1.4/pkg/api"
 	"k8s.io/client-go/1.4/pkg/api/v1"
 	"k8s.io/client-go/1.4/pkg/watch"
 	"encoding/json"
 	"fmt"
-	//"sync"
-
 	"dev-flows-api-golang/models/common"
 	"dev-flows-api-golang/modules/client"
 	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
-	//"github.com/gorilla/websocket"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"net"
-	//"strings"
+	"sync"
 )
-
-//=================================new
 
 type EnnFlow struct {
 	FlowId        string `json:"flowId"`
@@ -37,20 +30,68 @@ type EnnFlow struct {
 	Flag          int `json:"flag"` //1 表示flow 2表示stage
 	Namespace     string `json:"namespace"`
 	LoginUserName string `json:"loginUserName"`
+	UserNamespace string `json:"userNamespace"`
 	Event         string `json:"event"`
 }
 
+var SOCKETS_OF_BUILD_MAPPING_MUTEX sync.RWMutex
 //前端记得要关闭websoccket 一个flow对应一个websocket
 type Conn struct {
 	Conn net.Conn
 	Op   ws.OpCode
 }
 
-var EnnFlowChan = make(chan EnnFlow, 1024)
-var EnnFlowResp = make(chan EnnFlow, 1024)
-var EventEnnFlowResp = make(chan EnnFlow, 1024)
-
 var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string]Conn, 0)
+
+type JobLogSocket struct {
+	Handler http.Handler
+}
+
+func NewJobLogSocket() *JobLogSocket {
+	return &JobLogSocket{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			method := "JobLogSocket"
+			glog.Infof("%s connect user build log  获取构建实时日志 \n", method)
+			//判断是否存在
+			conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
+			if err != nil {
+				glog.Errorf("%s 建立Websocket日志链接失败 connect JobLogSocket websocket failed:%v\n", method, err)
+				w.Write([]byte(`<font color="red">[Enn Flow API Error] 建立Websocket日志链接失败</font>`))
+				return
+			}
+			defer conn.Close()
+			var con Conn
+			con.Conn = conn
+			var buildMessage EnnFlow
+			go func() {
+				msg, op, err := wsutil.ReadClientData(conn)
+				if err != nil {
+					glog.Errorf("读取客户端发送的数据包失败 connect JobLogSocket websocket failed: msg:%s,err:%v\n", msg, err)
+					wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 读取客户端发送的数据包失败</font>`))
+					return
+				}
+
+				con.Op = op
+
+				err = json.Unmarshal(msg, &buildMessage)
+				if err != nil {
+					glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", msg, err)
+					wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 反系列化数据库包失败</font>`))
+					return
+				}
+
+				if message := CheckLogData(buildMessage); message != "" {
+					glog.Errorf("Missing parameters====>>:[%v]\n", buildMessage)
+					Send(message, con)
+					return
+				}
+
+				GetStageBuildLogsFromK8S(buildMessage, con)
+
+			}()
+		}),
+	}
+}
 
 type JobWatcherSocket struct {
 	Handler http.Handler
@@ -65,7 +106,8 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 			conn, _, _, err := ws.UpgradeHTTP(r, w, nil)
 			if err != nil {
 				glog.Errorf("%s connect JobWatcherSocket websocket failed:%v\n", method, err)
-
+				w.Write([]byte("建立Websocket状态链接失败"))
+				return
 			}
 			//defer conn.Close()
 			var flow EnnFlow
@@ -91,6 +133,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 			}
 
 			if flow.FlowId != "" {
+				SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
 				//存websocket,通过flowId获取某个Ennflow的websocket
 				if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]; !ok {
 					var connOfFlow Conn
@@ -103,7 +146,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 				flow.Message = "建立websocket成功"
 				data, _ := json.Marshal(flow)
 				wsutil.WriteServerMessage(conn, op, data)
-
+				SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 			} else {
 				glog.Errorf("FlowId is empty")
 				flow.Status = 400
@@ -203,89 +246,9 @@ func Send(flow interface{}, conn Conn) {
 
 }
 
-//func init() {
-//	go doStartNew()
-//}
-
-func doStartNew() {
-Begin:
-	method := "jobWatcher/doStart"
-
-	glog.Infof("%s Job watcher starting with config kubetnetes clusterId:%s\n", method, client.ClusterID)
-	//watch含有stage-build-id label的jobs
-	labelsStr := fmt.Sprintf("stage-build-id%s", "")
-	labelsSel, err := labels.Parse(labelsStr)
-	if err != nil {
-		glog.Errorf("%s label parse failed==>:%v\n", method, err)
-		return
-	}
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
-		Watch:         true,
-	}
-
-	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs("").Watch(listOptions)
-	if err != nil {
-		glog.Errorf("%s get watchInterface failed %v\n", method, err)
-		return
-	}
-
-	glog.Infof("%s Job watcher is ready\n", method)
-
-	for {
-		select {
-		case event, isOpen := <-watchInterface.ResultChan():
-			if !isOpen {
-				glog.Errorf("%s the pod watch the chan is closed\n", method)
-				goto Begin
-				return
-			}
-			glog.Infof("Job watcher is ready the job event type=%s\n", event.Type)
-
-			dm, parseIsOk := event.Object.(*v1beta1.Job)
-			if !parseIsOk {
-				glog.Errorf("%s 断言失败 \n", method)
-				continue
-			}
-
-			if event.Type == watch.Deleted {
-				glog.Infof("%s A job is deleted:%v\n", event)
-				if dm.ObjectMeta.Labels["stage-build-id"] != "" {
-					if dm.Status.Succeeded >= 1 {
-						//构建成功
-						//notifyNew(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_SUCCESS)
-					} else {
-						//其他情况均视为失败状态
-						//notifyNew(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_FAILED)
-					}
-
-				}
-
-			} else if event.Type == watch.Added {
-				//收到added事件，等待中的stage build开始构建
-				//notifyNewBuildNew(dm.ObjectMeta.Labels["stage-id"],
-				//	dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_BUILDING)
-			} else if dm.Status.Succeeded >= 1 {
-				//job执行成功
-				glog.Infof("===================>>Succeeded")
-				//notifyNew(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_SUCCESS)
-			} else if dm.Status.Failed >= 1 {
-				//job执行失败
-				glog.Infof("===================>>failed:label stage-build-id=%s\n", dm.ObjectMeta.Labels["stage-build-id"])
-				//notifyNew(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_FAILED)
-			} else if dm.Spec.Parallelism == Int32Toint32Point(0) {
-				//停止job时
-				//判断enncloud-builder-succeed label是否存在，从而确定执行成功或失败，并通知
-				if dm.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
-					//notifyNew(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_SUCCESS)
-				} else {
-					//notifyNew(dm.ObjectMeta.Labels["stage-build-id"], common.STATUS_FAILED)
-				}
-
-			}
-
-		}
-
-	}
+func Int32Toint32Point(input int32) *int32 {
+	tmp := new(int32)
+	*tmp = int32(input)
+	return tmp
 
 }
