@@ -163,6 +163,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 	method := "WatchJob"
 	var job *v1beta1.Job
+
 	glog.Infof("%s begin watch job jobName=[%s]  namespace=[%s]\n", method, jobName, namespace)
 
 	labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)

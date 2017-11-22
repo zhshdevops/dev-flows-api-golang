@@ -52,6 +52,8 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 		return
 	}
 
+	glog.Infof("ciStages============>>:%d\n",len(ciStages))
+
 	userModel := &user.UserModel{}
 	// use cache for better performance
 	_, err = userModel.GetByName(project.Owner)
