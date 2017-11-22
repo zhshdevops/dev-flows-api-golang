@@ -236,7 +236,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 		if matched {
 			glog.V(1).Infof("%s ---- Add to build queue ----: :%s\n", method, eventType)
 			// 开始构建任务
-			go func() {
+			//go func() {
 				var ennFlow EnnFlow
 				ennFlow.FlowId = stage.FlowId
 				ennFlow.StageId = stage.StageId
@@ -254,7 +254,6 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 				//	return
 				//}
 				SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
-
 				// event 是代码分支
 				imageBuild := models.NewImageBuilder(client.ClusterID)
 				stagequeue := NewStageQueueNew(ennFlow, event.Name, ennFlow.Namespace, ennFlow.LoginUserName, stage.FlowId, imageBuild, conn)
@@ -272,7 +271,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 							ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 							ennFlow.Flag = 1
 							Send(ennFlow, conn)
-							return
+							return nil
 						} else {
 							ennFlow.Message = "找不到对应的EnnFlow"
 							ennFlow.Status = http.StatusOK
@@ -281,14 +280,14 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 							ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 							ennFlow.Flag = 1
 							Send(ennFlow, conn)
-							return
+							return nil
 						}
 					}
 					//开始执行 把执行日志插入到数据库
 					stagequeue.InsertLog()
 					stagequeue.Run()
 				}
-			}()
+			//}()
 		}
 
 	}
