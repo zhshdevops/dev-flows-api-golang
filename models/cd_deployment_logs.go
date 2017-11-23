@@ -150,13 +150,14 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		// reset strategy to rollingupdate which is default value
 		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
-
+		//strategy 1
 	} else {
-		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建
+		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建 Recreate
+		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
 	}
 
 	if matched {
-		deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"] = fmt.Sprintf("%s", now)
+		deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"] = fmt.Sprintf("%s", now.Unix())
 		ifUpgrade = true
 		return ifUpgrade
 	} else {
