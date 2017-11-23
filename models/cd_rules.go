@@ -54,7 +54,7 @@ func NewCdRules() *CDRules {
 
 }
 
-func (cd *CDRules)FindEnabledRuleByImage(imageName string,orms ...orm.Ormer) (rules []CDRules, result int64, err error) {
+func (cd *CDRules) FindEnabledRuleByImage(imageName string, orms ...orm.Ormer) (rules []CDRules, result int64, err error) {
 
 	var o orm.Ormer
 	if len(orms) != 1 {
@@ -62,14 +62,14 @@ func (cd *CDRules)FindEnabledRuleByImage(imageName string,orms ...orm.Ormer) (ru
 	} else {
 		o = orms[0]
 	}
-
+	glog.Infof("imageFullName=%s\n", imageName)
 	sql := fmt.Sprintf("select * from %s where image_name=? and enabled=?", cd.TableName())
 
 	result, err = o.Raw(sql, cd.ImageName, 1).QueryRows(&rules)
 	return
 }
 
-func (cd *CDRules)FindDeploymentCDRule(namespace, cluster, name string,orms ...orm.Ormer) ([]*CDRules, int64, error) {
+func (cd *CDRules) FindDeploymentCDRule(namespace, cluster, name string, orms ...orm.Ormer) ([]*CDRules, int64, error) {
 	var cdRules []*CDRules
 	var o orm.Ormer
 	if len(orms) != 1 {
@@ -82,7 +82,7 @@ func (cd *CDRules)FindDeploymentCDRule(namespace, cluster, name string,orms ...o
 	return cdRules, total, err
 }
 
-func (cd *CDRules)DeleteDeploymentCDRule(namespace, cluster, name string,orms ...orm.Ormer) error {
+func (cd *CDRules) DeleteDeploymentCDRule(namespace, cluster, name string, orms ...orm.Ormer) error {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -104,7 +104,7 @@ func (cd *CDRules)DeleteDeploymentCDRule(namespace, cluster, name string,orms ..
 	return nil
 }
 
-func (cd *CDRules)UpdateCDRule(namespace, flow_id, rule_id string, rule CDRules,orms ...orm.Ormer) (int64, error) {
+func (cd *CDRules) UpdateCDRule(namespace, flow_id, rule_id string, rule CDRules, orms ...orm.Ormer) (int64, error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -115,7 +115,7 @@ func (cd *CDRules)UpdateCDRule(namespace, flow_id, rule_id string, rule CDRules,
 	return o.Update(&rule, "Update_time", "Binding_cluster_id", "Binding_deployment_id", "Binding_deployment_name")
 }
 
-func (cd *CDRules)ListRulesByFlowId(namespace, flow_id string,orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
+func (cd *CDRules) ListRulesByFlowId(namespace, flow_id string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -129,7 +129,7 @@ func (cd *CDRules)ListRulesByFlowId(namespace, flow_id string,orms ...orm.Ormer)
 
 func IsValidRule(rule CdRuleReq) bool {
 	method := "IsValidRule"
-	if rule.FlowId == "" || rule.Image_name == "" || rule.Match_tag == "" || (rule.Upgrade_strategy != 1 &&rule.Upgrade_strategy != 2) {
+	if rule.FlowId == "" || rule.Image_name == "" || rule.Match_tag == "" || (rule.Upgrade_strategy != 1 && rule.Upgrade_strategy != 2) {
 		glog.Errorf("%s %s \n", method, "Invalid flow_id, image_name, tag, binding_service or upgrade_strategy")
 		return false
 	}
@@ -140,7 +140,7 @@ func IsValidRule(rule CdRuleReq) bool {
 	}
 	return true
 }
-func (cd *CDRules)FindMatchingRule(namespace, flow_id, image_name, match_tag, clusterId, deploymentName string) (cdRules CDRules, err error) {
+func (cd *CDRules) FindMatchingRule(namespace, flow_id, image_name, match_tag, clusterId, deploymentName string) (cdRules CDRules, err error) {
 	o := orm.NewOrm()
 	err = o.QueryTable(cd.TableName()).Filter("namespace", namespace).
 		Filter("flow_id", flow_id).Filter("enabled", 1).
@@ -149,7 +149,7 @@ func (cd *CDRules)FindMatchingRule(namespace, flow_id, image_name, match_tag, cl
 	return
 }
 
-func (cd *CDRules)CreateOneRule(rule CDRules) (result int64, err error) {
+func (cd *CDRules) CreateOneRule(rule CDRules) (result int64, err error) {
 	o := orm.NewOrm()
 	result, err = o.Insert(&rule)
 	return
@@ -162,27 +162,27 @@ func (cd *CDRules)CreateOneRule(rule CDRules) (result int64, err error) {
 //	return
 //}
 
-func (cd *CDRules)RemoveRule(namespace, flow_id, rule_id string) (result int64, err error) {
+func (cd *CDRules) RemoveRule(namespace, flow_id, rule_id string) (result int64, err error) {
 	o := orm.NewOrm()
 	result, err = o.QueryTable(cd.TableName()).Filter("namespace", namespace).
 		Filter("flow_id", flow_id).Filter("rule_id", rule_id).Update(orm.Params{
-		"enabled":0,
+		"enabled": 0,
 	})
 	return
 }
 
-func (cd *CDRules)UpdateRuleById(namespace, flow_id, rule_id string, rule CDRules) (result int64, err error) {
+func (cd *CDRules) UpdateRuleById(namespace, flow_id, rule_id string, rule CDRules) (result int64, err error) {
 	o := orm.NewOrm()
 	result, err = o.QueryTable(cd.TableName()).Filter("namespace", namespace).
 		Filter("flow_id", flow_id).Filter("rule_id", rule_id).Update(orm.Params{
-		"enabled":rule.Enabled,
-		"image_name":rule.ImageName,
-		"binding_cluster_id":rule.BindingClusterId,
-		"binding_deployment_id":rule.BindingDeploymentId,
-		"binding_deployment_name":rule.BindingDeploymentName,
-		"upgrade_strategy":rule.UpgradeStrategy,
-		"match_tag":rule.MatchTag,
-		"update_time":time.Now(),
+		"enabled":                 rule.Enabled,
+		"image_name":              rule.ImageName,
+		"binding_cluster_id":      rule.BindingClusterId,
+		"binding_deployment_id":   rule.BindingDeploymentId,
+		"binding_deployment_name": rule.BindingDeploymentName,
+		"upgrade_strategy":        rule.UpgradeStrategy,
+		"match_tag":               rule.MatchTag,
+		"update_time":             time.Now(),
 	})
 	//o.Update()
 	return

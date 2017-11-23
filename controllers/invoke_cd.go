@@ -72,7 +72,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-	glog.Infof("response:======>>%v\n", notification)
+	glog.Infof("response:======>>%#v\n", notification)
 
 	if len(notification.Events) < 1 {
 		message = "Invalid request body."
