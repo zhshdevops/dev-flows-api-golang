@@ -190,9 +190,12 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-	//开始升级
-	for _, dep := range newDeploymentArray {
+	glog.Infof("len(newDeploymentArray)=%d\n", len(newDeploymentArray))
 
+	glog.Infof("len(newDeploymentArray)=%v\n", newDeploymentArray)
+	//开始升级
+	for index, dep := range newDeploymentArray {
+		glog.Infof("第一次：%d 部署", index)
 		if dep.Deployment.Status.AvailableReplicas == 0 ||
 			fmt.Sprintf("%s", dep.Deployment.ObjectMeta.UID) !=
 				dep.BindingDeploymentId {

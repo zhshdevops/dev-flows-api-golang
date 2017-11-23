@@ -107,9 +107,11 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		}
 	}
 
+	glog.Infof("deployment==========>>%v\n", deployment)
+
 	for index, container := range deployment.Spec.Template.Spec.Containers {
 		oldImage := parseImageName(container.Image)
-		glog.Infof("oldImage=======%s\n",oldImage)
+		glog.Infof("oldImage=======%s\n", oldImage)
 		// Check the image name
 		if oldImage.Image == imageName {
 			// Check the tag matching rule
