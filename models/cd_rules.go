@@ -65,7 +65,7 @@ func (cd *CDRules) FindEnabledRuleByImage(imageName string, orms ...orm.Ormer) (
 	glog.Infof("imageFullName=%s\n", imageName)
 	sql := fmt.Sprintf("select * from %s where image_name=? and enabled=?", cd.TableName())
 
-	result, err = o.Raw(sql, cd.ImageName, 1).QueryRows(&rules)
+	result, err = o.Raw(sql, imageName, 1).QueryRows(&rules)
 	return
 }
 
@@ -184,6 +184,5 @@ func (cd *CDRules) UpdateRuleById(namespace, flow_id, rule_id string, rule CDRul
 		"match_tag":               rule.MatchTag,
 		"update_time":             time.Now(),
 	})
-	//o.Update()
 	return
 }

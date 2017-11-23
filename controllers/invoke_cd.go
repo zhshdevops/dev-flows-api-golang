@@ -99,7 +99,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 
 	//查询CD规则
 	cdrules, result, err := models.NewCdRules().FindEnabledRuleByImage(imageInfo.Fullname)
-	if err != nil || len(cdrules) == 0 {
+	if err != nil || result == 0 {
 		glog.Infof("%s There is no CD rule that matched this image:result=%d err=[%v]\n", method, result, err)
 		message = "There is no CD rule that matched this image:" + imageInfo.Fullname
 		ic.ResponseErrorAndCode(message, http.StatusOK)
