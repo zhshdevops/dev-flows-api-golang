@@ -91,9 +91,9 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	matched := false
 	ifUpgrade := false
 	now := time.Now()
-	if !strings.Contains(deployment.Kind, "Deployment") {
-		return ifUpgrade
-	}
+	//if !strings.Contains(deployment., "Deployment") {
+	//	return ifUpgrade
+	//}
 
 	if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
 		cooldownSec := 30
