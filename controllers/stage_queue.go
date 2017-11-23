@@ -259,7 +259,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 	wg.Add(1)
 	go func() {
 		// 设置3分钟超时，如无法创建container则自动停止构建
-		pod, timeout, err = HandleWaitTimeout(job, queue.ImageBuilder)
+		pod, timeout, err = HandleWaitTimeout(job, queue.ImageBuilder, queue.StageBuildLog.BuildId)
 		if err != nil {
 			glog.Errorf("%s HandleWaitTimeout get: %v\n", method, err)
 		}

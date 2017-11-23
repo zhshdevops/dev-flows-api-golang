@@ -93,7 +93,7 @@ func Initk8sClient() {
 			//ClusterID="CID-d7d3eb44c1db"
 
 			//clientSet, ok := GetClientSetOrRespErr(ClusterID)
-			glog.Infoln("ClusterID=============>>:%s\n",clu.ClusterID)
+			glog.Infof("ClusterID=============>>:%s\n",clu.ClusterID)
 			clientSet, ok := GetClientSetOrRespErr(clu.ClusterID)
 			KubernetesClientSet = clientSet
 			Token=clu.APIToken

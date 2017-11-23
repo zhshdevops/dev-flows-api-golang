@@ -174,7 +174,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 	}
 }
 
-//WatchJob  watch  the job event
+//WatchJob  watch  the job event fieldSelectorStr := "status.phase!=Succeeded,status.phase!=Failed"
 func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 	method := "WatchJob"
 	var job *v1beta1.Job
@@ -183,11 +183,13 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 
 	labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)
 	labelsSel, err := labels.Parse(labelsStr)
+
 	if err != nil {
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
 		job.Status.Conditions[0].Status = v1.ConditionUnknown
 		return job
 	}
+
 	listOptions := api.ListOptions{
 		LabelSelector: labelsSel,
 		Watch:         true,
@@ -213,21 +215,18 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 				job.Status.Conditions[0].Status = v1.ConditionUnknown
 				return job
 			}
-
 			glog.Infof("%s job event.Type=%s\n", method, event.Type)
 			glog.Infof("%s job event.Status=%#v\n", method, dm.Status)
-
 			if event.Type == watch.Added {
 				//收到deleted事件，job可能被第三方删除
 				glog.Infof("%s %s,status:%v\n", method, "收到ADD事件,开始起job进行构建", dm.Status)
 				//return dm
 				//成功时并且已经完成时
-				if len(dm.Status.Conditions) != 0 && dm.Status.Conditions[0].Type == v1beta1.JobComplete {
+				if len(dm.Status.Conditions) != 0 && dm.Status.Conditions[0].Type == v1beta1.JobComplete &&
+					dm.Status.Conditions[0].Status == v1.ConditionTrue {
 					return dm
 				}
-
 				continue
-
 			} else if event.Type == watch.Deleted {
 				//收到deleted事件，job可能被第三方删除
 				glog.Errorf("%s  %s status:%v\n", method, " 收到deleted事件，job可能被第三方删除", dm.Status)

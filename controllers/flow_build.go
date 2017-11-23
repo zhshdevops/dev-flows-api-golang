@@ -43,10 +43,10 @@ type BuildStageOptions struct {
 	UseCustomRegistry   bool
 }
 
-func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv1.Pod, timeout bool, err error) {
+func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder, stageBuildId string) (pod apiv1.Pod, timeout bool, err error) {
 	method := "handleWaitTimeout"
 
-	pod, err = imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+	pod, err = imageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stageBuildId)
 	if err != nil {
 		glog.Errorf("%s get %s pod failed:%v\n", method, pod.ObjectMeta.Name, err)
 	}
@@ -77,7 +77,7 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder) (pod apiv
 	}
 
 	//终止job
-	glog.Infof("%s - stop job=[%s]\n", method, job.ObjectMeta.Name)
+	glog.Infof("%s - will stop job=[%s]\n", method, job.ObjectMeta.Name)
 	//1 代表手动停止 0表示程序停止
 	//_, err = imageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
 	//if err != nil {

@@ -504,15 +504,22 @@ func (builder *ImageBuilder) GetPodName(namespace, jobName string) (string, erro
 
 }
 
-func (builder *ImageBuilder) GetPod(namespace, jobName string) (apiv1.Pod, error) {
+func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...string) (apiv1.Pod, error) {
 	method := "ImageBuilder.GetPod"
 	var podList apiv1.Pod
+	labelsStr := ""
+	if len(stageBuildId) != 0 {
+		labelsStr = fmt.Sprintf("stage-build-id=%s", stageBuildId[0])
+	} else {
+		labelsStr = fmt.Sprintf("job-name=%s", jobName)
+	}
 
-	labelsStr := fmt.Sprintf("job-name=%s", jobName)
 	labelsSel, err := labels.Parse(labelsStr)
+
 	if err != nil {
 		return podList, err
 	}
+
 	listOptions := api.ListOptions{
 		LabelSelector: labelsSel,
 	}
