@@ -110,7 +110,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	glog.Infof("deployment==========>>%v\n", deployment)
 
 	for index, container := range deployment.Spec.Template.Spec.Containers {
-		glog.Infof("container.Image:%v\n",container.Image)
+		glog.Infof("container.Image:%v\n", container.Image)
 		oldImage := parseImageName(container.Image)
 		glog.Infof("oldImage=======%s\n", oldImage)
 		// Check the image name
@@ -181,26 +181,23 @@ func parseImageName(imageFullName string) (image Image) {
 	exist := strings.Count(imageFullName, ":")
 	if count == 2 && exist == 1 {
 		res := strings.Split(imageFullName, "/")
-		image.Host = res[0] + "/" + res[1]
-		image.Image = strings.Split(res[2], ":")[0]
+		image.Host = res[0]
+		image.Image = res[1] + "/" + strings.Split(res[2], ":")[0]
 		image.Tag = strings.Split(res[2], ":")[1]
 	} else if count == 1 && exist == 1 {
 		res := strings.Split(imageFullName, "/")
 		image.Host = ""
-		image.Image = strings.Split(res[1], ":")[0]
+		image.Image = res[0] + "/" + strings.Split(res[1], ":")[0]
 		image.Tag = strings.Split(res[1], ":")[1]
 	} else if count == 0 && exist == 1 {
-
 		res := strings.Split(imageFullName, ":")
 		image.Host = ""
 		image.Image = res[0]
 		image.Tag = res[1]
-
 	} else if count == 0 && exist == 0 {
 		image.Host = ""
 		image.Image = imageFullName
 		image.Tag = "latest"
 	}
-
 	return image
 }
