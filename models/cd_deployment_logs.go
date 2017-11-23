@@ -44,7 +44,7 @@ type NewDeploymentArray struct {
 	Flow_id             string
 	Rule_id             string
 	Namespace           string
-	Match_tag           string
+	Match_tag           string //是否匹配规则
 	Start_time          time.Time
 }
 
@@ -86,6 +86,7 @@ func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit in
 }
 
 func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTag string, strategy int8) bool {
+	glog.Infof("Upgrade==========>")
 	method := "kubernetes Upgrade"
 	matched := false
 	ifUpgrade := false
@@ -108,13 +109,15 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 
 	for index, container := range deployment.Spec.Template.Spec.Containers {
 		oldImage := parseImageName(container.Image)
+		glog.Infof("oldImage=======%s\n",oldImage)
 		// Check the image name
 		if oldImage.Image == imageName {
 			// Check the tag matching rule
 			if (isMatchTag == "2") || (isMatchTag == "1" && newTag == oldImage.Tag) {
+				glog.Infof("======================>>isMatchTag=%s\n", isMatchTag)
 				matched = true
 				container.Image = oldImage.Host + "/" + oldImage.Image + ":" + newTag
-				glog.Infof("container.Image=====>>%s\n", container.Image)
+				glog.Infof("container.Image===============>>%s\n", container.Image)
 				deployment.Spec.Template.Spec.Containers[index].Image = container.Image
 				deployment.Spec.Template.Spec.Containers[index].ImagePullPolicy = v1.PullAlways
 				container.ImagePullPolicy = v1.PullAlways

@@ -252,40 +252,70 @@ func (ic *InvokeCDController) NotificationHandler() {
 				continue
 			}
 
-			glog.Infof("kubernetes CD Success, deployment :%v\n", dp)
+			glog.Infof("============>>kubernetes CD Success, deployment :%v\n", dp)
+
+			//成功时插入日志
+			log.CdRuleId = dep.Rule_id
+			log.TargetVersion = imageInfo.Tag
+			log.CreateTime = time.Now()
+			cdresult.Status = 1
+			cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+			cdresult.Error = fmt.Sprintf("%s", err)
+			data, err := json.Marshal(cdresult)
+			if err != nil {
+				glog.Errorf("%s json marshal failed:%v\n", method, err)
+				message = "json Marshal failed " + string(data)
+				ic.ResponseErrorAndCode(message, 401)
+				return
+			}
+			log.Result = string(data)
+			log.Id = uuid.NewCDLogID()
+			inertRes, err := cdlog.InsertCDLog(log)
+			if err != nil {
+				glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
+			}
+
+			detail := &EmailDetail{
+				Type:    "cd",
+				Result:  "success",
+				Subject: fmt.Sprintf(`持续集成执行成功，镜像%s已更新`, imageInfo.Fullname),
+				Body: fmt.Sprintf(`已将服务%s使用的镜像更新为%s:%s的最新版本`,
+					dep.Deployment.ObjectMeta.Name, imageInfo.Fullname, imageInfo.Tag),
+			}
+			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
+
+		} else {
+			//失败时插入日志
+			log.CdRuleId = dep.Rule_id
+			log.TargetVersion = imageInfo.Tag
+			log.CreateTime = time.Now()
+			cdresult.Status = 2
+			cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+			cdresult.Error = fmt.Sprintf("%s", err)
+			data, err := json.Marshal(cdresult)
+			if err != nil {
+				glog.Errorf("%s json marshal failed:%v\n", method, err)
+				message = "json Marshal failed " + string(data)
+				ic.ResponseErrorAndCode(message, 401)
+				return
+			}
+			log.Result = string(data)
+			log.Id = uuid.NewCDLogID()
+			inertRes, err := cdlog.InsertCDLog(log)
+			if err != nil {
+				glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
+			}
+
+			detail := &EmailDetail{
+				Type:    "cd",
+				Result:  "success",
+				Subject: fmt.Sprintf(`持续集成执行失败:镜像名称:%s`, imageInfo.Fullname),
+				Body: fmt.Sprintf(`服务[%s]更新镜像为[%s:%s]持续集成执行失败`,
+					dep.Deployment.ObjectMeta.Name, imageInfo.Fullname, imageInfo.Tag),
+			}
+			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
 
 		}
-
-		//成功时插入日志
-		log.CdRuleId = dep.Rule_id
-		log.TargetVersion = imageInfo.Tag
-		log.CreateTime = time.Now()
-		cdresult.Status = 1
-		cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
-		cdresult.Error = fmt.Sprintf("%s", err)
-		data, err := json.Marshal(cdresult)
-		if err != nil {
-			glog.Errorf("%s json marshal failed:%v\n", method, err)
-			message = "json Marshal failed " + string(data)
-			ic.ResponseErrorAndCode(message, 401)
-			return
-		}
-		log.Result = string(data)
-		log.Id = uuid.NewCDLogID()
-		inertRes, err := cdlog.InsertCDLog(log)
-		if err != nil {
-			glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
-		}
-
-		detail := &EmailDetail{
-			Type:    "cd",
-			Result:  "success",
-			Subject: fmt.Sprintf(`持续集成执行成功，镜像%s已更新`, imageInfo.Fullname),
-			Body: fmt.Sprintf(`已将服务%s使用的镜像更新为%s:%s的最新版本`,
-				dep.Deployment.ObjectMeta.Name, imageInfo.Fullname, imageInfo.Tag),
-		}
-		detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
-
 	}
 
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
