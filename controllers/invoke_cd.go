@@ -51,6 +51,7 @@ type InvokeCDController struct {
 //]
 //}
 
+// @router /notification-handler [POST]
 func (ic *InvokeCDController) NotificationHandler() {
 	ic.Audit.Skip = true
 	var notification models.Notification

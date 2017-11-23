@@ -463,6 +463,14 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
+	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:InvokeCDController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:InvokeCDController"],
+		beego.ControllerComments{
+			Method: "NotificationHandler",
+			Router: `/notification-handler`,
+			AllowHTTPMethods: []string{"POST"},
+			MethodParams: param.Make(),
+			Params: nil})
+
 	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:SocketLogController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:SocketLogController"],
 		beego.ControllerComments{
 			Method: "CreateAccessToken",

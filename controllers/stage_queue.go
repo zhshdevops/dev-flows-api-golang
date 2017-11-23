@@ -599,7 +599,7 @@ func (queue *StageQueueNew) SetFailedStatus() {
 }
 
 func (queue *StageQueueNew) SetSuncessStatus() {
-	method := "setFailedStatus"
+	method := "SetSuncessStatus"
 	now := time.Now()
 	queue.FlowbuildLog.EndTime = now
 	queue.FlowbuildLog.Status = common.STATUS_SUCCESS
