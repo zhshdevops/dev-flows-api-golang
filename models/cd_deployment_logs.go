@@ -144,10 +144,11 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	//   目前设置spec.strategy时存在缺陷，修改之后自动更新会失效。
 	//   当前采用策略为：灰度升级时重置spec.strategy为rollingupdate，否则删除对应pods
 	//   通过时间戳设置tenxcloud.com/cdTime label从而触发更新
-
+	glog.Infof("=====================>>strategy:%d\n", strategy)
 	if strategy == 2 && (deployment.Spec.Strategy.Type != v1beta1.RollingUpdateDeploymentStrategyType ||
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade
 		// reset strategy to rollingupdate which is default value
+
 		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
 		deployment.Spec.Strategy.RollingUpdate.MaxSurge.IntVal = 1
@@ -155,6 +156,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	} else {
 		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建 Recreate
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
+		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.Type = 0
 		deployment.Spec.Strategy.RollingUpdate.MaxSurge.IntVal = 1
 	}
 

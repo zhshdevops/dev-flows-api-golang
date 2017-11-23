@@ -213,7 +213,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 
 			dp, err := k8sClient.ExtensionsClient.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
 			if err != nil {
-				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp, err)
+				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp.Spec.Strategy, err)
 				//失败时插入日志
 				log.CdRuleId = dep.Rule_id
 				log.TargetVersion = imageInfo.Tag
