@@ -155,14 +155,21 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		deployment.Spec.Strategy.RollingUpdate.MaxSurge.IntVal = 1
 		//strategy 1
 	} else {
-		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建 Recreate
-		var rollingUpdateDeployment *v1beta1.RollingUpdateDeployment
-		var intstr *intstr.IntOrString
-		intstr.IntVal = 0
-		intstr.Type = 0
-		rollingUpdateDeployment.MaxUnavailable = intstr
-		//rollingUpdateDeployment.MaxSurge.IntVal=1
-		deployment.Spec.Strategy.RollingUpdate = rollingUpdateDeployment
+
+		deployment.Spec.Strategy = v1beta1.DeploymentStrategy{//重新创建 Recreate
+			Type: v1beta1.RecreateDeploymentStrategyType,
+			RollingUpdate: &v1beta1.RollingUpdateDeployment{
+				MaxUnavailable: &intstr.IntOrString{
+					Type:   0,
+					IntVal: 0,
+				},
+				MaxSurge: &intstr.IntOrString{
+					Type:   0,
+					IntVal: 1,
+				},
+			},
+		}
+
 	}
 
 	if matched {
