@@ -115,7 +115,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		glog.Infof("oldImage=======%s\n", oldImage)
 		// Check the image name
 		if oldImage.Image == imageName {
-			// Check the tag matching rule
+			// Check the tag matching rule 匹配 不匹配
 			if (isMatchTag == "2") || (isMatchTag == "1" && newTag == oldImage.Tag) {
 				glog.Infof("======================>>isMatchTag=%s\n", isMatchTag)
 				matched = true
@@ -152,24 +152,12 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
 		deployment.Spec.Strategy.RollingUpdate.MaxSurge.IntVal = 1
+
 		//strategy 1
 	} else {
+
 		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建 Recreate
 		deployment.Spec.Strategy.RollingUpdate = nil                           //重新创建 Recreate
-		//deployment.Spec.Strategy.RollingUpdate = nil
-		//deployment.Spec.Strategy = v1beta1.DeploymentStrategy{
-		//	Type: v1beta1.RecreateDeploymentStrategyType,
-		//	RollingUpdate: &v1beta1.RollingUpdateDeployment{
-		//		MaxUnavailable: &intstr.IntOrString{
-		//			Type:   0,
-		//			IntVal: 0,
-		//		},
-		//		MaxSurge: &intstr.IntOrString{
-		//			Type:   0,
-		//			IntVal: 1,
-		//		},
-		//	},
-		//}
 
 	}
 
