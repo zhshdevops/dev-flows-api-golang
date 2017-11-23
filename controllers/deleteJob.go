@@ -72,7 +72,7 @@ func BeginDeleteJob() {
 
 	for _, job := range jobList.Items {
 
-		//watchOneJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+		watchOneJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 
 		if succeeded(job) {
 			jobStatusCount.SucceededCount++
