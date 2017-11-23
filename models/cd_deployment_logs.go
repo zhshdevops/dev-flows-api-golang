@@ -3,6 +3,7 @@ package models
 import (
 	"github.com/astaxie/beego/orm"
 	v1beta1 "k8s.io/client-go/1.4/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/1.4/pkg/util/intstr"
 	"time"
 	"github.com/golang/glog"
 	"k8s.io/client-go/1.4/pkg/api/v1"
@@ -156,8 +157,10 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	} else {
 		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建 Recreate
 		var rollingUpdateDeployment *v1beta1.RollingUpdateDeployment
-		rollingUpdateDeployment.MaxUnavailable.IntVal = 0
-		rollingUpdateDeployment.MaxUnavailable.Type = 0
+		var intstr *intstr.IntOrString
+		intstr.IntVal = 0
+		intstr.Type = 0
+		rollingUpdateDeployment.MaxUnavailable = intstr
 		//rollingUpdateDeployment.MaxSurge.IntVal=1
 		deployment.Spec.Strategy.RollingUpdate = rollingUpdateDeployment
 	}
