@@ -86,7 +86,7 @@ func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit in
 }
 
 func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTag string, strategy int8) bool {
-	glog.Infof("Upgrade==========>")
+	glog.Infof("Upgrade==========>deployment.Kind:%s\n", deployment.Kind)
 	method := "kubernetes Upgrade"
 	matched := false
 	ifUpgrade := false
