@@ -155,6 +155,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		//strategy 1
 	} else {
 		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建 Recreate
+		deployment.Spec.Strategy.RollingUpdate = nil                           //重新创建 Recreate
 		//deployment.Spec.Strategy.RollingUpdate = nil
 		//deployment.Spec.Strategy = v1beta1.DeploymentStrategy{
 		//	Type: v1beta1.RecreateDeploymentStrategyType,
