@@ -19,7 +19,38 @@ type InvokeCDController struct {
 	ErrorController
 }
 
-// @router /notification-handler [POST]
+//"events": [
+//{
+//"id": "6d71d21f-e378-4e0a-84ad-f56dda34d794",
+//"timestamp": "2017-11-23T12:45:48.618301753+08:00",
+//"action": "push",
+//"target": {
+//"mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+//"size": 1779,
+//"digest": "sha256:5d2f8a1b3e58fdbbdd698e5e7615fca758afea765b32cd93e0854226dc97e5f6",
+//"length": 1779,
+//"repository": "qinzhao-harbor/gogsimage",
+//"url": "http://10.39.0.102/v2/qinzhao-harbor/gogsimage/manifests/sha256:5d2f8a1b3e58fdbbdd698e5e7615fca758afea765b32cd93e0854226dc97e5f6",
+//"tag": "20170919.155947.88"
+//},
+//"request": {
+//"id": "69ddb608-6483-49c2-bf72-36570b220a0c",
+//"addr": "10.39.0.102",
+//"host": "10.39.0.102",
+//"method": "PUT",
+//"useragent": "docker/1.13.0 go/go1.7.3 git-commit/49bf474 kernel/3.10.0-327.4.5.el7.x86_64 os/linux arch/amd64 UpstreamClient(Docker-Client/1.13.0 \\(linux\\))"
+//},
+//"actor": {
+//"name": "qinzhao"
+//},
+//"source": {
+//"addr": "61f24253d6ad:5000",
+//"instanceID": "e4a873b8-3af7-4867-a061-4a81d4d4a926"
+//}
+//}
+//]
+//}
+
 func (ic *InvokeCDController) NotificationHandler() {
 	ic.Audit.Skip = true
 	var notification models.Notification
@@ -39,6 +70,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
 		return
 	}
+
+	glog.Infof("response:======>>%v\n", notification)
 
 	if len(notification.Events) < 1 {
 		message = "Invalid request body."
