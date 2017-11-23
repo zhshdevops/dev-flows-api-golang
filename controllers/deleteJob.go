@@ -188,7 +188,7 @@ func deleteOneJobInNamespace(namespace, jobName string) error {
 	//return client.KubernetesClientSet.BatchClient.Jobs(namespace).Delete(jobName, options)
 
 	//labelsStr := fmt.Sprintf("job-name=%s", jobName)
-	return  client.KubernetesClientSet.Delete().Namespace(namespace).Resource("jobs").Name(jobName).Do().Error()
+	return client.KubernetesClientSet.BatchClient.Delete().Namespace(namespace).Resource("jobs").Name(jobName).Do().Error()
 	////err := client.KubernetesClientSet.Delete().Resource("jobs").Namespace(namespace).Name(jobName).Do().Error()
 	//if err != nil {
 	//	glog.Infof("delete job failed:err:%v\n", err)
