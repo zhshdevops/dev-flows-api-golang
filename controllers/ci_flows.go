@@ -1307,7 +1307,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	flowId := cf.Ctx.Input.Param(":flow_id")
 
-
 	stageId := cf.Ctx.Input.Param(":stage_id")
 	stageBuildId := cf.Ctx.Input.Param(":stage_build_id")
 
@@ -1359,7 +1358,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	}
 
 	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
-	cf.Ctx.ResponseWriter.Write([]byte(`-------------------------- 子任务容器: 仅显示最近  200  条日志 ---------------<br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`>>>构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志<<< <br/>`))
 	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
 
 	//如果创建失败
@@ -1411,7 +1410,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
 
 					}
-					//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 				}
 			}
 

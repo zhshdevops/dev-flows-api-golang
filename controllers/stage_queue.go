@@ -268,10 +268,10 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		select {
 		case <-time.After(3 * time.Minute):
 			wg.Done()
-			glog.Infof("Kubernetes Job start timeout:%q\n", timeout)
+			glog.Infof("Kubernetes Job start timeout:%v\n", timeout)
 		case <-resultChan:
 			wg.Done()
-			glog.Infof("Kubernetes Job not timeout:%q\n", timeout)
+			glog.Infof("Kubernetes Job not timeout:%v\n", timeout)
 		}
 
 	}()

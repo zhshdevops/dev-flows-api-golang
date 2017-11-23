@@ -19,11 +19,6 @@ type InvokeCDController struct {
 	ErrorController
 }
 
-// @Title CreateUser
-// @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.Id
-// @Failure 403 body is empty
 // @router /notification-handler [POST]
 func (ic *InvokeCDController) NotificationHandler() {
 	ic.Audit.Skip = true
@@ -66,9 +61,12 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
 
+	glog.Infof("imageInfo====>%v\n", imageInfo)
+
+	//查询CD规则
 	cdrules, result, err := models.NewCdRules().FindEnabledRuleByImage(imageInfo.Fullname)
 	if err != nil || len(cdrules) == 0 {
-		glog.Infof("%s result=%d err=[%v]\n", method, result, err)
+		glog.Infof("%s There is no CD rule that matched this image:result=%d err=[%v]\n", method, result, err)
 		message = "There is no CD rule that matched this image:" + imageInfo.Fullname
 		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
@@ -93,7 +91,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			continue
 		}
 		deployment, err := k8sClient.ExtensionsClient.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName)
-		if err != nil {
+		if err != nil || deployment.Status.AvailableReplicas == 0 {
 			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
 
 			log.CdRuleId = cdrule.RuleId
@@ -158,6 +156,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
+	//开始升级
 	for _, dep := range newDeploymentArray {
 
 		if dep.Deployment.Status.AvailableReplicas == 0 ||
@@ -175,9 +174,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 
-			dp, err := k8sClient.ExtensionsClient.Deployments(dep.Namespace).Update(dep.Deployment)
+			dp, err := k8sClient.ExtensionsClient.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
 			if err != nil {
-
 				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp, err)
 				//失败时插入日志
 				log.CdRuleId = dep.Rule_id
@@ -219,6 +217,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 				detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
 				continue
 			}
+
+			glog.Infof("kubernetes CD Success, deployment :%v\n", dp)
 
 		}
 

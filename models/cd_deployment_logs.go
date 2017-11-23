@@ -57,7 +57,7 @@ func (cd *CDDeploymentLogs) TableName() string {
 func NewCDDeploymentLogs() *CDDeploymentLogs {
 	return &CDDeploymentLogs{}
 }
-func (cd *CDDeploymentLogs) InsertCDLog(log CDDeploymentLogs,orms ...orm.Ormer) (result int64, err error) {
+func (cd *CDDeploymentLogs) InsertCDLog(log CDDeploymentLogs, orms ...orm.Ormer) (result int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -68,7 +68,7 @@ func (cd *CDDeploymentLogs) InsertCDLog(log CDDeploymentLogs,orms ...orm.Ormer) 
 	return
 }
 
-func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit int,orms ...orm.Ormer) (logs []ListLogs, total int64, err error) {
+func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit int, orms ...orm.Ormer) (logs []ListLogs, total int64, err error) {
 	SELECT_FLOW_DEPLOYMENT_LOGS := "SELECT r.binding_deployment_name as app_name," +
 		" r.image_name as image_name, l.target_version, " +
 		"c.name as cluster_name, r.upgrade_strategy, l.result, " +
@@ -94,30 +94,37 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		return ifUpgrade
 	}
 
-	if deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"] != "" {
+	if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
 		cooldownSec := 30
 		lastCdTs := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]
 		cdTs, _ := strconv.ParseInt(lastCdTs, 10, 64)
-		if (time.Now().Unix() - cdTs) < int64(cooldownSec * 1000) {
-			glog.Warningf("%s %s\n", method, "Upgrade is rejected because the" +
+		//当前时间与上一次相差不足冷却间隔时，不进行更新
+		if (time.Now().Unix() - cdTs) < int64(cooldownSec*1000) {
+			glog.Warningf("%s %s\n", method, "Upgrade is rejected because the"+
 				" deployment was updated too frequently")
 			return ifUpgrade
 		}
 	}
 
-	for _, container := range deployment.Spec.Template.Spec.Containers {
+	for index, container := range deployment.Spec.Template.Spec.Containers {
 		oldImage := parseImageName(container.Image)
+		// Check the image name
 		if oldImage.Image == imageName {
-			if (isMatchTag == "2") || (isMatchTag == "1"&&newTag == oldImage.Tag) {
+			// Check the tag matching rule
+			if (isMatchTag == "2") || (isMatchTag == "1" && newTag == oldImage.Tag) {
 				matched = true
 				container.Image = oldImage.Host + "/" + oldImage.Image + ":" + newTag
+				glog.Infof("container.Image=====>>%s\n", container.Image)
+				deployment.Spec.Template.Spec.Containers[index].Image = container.Image
+				deployment.Spec.Template.Spec.Containers[index].ImagePullPolicy = v1.PullAlways
 				container.ImagePullPolicy = v1.PullAlways
 			}
 		}
 
 	}
+
 	volumes := deployment.Spec.Template.Spec.Volumes
-	if len(volumes) > 0&&strategy != 1 {
+	if len(volumes) > 0 && strategy != 1 {
 		for _, volume := range volumes {
 			if volume.RBD != nil {
 				//如果挂载了存储卷，则强制使用重启策略
@@ -127,19 +134,27 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		}
 	}
 
+	// README:
+	//   目前设置spec.strategy时存在缺陷，修改之后自动更新会失效。
+	//   当前采用策略为：灰度升级时重置spec.strategy为rollingupdate，否则删除对应pods
+	//   通过时间戳设置tenxcloud.com/cdTime label从而触发更新
+
 	if strategy == 2 && (deployment.Spec.Strategy.Type != v1beta1.RollingUpdateDeploymentStrategyType ||
-		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) {
+		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade
+		// reset strategy to rollingupdate which is default value
 		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
 
 	} else {
-		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType
+		deployment.Spec.Strategy.Type = v1beta1.RecreateDeploymentStrategyType //重新创建
 	}
 
 	if matched {
 		deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"] = fmt.Sprintf("%s", now)
 		ifUpgrade = true
 		return ifUpgrade
+	} else {
+		glog.Infof("%s No matched container to upgrade for: %s (%s).", method, imageName, newTag)
 	}
 	return ifUpgrade
 
@@ -158,24 +173,24 @@ func parseImageName(imageFullName string) (image Image) {
 	//var separatorNumber int
 	count := strings.Count(imageFullName, "/")
 	exist := strings.Count(imageFullName, ":")
-	if count == 2 &&exist == 1 {
+	if count == 2 && exist == 1 {
 		res := strings.Split(imageFullName, "/")
 		image.Host = res[0] + "/" + res[1]
 		image.Image = strings.Split(res[2], ":")[0]
 		image.Tag = strings.Split(res[2], ":")[1]
-	} else if count == 1&&exist == 1 {
+	} else if count == 1 && exist == 1 {
 		res := strings.Split(imageFullName, "/")
 		image.Host = ""
 		image.Image = strings.Split(res[1], ":")[0]
 		image.Tag = strings.Split(res[1], ":")[1]
-	} else if count == 0&&exist == 1 {
+	} else if count == 0 && exist == 1 {
 
 		res := strings.Split(imageFullName, ":")
 		image.Host = ""
 		image.Image = res[0]
 		image.Tag = res[1]
 
-	} else if count == 0&&exist == 0 {
+	} else if count == 0 && exist == 0 {
 		image.Host = ""
 		image.Image = imageFullName
 		image.Tag = "latest"

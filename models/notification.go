@@ -42,6 +42,6 @@ type Request struct {
 
 type ImageInfo struct {
 	Fullname    string
-	Projectname string
+	Projectname string //镜像仓库
 	Tag         string
 }
