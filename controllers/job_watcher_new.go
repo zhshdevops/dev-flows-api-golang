@@ -19,19 +19,20 @@ import (
 )
 
 type EnnFlow struct {
-	FlowId        string `json:"flowId"`
-	FlowBuildId   string `json:"flowBuildId"`
-	StageId       string `json:"stageId"`
-	StageBuildId  string `json:"stageBuildId"`
-	BuildStatus   int `json:"buildStatus"`
-	Status        int `json:"status"`
-	Message       string `json:"message"`
-	CodeBranch    string `json:"codeBranch"`
-	Flag          int `json:"flag"` //1 表示flow 2表示stage
-	Namespace     string `json:"namespace"`
-	LoginUserName string `json:"loginUserName"`
-	UserNamespace string `json:"userNamespace"`
-	Event         string `json:"event"`
+	FlowId           string `json:"flowId"`
+	FlowBuildId      string `json:"flowBuildId"`
+	StageId          string `json:"stageId"`
+	StageBuildId     string `json:"stageBuildId"`
+	BuildStatus      int `json:"buildStatus"`
+	Status           int `json:"status"`
+	Message          string `json:"message"`
+	CodeBranch       string `json:"codeBranch"`
+	Flag             int `json:"flag"` //1 表示flow 2表示stage
+	Namespace        string `json:"namespace"`
+	LoginUserName    string `json:"loginUserName"`
+	UserNamespace    string `json:"userNamespace"`
+	Event            string `json:"event"`
+	WebSocketIfClose int `json:"webSocketIfClose"` //0表示不关闭 1表示关闭
 }
 
 var SOCKETS_OF_BUILD_MAPPING_MUTEX sync.RWMutex
@@ -126,33 +127,47 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 			if err != nil {
 				glog.Errorf("msg:%v========err:%v\n", msg, err)
 				flow.Status = 400
-				flow.Message = "json unmarshal failed"
+				flow.Message = "反系列化失败"
 				data, _ := json.Marshal(flow)
 				wsutil.WriteServerMessage(conn, op, data)
 				return
 			}
 
 			if flow.FlowId != "" {
+
 				SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
 				//存websocket,通过flowId获取某个Ennflow的websocket
-				if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]; !ok {
+				oldCon, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]
+				if !ok && flow.WebSocketIfClose == 0 {
 					var connOfFlow Conn
 					connOfFlow.Conn = conn
 					connOfFlow.Op = op
 					SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
+					flow.Status = http.StatusOK
+					flow.Message = "建立websocket成功"
+					data, _ := json.Marshal(flow)
+					wsutil.WriteServerMessage(conn, op, data)
 
+				} else if ok && flow.WebSocketIfClose == 1 {
+					//释放资源
+					oldCon.Conn.Close()
+					delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
+					flow.Status = http.StatusOK
+					flow.Message = "关闭websocket成功"
+					data, _ := json.Marshal(flow)
+					wsutil.WriteServerMessage(conn, op, data)
 				}
-				flow.Status = http.StatusOK
-				flow.Message = "建立websocket成功"
-				data, _ := json.Marshal(flow)
-				wsutil.WriteServerMessage(conn, op, data)
+
 				SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+
 			} else {
+
 				glog.Errorf("FlowId is empty")
 				flow.Status = 400
 				flow.Message = "FlowId is empty"
 				data, _ := json.Marshal(flow)
 				wsutil.WriteServerMessage(conn, op, data)
+
 			}
 			return
 		}),
