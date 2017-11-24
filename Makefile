@@ -1,5 +1,5 @@
 PREFIX = harbor.enncloud.cn/qinzhao-harbor
-TAG = v1.2
+TAG = v1.3
 db_url=10.39.0.251
 vip_url=10.39.0.102
 

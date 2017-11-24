@@ -27,8 +27,8 @@ Config_Devops_Server() {
     sed -i "s/[[:blank:]]*deployment_mode[[:blank:]]*=.*/deployment_mode=enterprise/"  /usr/src/cicd/conf/app.conf
     sed -i "s/[[:blank:]]*EnableHTTP[[:blank:]]*=.*/EnableHTTP=true/"             /usr/src/cicd/conf/app.conf
      sed -i "s/[[:blank:]]*EnableHTTPS[[:blank:]]*=.*/EnableHTTPS=false/"         /usr/src/cicd/conf/app.conf
-    sed -i "s/[[:blank:]]*HTTPSPort.*/HTTPPort=9001/"                          /usr/src/cicd/conf/app.conf
-    sed -i "s/[[:blank:]]*HTTPPort[[:blank:]]*=.*/HTTPPort=9001/"             /usr/src/cicd/conf/app.conf
+    sed -i "s/[[:blank:]]*HTTPSPort.*/HTTPPort=8090/"                          /usr/src/cicd/conf/app.conf
+    sed -i "s/[[:blank:]]*HTTPPort[[:blank:]]*=.*/HTTPPort=8090/"             /usr/src/cicd/conf/app.conf
     sed -i "s/[[:blank:]]*RunMode.*/RunMode=pro/"                    /usr/src/cicd/conf/app.conf
     sed -i "s/[[:blank:]]*db_port.*/db_port=${db_port}/"             /usr/src/cicd/conf/app.conf
     sed -i "s/[[:blank:]]*db_host.*/db_host=${db_hostname}/"         /usr/src/cicd/conf/app.conf
@@ -45,15 +45,15 @@ fi
 
 if [ -z "${db_username}" ]; then
     echo "use default db username"
-    db_username="tenxcloud"
+    db_username="tcepaas"
 fi
 
 if [ -z "${db_password}" ]; then
     echo "use default db password"
-    db_password="tenxcloud"
+    db_password="xboU58vQbAbN"
 fi
 
-local_db_hostname="127.0.0.1"
+local_db_hostname="10.39.0.251"
 if [ -z "${db_hostname}" ]; then
     echo "use default db hostname"
     db_hostname="${local_db_hostname}"
