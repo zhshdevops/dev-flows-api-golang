@@ -1,6 +1,6 @@
 PREFIX = harbor.enncloud.cn/qinzhao-harbor
 TAG = v1.2
-db_url=10.19.0.102
+db_url=localhost
 vip_url=localhost
 
 SOURCE_DIR=$(shell pwd)
