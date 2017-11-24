@@ -1,7 +1,7 @@
 PREFIX = harbor.enncloud.cn/qinzhao-harbor
 TAG = v1.2
-db_url=localhost
-vip_url=localhost
+db_url=10.39.0.251
+vip_url=10.39.0.102
 
 SOURCE_DIR=$(shell pwd)
 PROJECT=$(shell basename $(SOURCE_DIR))
@@ -30,8 +30,8 @@ run:
                -e DB_HOST=$(db_url) \
                -e DB_PORT=3306 \
                -e DB_NAME=tenxcloud_2_0 \
-               -e DB_USER=root \
-               -e DB_PASSWORD=enN12345 \
+               -e DB_USER=tcepaas \
+               -e DB_PASSWORD=xboU58vQbAbN \
                -e BIND_BUILD_NODE=true \
                -e DEVOPS_EXTERNAL_PROTOCOL=http \
                -e DEVOPS_HOST=$(vip_url):48090 \
@@ -42,7 +42,7 @@ run:
                -e CICD_IMAGE_BUILDER_IMAGE=enncloud/image-builder:v2.2 \
                -e CICD_REPO_CLONE_IMAGE=qinzhao-harbor/clone-repo:v2.2 \
                -d ${IMAGE} \
-          /run.sh -u root -p enN12345 -H $(db_url) -P 3306
+          /run.sh -u tcepaas -p xboU58vQbAbN -H $(db_url) -P 3306
 	        
 
 clean:
