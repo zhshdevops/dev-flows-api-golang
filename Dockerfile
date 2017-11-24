@@ -26,7 +26,7 @@ ENV DEVOPS_EXTERNAL_HOST 10.39.0.102:48090
 ENV SERVER_PORT 8090
 ENV EXTERNAL_ES_URL http://paasdev.enncloud.cn:9200
 ENV USERPORTAL_URL https://paasdev.enncloud.cn
-WORKDIR /
+WORKDIR /usr/src/cicd/
 EXPOSE 8090
-CMD ["./run.sh"]
+CMD ["sh","-c","/run.sh"]
                
