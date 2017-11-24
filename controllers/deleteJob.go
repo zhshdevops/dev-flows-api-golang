@@ -33,7 +33,7 @@ func deleteCICDJobs() {
 	var intervalTime int
 	INTERVAL_TIME := os.Getenv("INTERVAL_TIME")
 	if INTERVAL_TIME == "" {
-		intervalTime = 1
+		intervalTime = 10
 	} else {
 		intervalTime, err = strconv.Atoi(INTERVAL_TIME)
 		if err != nil {
@@ -42,7 +42,7 @@ func deleteCICDJobs() {
 		}
 	}
 
-	t := time.NewTicker(time.Duration(intervalTime) * time.Second)
+	t := time.NewTicker(time.Duration(intervalTime) * time.Minute)
 	glog.Infof("Delete job server start time ================>> %s \n", time.Now())
 	for {
 		select {

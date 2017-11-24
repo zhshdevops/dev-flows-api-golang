@@ -123,7 +123,6 @@ func InitializeSQLPool(driver string, dsn []string, maxIdle, maxConn int, isDebu
 	orm.RegisterModel(new(cluster.ClusterModel))
 	orm.RegisterModel(new(CiStageBuildLogs))
 	orm.RegisterModel(new(CiStageLinks), new(CiStages), new(cluster.Configs))
-	orm.RegisterModel(new(ResourceQuota))
 	orm.RegisterModel(new(AuditRecord))
 	orm.RegisterModel(new(CiFlowBuildLogs))
 	// orm.RunSyncdb("default", true, true)

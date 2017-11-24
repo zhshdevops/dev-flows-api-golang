@@ -3,7 +3,7 @@ package controllers
 import (
 	"github.com/golang/glog"
 	"dev-flows-api-golang/models"
-	"k8s.io/apimachinery/pkg/util/json"
+	"encoding/json"
 	"strings"
 	"time"
 	"dev-flows-api-golang/modules/client"

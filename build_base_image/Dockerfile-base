@@ -1,0 +1,7 @@
+FROM alpine:3.5
+RUN echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.5/main/" > /etc/apk/repositories && \
+    apk update && apk add bash && \
+    apk add supervisor openssh  curl  && \
+    apk add su-exec  && \
+    rm -rf /var/cache/apk/*
+

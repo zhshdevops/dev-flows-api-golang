@@ -1,9 +1,9 @@
 package errors
 
 import (
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/client-go/1.4/pkg/api/errors"
 
-	unversioned "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unversioned "k8s.io/client-go/1.4/pkg/api/unversioned"
 
 	"fmt"
 	"net/http"

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"api-server/models"
+	"dev-flows-api-golang/models"
 
 	"dev-flows-api-golang/models/alert"
 

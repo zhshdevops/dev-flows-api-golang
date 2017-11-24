@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"errors"
 	"github.com/golang/glog"
-	sqlstatus "api-server/models/sql/status"
+	sqlstatus "dev-flows-api-golang/models/sql/status"
 	"dev-flows-api-golang/ci/coderepo"
 	"strconv"
 )
