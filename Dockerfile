@@ -1,5 +1,5 @@
-FROM harbor.enncloud.cn/paas/paas-tce:2.2.0.pro.harbor
-#FROM harbor.enncloud.cn/qinzhao-harbor/cicd-base-image:v1.0
+#FROM harbor.enncloud.cn/paas/paas-tce:2.2.0.pro.harbor
+FROM harbor.enncloud.cn/qinzhao-harbor/cicd-base-image:v1.0
 ADD conf /usr/src/cicd/conf
 ADD dev-flows-api-golang /usr/src/cicd/
 ADD run.sh /
