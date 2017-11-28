@@ -169,7 +169,7 @@ func NewCiFlows() *CiFlows {
 
 // List flow for specified user
 func (cf *CiFlows) ListFlowsAndLastBuild(namespace string, isBuildImage int, orms ...orm.Ormer) (listFlowsInfo []ListFlowsInfo, total int64, err error) {
-	glog.Infoln("================namespace:",namespace)
+	glog.Infoln("The namespace:",namespace)
 	sql := "select tmp_flow.*, scount.stages_count, project_id, repo_type, default_branch, address, build_info as buildInfo " +
 	//tmp_flow查找flow信息和最后一次构建时间和状态
 		"from (select f.flow_id, f.name, f.owner, f.namespace, f.init_type, f.create_time, f.update_time, b.start_time as last_build_time, b.status, b.build_id as last_build_id, f.is_build_image " +

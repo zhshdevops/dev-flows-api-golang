@@ -36,7 +36,7 @@ func (cf *CiFlowsController) GetCIFlows() {
 	}
 	isBuildImage, _ := cf.GetInt("isBuildImage", 0)
 	glog.Infof("============userName=%s\n", cf.User.Username)
-	glog.Info("namespace=%s\n", namespace)
+	glog.Infof("namespace=%s\n", namespace)
 	listFlowsData, total, err := ciflows.ListFlowsAndLastBuild(namespace, isBuildImage)
 	if err != nil || total == 0 {
 		glog.Errorf("%s not found the list flow %s\n", method, err)

@@ -29,6 +29,7 @@ func init() {
 
 //默认值是10min执行一次清除job操作
 func deleteCICDJobs() {
+	BeginDeleteJob()
 	var err error
 	var intervalTime int
 	INTERVAL_TIME := os.Getenv("INTERVAL_TIME")
@@ -72,7 +73,7 @@ func BeginDeleteJob() {
 
 	for _, job := range jobList.Items {
 
-		watchOneJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+		//watchOneJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 
 		if succeeded(job) {
 			jobStatusCount.SucceededCount++
@@ -181,14 +182,16 @@ func tooOld(job v1batch.Job) bool {
 }
 
 func deleteOneJobInNamespace(namespace, jobName string) error {
-
-	//options := &api.DeleteOptions{
-	//	GracePeriodSeconds: Int64Toint64Point(1),
-	//}
-	//return client.KubernetesClientSet.BatchClient.Jobs(namespace).Delete(jobName, options)
+	var OrphanDependents bool
+	OrphanDependents = true
+	options := &api.DeleteOptions{
+		//GracePeriodSeconds: Int64Toint64Point(1),
+		OrphanDependents:   &OrphanDependents,
+	}
+	return client.KubernetesClientSet.BatchClient.Jobs(namespace).Delete(jobName, options)
 
 	//labelsStr := fmt.Sprintf("job-name=%s", jobName)
-	return client.KubernetesClientSet.BatchClient.Delete().Namespace(namespace).Resource("jobs").Name(jobName).Do().Error()
+	//return client.KubernetesClientSet.BatchClient.Delete().Namespace(namespace).Resource("jobs").Name(jobName).Do().Error()
 	////err := client.KubernetesClientSet.Delete().Resource("jobs").Namespace(namespace).Name(jobName).Do().Error()
 	//if err != nil {
 	//	glog.Infof("delete job failed:err:%v\n", err)

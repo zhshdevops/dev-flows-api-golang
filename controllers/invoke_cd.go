@@ -125,7 +125,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			continue
 		}
 		deployment, err := k8sClient.ExtensionsClient.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName)
-		if err != nil || deployment.Status.AvailableReplicas == 0 {
+		if err != nil || deployment.Status.Replicas == 0 {
 			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
 
 			log.CdRuleId = cdrule.RuleId
@@ -196,7 +196,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 	//开始升级
 	for index, dep := range newDeploymentArray {
 		glog.Infof("第一次：%d 部署", index+1)
-		if dep.Deployment.Status.AvailableReplicas == 0 ||
+		if dep.Deployment.Status.Replicas == 0 ||
 			fmt.Sprintf("%s", dep.Deployment.ObjectMeta.UID) !=
 				dep.BindingDeploymentId {
 			glog.Warningf("%s 该服务已经停止或者没有找到相关服务. %s\n", method,
