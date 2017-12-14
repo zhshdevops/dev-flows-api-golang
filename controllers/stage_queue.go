@@ -821,12 +821,12 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	// For private svn repository
 	if depot == "svn" && project.IsPrivate == 1 {
 		repo := models.NewCiRepos()
-		err := repo.FindOneRepo(queue.Namespace, models.DepotToRepoType(depot))
+		err := repo.FindOneRepo(project.Namespace, models.DepotToRepoType(depot))
 		if err != nil {
 			parseCode, err := sqlstatus.ParseErrorCode(err)
 			if parseCode == sqlstatus.SQLErrNoRowFound {
 
-				glog.Errorf("%s find one repo failed err:%v\n", method, err)
+				glog.Errorf("%s find one repo failed namespace:%s, err:%v\n", method,queue.Namespace, err)
 				ennFlow.Status = http.StatusOK
 				ennFlow.BuildStatus = common.STATUS_FAILED
 				ennFlow.StageId = stage.StageId
@@ -1052,6 +1052,14 @@ func (queue *StageQueueNew) Run() {
 					if err != nil {
 						glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
 					}
+					queue.BuildReqbody.Message = "构建失败:" + queue.FlowId
+					queue.BuildReqbody.Status = http.StatusOK
+					queue.BuildReqbody.BuildStatus = common.STATUS_FAILED
+					queue.BuildReqbody.FlowBuildId = queue.FlowbuildLog.BuildId
+					queue.BuildReqbody.FlowId = queue.CiFlow.FlowId
+					queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
+					queue.BuildReqbody.Flag = 1
+					Send(queue.BuildReqbody, queue.Conn)
 					queue.SetFailedStatus()
 					return
 				} else {

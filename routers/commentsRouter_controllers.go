@@ -57,6 +57,14 @@ func init() {
 
 	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowsController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowsController"],
 		beego.ControllerComments{
+			Method: "SyncCIFlow",
+			Router: `/:flow_id/sync`,
+			AllowHTTPMethods: []string{"POST"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowsController"] = append(beego.GlobalControllerRouter["dev-flows-api-golang/controllers:CiFlowsController"],
+		beego.ControllerComments{
 			Method: "GetCIRules",
 			Router: `/:flow_id/ci-rules`,
 			AllowHTTPMethods: []string{"GET"},

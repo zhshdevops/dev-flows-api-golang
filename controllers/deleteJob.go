@@ -61,7 +61,7 @@ func BeginDeleteJob() {
 	//get all job
 	jobList, err := getAllJobsInAllNamespaces()
 	if err != nil {
-		glog.Errorf("Get jobList failed:Err:%v\n", err)
+	glog.Errorf("Get jobList failed:Err:%v\n", err)
 		return
 	}
 
@@ -142,6 +142,7 @@ func getAllJobsInAllNamespaces() (*v1batch.JobList, error) {
 	listOptions := api.ListOptions{
 		LabelSelector: labelsSel,
 	}
+
 	return client.KubernetesClientSet.BatchClient.Jobs("").List(listOptions)
 
 }
@@ -149,7 +150,7 @@ func getAllJobsInAllNamespaces() (*v1batch.JobList, error) {
 //int(time.Now().Sub(c.Audit.StartTime) / time.Microsecond)
 func CanDeleteJob(job v1batch.Job) bool {
 
-	return time.Now().Sub(job.Status.StartTime.Time) >= 4*time.Hour
+	return time.Now().Sub(job.Status.StartTime.Time) >= 3*time.Hour
 
 }
 
@@ -186,7 +187,14 @@ func deleteOneJobInNamespace(namespace, jobName string) error {
 	OrphanDependents = true
 	options := &api.DeleteOptions{
 		//GracePeriodSeconds: Int64Toint64Point(1),
-		OrphanDependents:   &OrphanDependents,
+		OrphanDependents: &OrphanDependents,
+	}
+	labelsStr := fmt.Sprintf("job-name=%s", jobName)
+
+	err:=deleteJobRelatedPods(namespace, labelsStr)
+	if err!=nil{
+		glog.Errorf("deleteJobRelatedPods failed:%v\n",err)
+		return err
 	}
 	return client.KubernetesClientSet.BatchClient.Jobs(namespace).Delete(jobName, options)
 

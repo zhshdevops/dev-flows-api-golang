@@ -287,7 +287,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 					}
 					//开始执行 把执行日志插入到数据库
 					stagequeue.InsertLog()
-					stagequeue.Run()
+					go stagequeue.Run()
 				}
 			//}()
 		}

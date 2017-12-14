@@ -11,17 +11,17 @@ type CiDockerfileController struct {
 }
 
 //@router / [GET]
-func (dfile *CiDockerfileController)ListDockerfiles()  {
-	method:="CiDockerfileController.ListDockerfiles"
-	dockerfile:=models.CiDockerfile{}
-	namespace:=dfile.Namespace
-	if namespace==""{
-		namespace=dfile.Ctx.Input.Header("username")
+func (dfile *CiDockerfileController) ListDockerfiles() {
+	method := "CiDockerfileController.ListDockerfiles"
+	dockerfile := models.CiDockerfile{}
+	namespace := dfile.Namespace
+	if namespace == "" {
+		namespace = dfile.Ctx.Input.Header("username")
 	}
-	data,total,err:=dockerfile.ListDockerfiles(namespace)
-	if err!=nil{
-		glog.Errorf("%s %v \n",method,err)
-		dfile.ResponseErrorAndCode("Get Form database failed",http.StatusNotFound)
+	data, total, err := dockerfile.ListDockerfiles(namespace)
+	if err != nil {
+		glog.Errorf("%s %v \n", method, err)
+		dfile.ResponseErrorAndCode("Get Form database failed", http.StatusNotFound)
 		return
 	}
 
@@ -30,6 +30,10 @@ func (dfile *CiDockerfileController)ListDockerfiles()  {
 	//	data[index].Update_time.Format("2006-01-02 15:04:05")
 	//}
 
-	dfile.ResponseSuccessDevops(data,total)
+	if total == 0 {
+		dfile.ResponseErrorAndCode("not found the dockerfile info", http.StatusOK)
+		return
+	}
+	dfile.ResponseSuccessDevops(data, total)
 	return
 }

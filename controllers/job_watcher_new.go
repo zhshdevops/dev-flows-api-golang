@@ -16,6 +16,7 @@ import (
 	"github.com/gobwas/ws/wsutil"
 	"net"
 	"sync"
+	"time"
 )
 
 type EnnFlow struct {
@@ -60,36 +61,39 @@ func NewJobLogSocket() *JobLogSocket {
 				w.Write([]byte(`<font color="red">[Enn Flow API Error] 建立Websocket日志链接失败</font>`))
 				return
 			}
+
 			defer conn.Close()
 			var con Conn
 			con.Conn = conn
 			var buildMessage EnnFlow
-			go func() {
+			//go func() {
 				msg, op, err := wsutil.ReadClientData(conn)
 				if err != nil {
-					glog.Errorf("读取客户端发送的数据包失败 connect JobLogSocket websocket failed: msg:%s,err:%v\n", msg, err)
+
+					glog.Errorf("读取客户端发送的数据包失败 connect JobLogSocket websocket failed: msg:%s,err:%v\n", string(msg), err)
 					wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 读取客户端发送的数据包失败</font>`))
 					return
 				}
 
+				glog.Infof("msg=============>%v\n", string(msg))
 				con.Op = op
 
 				err = json.Unmarshal(msg, &buildMessage)
 				if err != nil {
-					glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", msg, err)
+					glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", string(msg), err)
 					wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 反系列化数据库包失败</font>`))
 					return
 				}
 
 				if message := CheckLogData(buildMessage); message != "" {
 					glog.Errorf("Missing parameters====>>:[%v]\n", buildMessage)
-					Send(message, con)
+					SendLog(message, con)
 					return
 				}
 
 				GetStageBuildLogsFromK8S(buildMessage, con)
 
-			}()
+			//}()
 		}),
 	}
 }
@@ -110,14 +114,17 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 				w.Write([]byte("建立Websocket状态链接失败"))
 				return
 			}
+			conn.SetDeadline(time.Now().Add(time.Second * 1000))
 			//defer conn.Close()
 			var flow EnnFlow
 			msg, op, err := wsutil.ReadClientData(conn)
 			if err != nil {
 				glog.Errorf("connect JobWatcherSocket websocket failed: msg:%s,err:%v\n", msg, err)
 				flow.Status = 400
+				flow.Flag = 1
 				flow.BuildStatus = common.STATUS_FAILED
 				flow.Message = "读取客户端信息失败"
+				glog.Infof("response info:%v\n", flow)
 				data, _ := json.Marshal(flow)
 				wsutil.WriteServerMessage(conn, op, data)
 				return
@@ -125,13 +132,16 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 
 			err = json.Unmarshal(msg, &flow)
 			if err != nil {
-				glog.Errorf("msg:%v========err:%v\n", msg, err)
+				glog.Errorf("msg:%v========err:%v\n", string(msg), err)
 				flow.Status = 400
+				flow.Flag = 1
 				flow.Message = "反系列化失败"
 				data, _ := json.Marshal(flow)
 				wsutil.WriteServerMessage(conn, op, data)
 				return
 			}
+
+			glog.Infof("flow========>>%#v\n", flow)
 
 			if flow.FlowId != "" {
 
@@ -144,7 +154,8 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 					connOfFlow.Op = op
 					SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
 					flow.Status = http.StatusOK
-					flow.Message = "建立websocket成功"
+					flow.Message = "success"
+					flow.Flag = 1
 					data, _ := json.Marshal(flow)
 					wsutil.WriteServerMessage(conn, op, data)
 
@@ -153,7 +164,19 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 					oldCon.Conn.Close()
 					delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
 					flow.Status = http.StatusOK
-					flow.Message = "关闭websocket成功"
+					flow.Message = "success"
+					flow.Flag = 1
+					data, _ := json.Marshal(flow)
+					wsutil.WriteServerMessage(conn, op, data)
+				} else if ok {
+					var connOfFlow Conn
+					connOfFlow.Conn = conn
+					connOfFlow.Op = op
+					delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
+					SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
+					flow.Status = http.StatusOK
+					flow.Flag = 1
+					flow.Message = "success"
 					data, _ := json.Marshal(flow)
 					wsutil.WriteServerMessage(conn, op, data)
 				}
@@ -161,10 +184,10 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 				SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 
 			} else {
-
 				glog.Errorf("FlowId is empty")
 				flow.Status = 400
 				flow.Message = "FlowId is empty"
+				flow.Flag = 1
 				data, _ := json.Marshal(flow)
 				wsutil.WriteServerMessage(conn, op, data)
 
@@ -259,8 +282,28 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 	return job
 }
 
-func Send(flow interface{}, conn Conn) {
+func SendLog(flow string, conn Conn) {
 	if conn.Conn != nil {
+		glog.Infof("websocket response flow build log info:%v\n", flow)
+		wsutil.WriteServerMessage(conn.Conn, conn.Op, []byte(flow))
+		return
+	}
+
+}
+
+func Send(flow interface{}, conn Conn) {
+	if conn.Conn == nil {
+		ennFlow, ok := flow.(EnnFlow)
+		if ok {
+			SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
+			conn = SOCKETS_OF_FLOW_MAPPING_NEW[ennFlow.FlowId]
+			SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+		}
+
+	}
+
+	if conn.Conn != nil {
+		glog.Infof("websocket response flow build info:%v\n", flow)
 		data, _ := json.Marshal(flow)
 		wsutil.WriteServerMessage(conn.Conn, conn.Op, data)
 		return

@@ -112,7 +112,10 @@ func (cf *CiFlowsController) CreateCIFlow() {
 
 	contentType := cf.Ctx.Input.Header("content-type")
 	if yamlInfo == "yaml" || contentType == "application/yaml" {
+
 		//TODO 暂时不支持yaml创建
+		cf.ResponseErrorAndCode("暂时不支持yaml构建", http.StatusConflict)
+		return
 	} else {
 		flows := &models.CiFlows{}
 		var flow models.CiFlows
@@ -133,6 +136,284 @@ func (cf *CiFlowsController) CreateCIFlow() {
 		return
 	}
 
+	return
+}
+
+type SyncCiFlowRequest struct {
+	StageInfo  []models.Stage_info `json:"stage_info"`
+	Namespaces []string `json:"namespaces"`
+}
+
+//@router /:flow_id/sync [POST]
+func (cf *CiFlowsController) SyncCIFlow() {
+
+	method := "CiFlowsController.SyncCIFlow"
+	flowId := cf.Ctx.Input.Param(":flow_id")
+	namespace := cf.Namespace
+
+	ciFlow, err := models.NewCiFlows().FindFlowById(namespace, flowId)
+	if err != nil {
+		glog.Errorf("not found the flows %s info:%v\n", flowId, err)
+		cf.ResponseErrorAndCode("找不到相关的EnnFlow", http.StatusNotFound)
+		return
+	}
+
+	ciFlow.Owner = cf.User.Username
+	ciFlow.CreateTime = time.Now()
+	ciFlow.NotificationConfig = ""
+
+	body := cf.Ctx.Input.RequestBody
+
+	glog.Infof("SyncCIFlow the request body is:%v\n", string(cf.Ctx.Input.RequestBody))
+
+	var stageInfos SyncCiFlowRequest
+
+	err = json.Unmarshal(body, &stageInfos)
+	if err != nil {
+		glog.Errorf("%s sync flow json unmarshal failed:%v\n", method, err)
+		cf.ResponseErrorAndCode("sync flow json unmarshal failed:", http.StatusConflict)
+		return
+	}
+
+	if len(stageInfos.Namespaces) != 0 {
+		ciFlow.Namespace = stageInfos.Namespaces[0]
+	} else {
+		cf.ResponseErrorAndCode("namespaces is required:", http.StatusBadRequest)
+		return
+	}
+
+	cf.Audit.SetOperationType(models.AuditOperationCreate)
+	cf.Audit.SetResourceType(models.AuditResourceFlows)
+
+	ciFlow.FlowId = uuid.NewCIFlowID()
+
+	var stage models.CiStages
+	var script models.CiScripts
+	var ciConfig models.CiConfig
+	var nextStageId string
+	var stageLink models.CiStageLinks
+	var stageLinks []models.CiStageLinks
+	stageLinks = make([]models.CiStageLinks, 0)
+	var dockerfile models.CiDockerfile
+	var dockerfiles []models.CiDockerfile
+	dockerfiles = make([]models.CiDockerfile, 0)
+	var container models.Container
+	var buildInfo models.Build
+
+	//var preStageInfo models.Stage_info
+	stageInfoLen := len(stageInfos.StageInfo)
+
+	updateResult := func() bool {
+		//====================>trans begin
+		trans := transaction.New()
+		orm := trans.O()
+		trans.Do(func() {
+
+			_, err = models.NewCiFlows().CreateOneFlow(ciFlow, orm)
+			if err != nil {
+				glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
+				trans.Rollback(method, "insert stage info to database failed", err)
+				return
+			}
+
+			for index, stageInfo := range stageInfos.StageInfo {
+
+
+				glog.Infof("stageInfo======>>stageInfo.Link.Enabled:%d\n", stageInfo.Link.Enabled)
+
+
+
+				stage.StageId = uuid.NewStageID()
+
+				stage.FlowId = ciFlow.FlowId
+				stage.StageName = stageInfo.Metadata.Name
+				stage.Seq = index + 1
+				stage.ProjectId = stageInfo.Spec.Project.Id
+				stage.DefaultBranch = stageInfo.Spec.Project.Branch
+				stage.Type = stageInfo.Metadata.Type
+				stage.CustomType = ""
+				stage.Image = stageInfo.Spec.Container.Image
+
+				container.Image = stageInfo.Spec.Container.Image
+				container.Args = stageInfo.Spec.Container.Args
+				container.Dependencies = stageInfo.Spec.Container.Dependencies
+				container.Env = stageInfo.Spec.Container.Env
+
+				//check link 第一个
+				if stageInfo.Link.Enabled == 1 && index == 0 {
+					glog.Infof("=======================>>stageInfo.Link.Enabled == 1 && index == 0")
+					nextStageId = uuid.NewStageID()
+					stageLink.SourceId = stage.StageId
+					stageLink.TargetId = nextStageId
+					stageLink.FlowId = ciFlow.FlowId
+					stageLink.SourceDir = stageInfo.Link.SourceDir
+					stageLink.TargetDir = stageInfo.Link.TargetDir
+					stageLink.Enabled = int8(stageInfo.Link.Enabled)
+
+					stageLinks = append(stageLinks, stageLink)
+				} else if stageInfo.Link.Enabled == 0 && index == 0 {
+					glog.Infof("=======================>>stageInfo.Link.Enabled == 0 && index == 0")
+					nextStageId = ""
+					stageLink.SourceId = stage.StageId
+					stageLink.TargetId = ""
+					stageLink.FlowId = ciFlow.FlowId
+					stageLink.SourceDir = stageInfo.Link.SourceDir
+					stageLink.TargetDir = stageInfo.Link.TargetDir
+					stageLink.Enabled = int8(stageInfo.Link.Enabled)
+					stageLinks = append(stageLinks, stageLink)
+
+				} else if stageInfo.Link.Enabled == 1 && index != 0 {
+					glog.Infof("=======================>>stageInfo.Link.Enabled == 1 && index != 0 ")
+					if nextStageId == "" {
+						nextStageId = uuid.NewStageID()
+					}
+
+					stage.StageId = nextStageId
+
+					if index != stageInfoLen-1 {
+						nextStageId = uuid.NewStageID()
+					}
+
+					glog.Infof("nextStageId====%s\n",nextStageId)
+
+					stageLink.SourceId = stage.StageId
+					stageLink.TargetId = nextStageId
+
+					stageLink.FlowId = ciFlow.FlowId
+					stageLink.SourceDir = stageInfo.Link.SourceDir
+					stageLink.TargetDir = stageInfo.Link.TargetDir
+					stageLink.Enabled = int8(stageInfo.Link.Enabled)
+					stageLinks = append(stageLinks, stageLink)
+
+				} else if stageInfo.Link.Enabled == 0 && index != 0 {
+					stage.StageId=nextStageId
+					glog.Infof("=======================>>stageInfo.Link.Enabled == 0 && index != 0")
+					stageLink.SourceId = stage.StageId
+					//stageLink.TargetId = nextStageId
+					stageLink.FlowId = ciFlow.FlowId
+					stageLink.SourceDir = stageInfo.Link.SourceDir
+					stageLink.TargetDir = stageInfo.Link.TargetDir
+					stageLink.Enabled = int8(stageInfo.Link.Enabled)
+					stageLinks = append(stageLinks, stageLink)
+
+				}
+
+				if stageInfo.Spec.Container.Scripts_id != "" {
+					script.ID = uuid.NewScriptID()
+					ciScript := models.NewCiScripts()
+					ciScript.GetScriptByID(stageInfo.Spec.Container.Scripts_id)
+					script.Content = ciScript.Content
+					_, err = ciScript.AddScript(script.ID, script.Content, orm)
+					if err != nil {
+						glog.Errorf("add script failed:%v\n", err)
+						trans.Rollback(method, "insert stage info to database failed", err)
+						return
+					}
+
+					container.Scripts_id = script.ID
+
+				} else {
+					container.Scripts_id = ""
+				}
+
+				containerData, err := json.Marshal(container)
+				if err != nil {
+					glog.Errorf("%s container info json unmarsh failed:%v\n", method, err)
+					trans.Rollback(method, "insert stage info to database failed", err)
+					return
+
+				}
+				stage.ContainerInfo = string(containerData)
+				stage.CreationTime = time.Now()
+
+				ciConfig = stageInfo.Spec.Ci.CiConfig
+				ciConfigData, err := json.Marshal(ciConfig)
+				if err != nil {
+					glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
+					trans.Rollback(method, "insert stage info to database failed", err)
+					return
+				}
+
+				stage.CiConfig = string(ciConfigData)
+
+				stage.CiEnabled = stageInfo.Spec.Ci.Enabled
+
+				//get dockerfile
+				if stageInfo.Spec.Build != nil && stageInfo.Metadata.Type == 3 {
+					oldDockerfile, err := models.NewCiDockerfile().GetDockerfile(namespace, flowId, stageInfo.Metadata.Id, orm)
+					if err != nil {
+						glog.Errorf("%s get dockerfile failed:%v\n", method, err)
+						trans.Rollback(method, "insert stage info to database failed", err)
+						return
+					}
+					dockerfile.Content = oldDockerfile.Content
+					dockerfile.StageId = stage.StageId
+					dockerfile.FlowId = ciFlow.FlowId
+					dockerfile.Namespace = stageInfos.Namespaces[0]
+					dockerfile.ModifiedBy = ciFlow.Owner
+					dockerfile.CreateTime = time.Now().Format("2006-01-02 15:04:05")
+					dockerfile.UpdateTime = time.Now().Format("2006-01-02 15:04:05")
+					dockerfile.Type = oldDockerfile.Type
+
+					dockerfiles = append(dockerfiles, dockerfile)
+
+					buildInfo = *stageInfo.Spec.Build
+					buildInfoData, err := json.Marshal(buildInfo)
+					if err != nil {
+						glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
+						trans.Rollback(method, "insert stage info to database failed", err)
+						return
+					}
+					stage.BuildInfo = string(buildInfoData)
+				}
+
+				glog.Infof("stage=============>>%v\n", stage)
+				_, err = models.NewCiStage().InsertOneStage(stage, orm)
+				if err != nil {
+					glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
+					trans.Rollback(method, "insert stage info to database failed", err)
+					return
+				}
+
+			}
+
+			if len(stageLinks) != 0 {
+				for _, link := range stageLinks {
+					glog.Infof("link===========%v\n", link)
+					err = models.NewCiStageLinks().InsertLink(link, orm)
+					if err != nil {
+						trans.Rollback(method, "insert stage info to database failed", err)
+						glog.Errorf(" add stage link failed:%v\n", err)
+						return
+					}
+				}
+			}
+
+			if len(dockerfiles) != 0 {
+				for _, dfile := range dockerfiles {
+					_, err = models.NewCiDockerfile().AddDockerfile(dfile, orm)
+					if err != nil {
+						glog.Errorf("%s get dockerfile failed:%v\n", method, err)
+						trans.Rollback(method, "insert stage info to database failed", err)
+						return
+					}
+				}
+			}
+
+		}).Done()
+
+		return trans.IsCommit()
+	}
+	//==========>rrans end
+
+	if !updateResult() {
+
+		cf.ResponseErrorAndCode("sync flow failed", http.StatusInternalServerError)
+
+		return
+	}
+
+	cf.ResponseErrorAndCode("sync flow success", http.StatusOK)
 	return
 }
 
@@ -952,11 +1233,11 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
 	if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
 		conn = con
+	} else {
+		SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
+		cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
+		return
 	}
-	//} else {
-	//	cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
-	//	return
-	//}
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 
 	//不传event参数 event 是代码分支
@@ -989,7 +1270,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 
 		cf.ResponseResultAndStatusDevops(Resp, http.StatusOK)
 
-		stagequeue.Run()
+		go stagequeue.Run()
 		return
 	}
 

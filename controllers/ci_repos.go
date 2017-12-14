@@ -173,6 +173,12 @@ func (cirepo *CiReposController) Logout() {
 	cirepo.Audit.SetOperationType(models.AuditOperationDelete)
 	cirepo.Audit.SetResourceType(models.AuditResourceRepos)
 
+	if cirepo.NamespaceType == TeamSpace && cirepo.User.Role == 0 {
+
+		cirepo.ResponseErrorAndCode("必须是系统管理员或者团队管理员才能注销代码仓库 ", http.StatusUnauthorized)
+		return
+	}
+
 	depot := models.NewCiRepos()
 	_, err := depot.DeleteOneRepo(cirepo.Namespace, models.DepotToRepoType(repoType))
 

@@ -117,6 +117,7 @@ func (c *BaseController) Prepare() {
 			c.ErrorBadRequest("Invalid authorization header", nil)
 			return
 		}
+
 		// If no teamspace defined, then it's the user space
 		if "" == space {
 			// Check if system admin is managing user space

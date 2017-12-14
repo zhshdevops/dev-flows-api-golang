@@ -109,7 +109,8 @@ type JobMessage struct {
 }
 
 type LogMessage struct {
-	Name string `json:"name,omitempty"`
+	Name string
+	LogTime time.Time
 	Log  string `json:"log,omitempty"`
 }
 
@@ -517,7 +518,7 @@ func  CheckLogData(authStruct EnnFlow) string {
 	method := "CheckLogData"
 	if authStruct.FlowId == "" || authStruct.StageId == "" || authStruct.StageBuildId == "" {
 		glog.Errorf("%s Missing parameters \n", method)
-		return `<font color="red">[Enn Flow API Error] Missing parameters.</font>\n`
+		return `<font color="red">[Enn Flow API Error] Missing parameters.</font>`
 	}
 
 	return ""

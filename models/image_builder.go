@@ -863,7 +863,7 @@ func (builder *ImageBuilder) EventToLog(event apiv1.Event) string {
 		}
 	}
 
-	return fmt.Sprintf(`<font color="%s">[%s] [%s]: %s</font>\n`, color, event.FirstTimestamp.Format("20060102.150405.99"), level, event.Message)
+	return fmt.Sprintf(`<font color="%s">[%s] [%s]: %s</font>`, color, event.FirstTimestamp.Format("20060102.150405.99"), level, event.Message)
 }
 
 // 根据builder container的状态返回job状态 主要是获取容器的状态 scm container status
