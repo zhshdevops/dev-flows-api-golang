@@ -75,23 +75,23 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 			return
 		}
 		models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
-		GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn)
+		GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn, build.BuildId)
 		return
 	}
 
-	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, build.PodName, conn)
+	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, build.PodName, conn, build.BuildId)
 	return
 
 }
 
 //GetLogsFromK8S
-func GetLogsFromK8S(imageBuilder *models.ImageBuilder, namespace, jobName, podName string, conn Conn) {
+func GetLogsFromK8S(imageBuilder *models.ImageBuilder, namespace, jobName, podName string, conn Conn, buildId string) {
 
 	WatchEvent(imageBuilder, namespace, podName, conn)
 
-	WaitForLogs(imageBuilder, namespace, podName, models.SCM_CONTAINER_NAME, conn)
+	WaitForLogs(imageBuilder, namespace, podName, models.SCM_CONTAINER_NAME, conn, buildId)
 
-	WaitForLogs(imageBuilder, namespace, podName, models.BUILDER_CONTAINER_NAME, conn)
+	WaitForLogs(imageBuilder, namespace, podName, models.BUILDER_CONTAINER_NAME, conn, buildId)
 
 }
 
@@ -160,7 +160,7 @@ func Int64Toint64Point(input int64) *int64 {
 }
 
 //WaitForLogs websocket get logs
-func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerName string, conn Conn) {
+func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerName string, conn Conn, buildId string) {
 	method := "WaitForLogs"
 	follow := false
 	previous := true
@@ -200,12 +200,25 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 					glog.Infof("%s [Enn Flow API ] finish get log of %s.%s!\n", method, podName, containerName)
 					glog.Infof("==========>>Get log successfully from socket.!!<<============\n")
 					if containerName == models.BUILDER_CONTAINER_NAME {
-						SendLog(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API ] 日志读取结束</font>`), conn)
+
+						for {
+							buildInfo, err := models.NewCiStageBuildLogs().FindOneById(buildId)
+							if err != nil {
+								glog.Errorf("get build info failed:%v\n", err)
+
+							}
+							if buildInfo.Status == common.STATUS_FAILED || buildInfo.Status == common.STATUS_SUCCESS {
+								SendLog(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API ] 日志读取结束</font>`), conn)
+								break
+							}
+							continue
+						}
+
 					}
-						return
+					return
 				}
 
-				SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API ]获取日志失败%v!</font>`,err), conn)
+				SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API ]获取日志失败%v!</font>`, err), conn)
 				return
 			}
 			glog.Infof("=======the log is ===>>string(data[:n])==>%s\n", string(data[:n]))

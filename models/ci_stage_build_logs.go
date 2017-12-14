@@ -199,6 +199,9 @@ func (ci *CiStageBuildLogs) FindOneById(buildId string) (stageBuildLog CiStageBu
 	return
 }
 
+
+
+
 func (ci *CiStageBuildLogs) FindAllOfStage(stageId string, size int) (stageBuildLog []CiStageBuildLogs, reslut int64, err error) {
 	o := orm.NewOrm()
 	reslut, err = o.QueryTable(ci.TableName()).

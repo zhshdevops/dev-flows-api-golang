@@ -264,12 +264,12 @@ func (cs *CiStages) UpdateOneById(orms ...orm.Ormer) error {
 	}
 
 	total, err := o.QueryTable(cs.TableName()).
-		Filter("stage_id", cs.StageId).Filter("flow_id",cs.FlowId).Update(orm.Params{
-		"ci_enabled":     cs.CiEnabled,
-		"ci_config":      cs.CiConfig,
+		Filter("stage_id", cs.StageId).Filter("flow_id", cs.FlowId).Update(orm.Params{
+		"ci_enabled": cs.CiEnabled,
+		"ci_config":  cs.CiConfig,
 	})
 	if err != nil {
-		glog.Errorf("%s update dockerfile failed:%v\n",method, err)
+		glog.Errorf("%s update dockerfile failed:%v\n", method, err)
 		return err
 	}
 	glog.Infof("update stage by stageId result roesAffected:%d", total)
@@ -300,7 +300,7 @@ func (cs *CiStages) UpdateById(stageId string, ciStage CiStages, orms ...orm.Orm
 		"ci_config":      ciStage.CiConfig,
 	})
 	if err != nil {
-		glog.Errorf("%s update dockerfile failed:%v\n",method, err)
+		glog.Errorf("%s update dockerfile failed:%v\n", method, err)
 		return err
 	}
 	glog.Infof("update stage by stageId result roesAffected:%d", total)
@@ -323,7 +323,7 @@ func (cs *CiStages) Update(flowId, projectId, defaultBranch string, orms ...orm.
 		"default_branch": defaultBranch,
 	})
 	if err != nil {
-		glog.Errorf("%s update dockerfile failed:%v\n",method, err)
+		glog.Errorf("%s update dockerfile failed:%v\n", method, err)
 		return err
 	}
 	glog.Infof("update stage by stageId result roesAffected:%d", total)
@@ -361,6 +361,8 @@ func (cs *CiStages) FindOneByName(flowId, name string) (stages CiStages, err err
 	err = o.Raw(sql, flowId, name).QueryRow(&stages)
 	return
 }
+
+
 
 func (cs *CiStages) FindFlowMaxSeq(flowId string) (seq int, err error) {
 	o := orm.NewOrm()
@@ -486,7 +488,7 @@ func FormatStage(stage Stages) (stage_info Stage_info) {
 			return
 		}
 	}
-	glog.Infof("stage.Target_id:%s\n",stage.Target_id)
+	glog.Infof("stage.Target_id:%s\n", stage.Target_id)
 	if stage.Target_id != "" {
 		stage_info.Link.Enabled = stage.Link_enabled
 		stage_info.Link.Target = stage.Target_id
@@ -546,7 +548,7 @@ func FormatStageInfo(stage Stages) (stage_info Stage_info) {
 			return
 		}
 	}
-	glog.Infof("stage.Target_id==%s\n",stage.Target_id)
+	glog.Infof("stage.Target_id==%s\n", stage.Target_id)
 	if stage.Target_id != "" {
 		stage_info.Link.Enabled = stage.Link_enabled
 		stage_info.Link.Target = stage.Target_id
