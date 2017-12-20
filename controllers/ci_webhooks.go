@@ -246,13 +246,13 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 			ennFlow.Namespace = project.Namespace  //用来查询flow
 			ennFlow.UserNamespace = user.Namespace //用来构建
 			var conn Conn
-			SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
-			if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId]; ok {
-				conn = con
-			} else {
-				return fmt.Errorf("%s", "websocket还没有建立链接或者还没连上服务器")
-			}
-			SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
+			//SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
+			//if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId]; ok {
+			//	conn = con
+			//} else {
+			//	return fmt.Errorf("%s", "websocket还没有建立链接或者还没连上服务器")
+			//}
+			//SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 			// event 是代码分支
 			imageBuild := models.NewImageBuilder(client.ClusterID)
 			stagequeue := NewStageQueueNew(ennFlow, event.Name, ennFlow.Namespace, ennFlow.LoginUserName, stage.FlowId, imageBuild, conn)
