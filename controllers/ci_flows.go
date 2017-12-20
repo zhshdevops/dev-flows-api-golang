@@ -218,10 +218,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 
 			for index, stageInfo := range stageInfos.StageInfo {
 
-
 				glog.Infof("stageInfo======>>stageInfo.Link.Enabled:%d\n", stageInfo.Link.Enabled)
-
-
 
 				stage.StageId = uuid.NewStageID()
 
@@ -274,7 +271,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 						nextStageId = uuid.NewStageID()
 					}
 
-					glog.Infof("nextStageId====%s\n",nextStageId)
+					glog.Infof("nextStageId====%s\n", nextStageId)
 
 					stageLink.SourceId = stage.StageId
 					stageLink.TargetId = nextStageId
@@ -286,7 +283,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 					stageLinks = append(stageLinks, stageLink)
 
 				} else if stageInfo.Link.Enabled == 0 && index != 0 {
-					stage.StageId=nextStageId
+					stage.StageId = nextStageId
 					glog.Infof("=======================>>stageInfo.Link.Enabled == 0 && index != 0")
 					stageLink.SourceId = stage.StageId
 					//stageLink.TargetId = nextStageId
@@ -337,15 +334,20 @@ func (cf *CiFlowsController) SyncCIFlow() {
 				stage.CiConfig = string(ciConfigData)
 
 				stage.CiEnabled = stageInfo.Spec.Ci.Enabled
-
 				//get dockerfile
 				if stageInfo.Spec.Build != nil && stageInfo.Metadata.Type == 3 {
 					oldDockerfile, err := models.NewCiDockerfile().GetDockerfile(namespace, flowId, stageInfo.Metadata.Id, orm)
 					if err != nil {
-						glog.Errorf("%s get dockerfile failed:%v\n", method, err)
-						trans.Rollback(method, "insert stage info to database failed", err)
-						return
+						parseResult, _ := sqlstatus.ParseErrorCode(err)
+						if sqlstatus.SQLErrNoRowFound != parseResult {
+
+							glog.Errorf("%s get dockerfile failed:%v\n", method, err)
+							trans.Rollback(method, "insert stage info to database failed", err)
+							return
+						}
+
 					}
+
 					dockerfile.Content = oldDockerfile.Content
 					dockerfile.StageId = stage.StageId
 					dockerfile.FlowId = ciFlow.FlowId
@@ -355,9 +357,12 @@ func (cf *CiFlowsController) SyncCIFlow() {
 					dockerfile.UpdateTime = time.Now().Format("2006-01-02 15:04:05")
 					dockerfile.Type = oldDockerfile.Type
 
-					dockerfiles = append(dockerfiles, dockerfile)
+					if stageInfo.Spec.Build.DockerfileFrom == 2 {
+						dockerfiles = append(dockerfiles, dockerfile)
+					}
 
 					buildInfo = *stageInfo.Spec.Build
+
 					buildInfoData, err := json.Marshal(buildInfo)
 					if err != nil {
 						glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
@@ -609,8 +614,8 @@ func (cf *CiFlowsController) GetCIFlowById() {
 
 			}
 		}
-		stages := make([]*models.StageYaml, 0)
-		var stage *models.StageYaml
+		stages := make([]models.StageYaml, 0)
+		var stage models.StageYaml
 		for _, stageInfo := range StageInfos {
 			stage.Name = stageInfo.Metadata.Name
 			stage.Type = stageInfo.Metadata.Type
@@ -1501,8 +1506,8 @@ func (cf *CiFlowsController) StopBuild() {
 
 				job, err := imageBuilder.StopJob(build.Namespace, build.JobName, true, 1)
 				if err != nil {
-					glog.Errorf("%s Failed to delete job of stage build: build=%s,job.message=%s, err:%v \n", method, build.BuildId, job.Status.Conditions[0].Message, err)
-					cf.ResponseErrorAndCode("Failed to stop build", http.StatusOK)
+					glog.Errorf("%s Failed to delete job of stage build: build=%s,job.message=%v, err:%v \n", method, build.BuildId, job.Status, err)
+					cf.ResponseErrorAndCode("Failed to stop build", http.StatusInternalServerError)
 					return
 				}
 
@@ -1651,7 +1656,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		if len(eventlist.Items) != 0 {
 			for _, event := range eventlist.Items {
 
-				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s `, event.CreationTimestamp.Format("2006/01/02 15:04:05"), event.Type, event.Message)))
+				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s `, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message)))
 
 			}
 
@@ -1673,7 +1678,9 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	if err != nil {
 		glog.Infof("will get log form kubernetes=======>>")
 		getLogFromK8S()
-		glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
+		if response != nil {
+			glog.Errorln(method, " Get log failed ", err, " elasticsearch ", response.Error)
+		}
 		cf.Ctx.ResponseWriter.Status = 200
 		//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
 		return
@@ -1681,27 +1688,30 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	if response != nil {
 		hits := response.Hits.Hits
-
+		glog.Infoln("========================hits>>>>%v\n", hits)
 		if len(hits) != 0 {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
 
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-
-						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
+						glog.Infoln("========================>>>>>")
+						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
 
 					}
 				}
 			}
 
+		} else {
+			glog.Infof("will get log form kubernetes=======>>")
+			getLogFromK8S()
+			cf.Ctx.ResponseWriter.Status = 200
+			return
 		}
 
 		//glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
 	} else if startTime.Format("2006.01.02") == endTime.Format("2006.01.02") {
 		glog.Infof("will get log form kubernetes=======>>")
-		//from kubernetes get logs
 		getLogFromK8S()
-		//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`))
 		cf.Ctx.ResponseWriter.Status = 200
 		return
 	}
@@ -1743,12 +1753,17 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 					if hit.Source.Kubernetes["pod_name"] == build.PodName {
 
 						if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
+							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
 							//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 						}
 					}
 				}
 
+			}else {
+				glog.Infof("will get log form kubernetes=======>>")
+				getLogFromK8S()
+				cf.Ctx.ResponseWriter.Status = 200
+				return
 			}
 
 			glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)

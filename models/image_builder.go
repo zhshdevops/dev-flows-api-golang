@@ -863,7 +863,7 @@ func (builder *ImageBuilder) EventToLog(event apiv1.Event) string {
 		}
 	}
 
-	return fmt.Sprintf(`<font color="%s">[%s] [%s]: %s</font>`, color, event.FirstTimestamp.Format("20060102.150405.99"), level, event.Message)
+	return fmt.Sprintf(`<font color="%s">[%s] [%s]: %s</font>`, color, event.FirstTimestamp.Format(time.RFC3339), level, event.Message)
 }
 
 // 根据builder container的状态返回job状态 主要是获取容器的状态 scm container status
@@ -1162,7 +1162,10 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			if err == io.EOF {
 				glog.Infof("%s [Enn Flow API ] finish get log of %s.%s!\n", method, podName, containerName)
 				glog.Infof("Get log successfully from kubernetes\n")
-				ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+				if containerName == BUILDER_CONTAINER_NAME {
+					ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志读取结束</font><br/>`)))
+
+				}
 				return
 			}
 			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
@@ -1170,7 +1173,10 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			return
 		}
 
-		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s<br/>", template.HTMLEscapeString(string(data[:n])))))
+		logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
+
+		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, logInfo[0], logInfo[1])
+		ctx.ResponseWriter.Write([]byte(log))
 
 	}
 

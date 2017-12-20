@@ -43,6 +43,8 @@ type Conn struct {
 	Op   ws.OpCode
 }
 
+var EnnFlowChan = make(chan interface{}, 10240)
+
 var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string]Conn, 0)
 
 type JobLogSocket struct {
@@ -67,31 +69,31 @@ func NewJobLogSocket() *JobLogSocket {
 			con.Conn = conn
 			var buildMessage EnnFlow
 			//go func() {
-				msg, op, err := wsutil.ReadClientData(conn)
-				if err != nil {
+			msg, op, err := wsutil.ReadClientData(conn)
+			if err != nil {
 
-					glog.Errorf("读取客户端发送的数据包失败 connect JobLogSocket websocket failed: msg:%s,err:%v\n", string(msg), err)
-					wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 读取客户端发送的数据包失败</font>`))
-					return
-				}
+				glog.Errorf("读取客户端发送的数据包失败 connect JobLogSocket websocket failed: msg:%s,err:%v\n", string(msg), err)
+				wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 读取客户端发送的数据包失败</font>`))
+				return
+			}
 
-				glog.Infof("msg=============>%v\n", string(msg))
-				con.Op = op
+			glog.Infof("msg=============>%v\n", string(msg))
+			con.Op = op
 
-				err = json.Unmarshal(msg, &buildMessage)
-				if err != nil {
-					glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", string(msg), err)
-					wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 反系列化数据库包失败</font>`))
-					return
-				}
+			err = json.Unmarshal(msg, &buildMessage)
+			if err != nil {
+				glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", string(msg), err)
+				wsutil.WriteServerMessage(conn, op, []byte(`<font color="red">[Enn Flow API Error] 反系列化数据库包失败</font>`))
+				return
+			}
 
-				if message := CheckLogData(buildMessage); message != "" {
-					glog.Errorf("Missing parameters====>>:[%v]\n", buildMessage)
-					SendLog(message, con)
-					return
-				}
+			if message := CheckLogData(buildMessage); message != "" {
+				glog.Errorf("Missing parameters====>>:[%v]\n", buildMessage)
+				SendLog(message, con)
+				return
+			}
 
-				GetStageBuildLogsFromK8S(buildMessage, con)
+			GetStageBuildLogsFromK8S(buildMessage, con)
 
 			//}()
 		}),
@@ -116,83 +118,115 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 			}
 			conn.SetDeadline(time.Now().Add(time.Second * 1000))
 			//defer conn.Close()
-			var flow EnnFlow
-			msg, op, err := wsutil.ReadClientData(conn)
-			if err != nil {
-				glog.Errorf("connect JobWatcherSocket websocket failed: msg:%s,err:%v\n", msg, err)
-				flow.Status = 400
-				flow.Flag = 1
-				flow.BuildStatus = common.STATUS_FAILED
-				flow.Message = "读取客户端信息失败"
-				glog.Infof("response info:%v\n", flow)
-				data, _ := json.Marshal(flow)
-				wsutil.WriteServerMessage(conn, op, data)
-				return
-			}
 
-			err = json.Unmarshal(msg, &flow)
-			if err != nil {
-				glog.Errorf("msg:%v========err:%v\n", string(msg), err)
-				flow.Status = 400
-				flow.Flag = 1
-				flow.Message = "反系列化失败"
-				data, _ := json.Marshal(flow)
-				wsutil.WriteServerMessage(conn, op, data)
-				return
-			}
+			go func() {
+				for {
+					select {
+					case ennFlowInfo, ok := <-EnnFlowChan:
+						if ok {
+							glog.Infof("%v", ennFlowInfo)
 
-			glog.Infof("flow========>>%#v\n", flow)
+							flow, ok := ennFlowInfo.(EnnFlow)
+							if ok {
+								if flow.WebSocketIfClose == 1 {
+									return
+								} else {
 
-			if flow.FlowId != "" {
+									Send(flow, SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
 
-				SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-				//存websocket,通过flowId获取某个Ennflow的websocket
-				oldCon, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]
-				if !ok && flow.WebSocketIfClose == 0 {
-					var connOfFlow Conn
-					connOfFlow.Conn = conn
-					connOfFlow.Op = op
-					SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
-					flow.Status = http.StatusOK
-					flow.Message = "success"
+								}
+							}
+						} else {
+							glog.Errorf("===========>>EnnFlowChan is closed<<========%v\n", ennFlowInfo)
+						}
+
+					}
+				}
+			}()
+
+			for {
+				var flow EnnFlow
+				msg, op, err := wsutil.ReadClientData(conn)
+				if err != nil {
+					glog.Errorf("connect JobWatcherSocket websocket failed: msg:%s,err:%v\n", msg, err)
+					flow.Status = 400
 					flow.Flag = 1
+					flow.BuildStatus = common.STATUS_FAILED
+					flow.Message = "读取客户端信息失败"
+					glog.Infof("response info:%v\n", flow)
 					data, _ := json.Marshal(flow)
 					wsutil.WriteServerMessage(conn, op, data)
-
-				} else if ok && flow.WebSocketIfClose == 1 {
-					//释放资源
-					oldCon.Conn.Close()
-					delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
-					flow.Status = http.StatusOK
-					flow.Message = "success"
-					flow.Flag = 1
-					data, _ := json.Marshal(flow)
-					wsutil.WriteServerMessage(conn, op, data)
-				} else if ok {
-					var connOfFlow Conn
-					connOfFlow.Conn = conn
-					connOfFlow.Op = op
-					delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
-					SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
-					flow.Status = http.StatusOK
-					flow.Flag = 1
-					flow.Message = "success"
-					data, _ := json.Marshal(flow)
-					wsutil.WriteServerMessage(conn, op, data)
+					return
 				}
 
-				SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+				err = json.Unmarshal(msg, &flow)
+				if err != nil {
+					glog.Errorf("request msg:%v========err:%v\n", string(msg), err)
+					flow.Status = 400
+					flow.Flag = 1
+					flow.Message = "反系列化失败"
+					data, _ := json.Marshal(flow)
+					wsutil.WriteServerMessage(conn, op, data)
+					return
+				}
 
-			} else {
-				glog.Errorf("FlowId is empty")
-				flow.Status = 400
-				flow.Message = "FlowId is empty"
-				flow.Flag = 1
-				data, _ := json.Marshal(flow)
-				wsutil.WriteServerMessage(conn, op, data)
+				glog.Infof("Flow info ====>>%#v\n", flow)
+
+				if flow.FlowId != "" {
+
+					SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
+					//存websocket,通过flowId获取某个Ennflow的websocket
+					oldCon, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]
+					if !ok && flow.WebSocketIfClose == 0 {
+						var connOfFlow Conn
+						connOfFlow.Conn = conn
+						connOfFlow.Op = op
+						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
+						flow.Status = http.StatusOK
+						flow.Message = "success"
+						flow.Flag = 1
+						data, _ := json.Marshal(flow)
+						wsutil.WriteServerMessage(conn, op, data)
+						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+						EnnFlowChan <- flow
+						continue
+
+					} else if ok && flow.WebSocketIfClose == 1 {
+						//释放资源
+						glog.Infof("the websocket is closeed=======>>")
+						oldCon.Conn.Close()
+						delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
+						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+						EnnFlowChan <- flow
+						return
+					} else if ok && flow.WebSocketIfClose == 0 {
+						var connOfFlow Conn
+						connOfFlow.Conn = conn
+						connOfFlow.Op = op
+						delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
+						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
+						flow.Status = http.StatusOK
+						flow.Flag = 1
+						flow.Message = "success"
+						data, _ := json.Marshal(flow)
+						wsutil.WriteServerMessage(conn, op, data)
+						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+						EnnFlowChan <- flow
+						continue
+					}
+
+				} else {
+					glog.Errorf("FlowId is empty")
+					flow.Status = 400
+					flow.Message = "FlowId is empty"
+					flow.Flag = 1
+					data, _ := json.Marshal(flow)
+					wsutil.WriteServerMessage(conn, op, data)
+					return
+				}
 
 			}
-			return
+
 		}),
 	}
 }

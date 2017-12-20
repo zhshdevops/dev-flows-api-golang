@@ -141,7 +141,7 @@ type FlowYaml struct {
 	Kind         string `json:"kind"`
 	Name         string `json:"name"`
 	Notification NotificationConfig `json:"notification"`
-	StateYaml    []*StageYaml `json:"stages"`
+	StateYaml    []StageYaml `json:"stages"`
 }
 
 type Container struct {

@@ -641,7 +641,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 			ennFlow.Flag = 2
 			ennFlow.Message = "Project is inactive"
-			Send(ennFlow, queue.Conn)
+			EnnFlowChan <- ennFlow
 			return common.STATUS_FAILED
 		}
 	}
@@ -663,7 +663,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
-		Send(ennFlow, queue.Conn)
+		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 	}
 	//get harbor server url
@@ -721,7 +721,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 			ennFlow.Flag = 2
 			ennFlow.Message = fmt.Sprintf("json 解析 buildInfo 失败:%s", err)
-			Send(ennFlow, queue.Conn)
+			EnnFlowChan <- ennFlow
 			return common.STATUS_FAILED
 		}
 		// Image name should be project/image-name, user should specify the target project
@@ -748,7 +748,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 				ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 				ennFlow.Flag = 2
 				ennFlow.Message = "Online Dockerfile should be created before starting a build"
-				Send(ennFlow, queue.Conn)
+				EnnFlowChan <- ennFlow
 				return common.STATUS_FAILED
 			}
 
@@ -764,7 +764,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 				ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 				ennFlow.Flag = 2
 				ennFlow.Message = "Online Dockerfile should be created before starting a build"
-				Send(ennFlow, queue.Conn)
+				EnnFlowChan <- ennFlow
 				return common.STATUS_FAILED
 			}
 
@@ -789,7 +789,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 			ennFlow.Flag = 2
 			ennFlow.Message = "json 解析 ContainerInfo 信息失败"
-			Send(ennFlow, queue.Conn)
+			EnnFlowChan <- ennFlow
 			return common.STATUS_FAILED
 		}
 		if containerInfo.Scripts_id != "" {
@@ -826,7 +826,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			parseCode, err := sqlstatus.ParseErrorCode(err)
 			if parseCode == sqlstatus.SQLErrNoRowFound {
 
-				glog.Errorf("%s find one repo failed namespace:%s, err:%v\n", method,queue.Namespace, err)
+				glog.Errorf("%s find one repo failed namespace:%s, err:%v\n", method, queue.Namespace, err)
 				ennFlow.Status = http.StatusOK
 				ennFlow.BuildStatus = common.STATUS_FAILED
 				ennFlow.StageId = stage.StageId
@@ -835,7 +835,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 				ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 				ennFlow.Flag = 2
 				ennFlow.Message = "No repo auth info found"
-				Send(ennFlow, queue.Conn)
+				EnnFlowChan <- ennFlow
 				return common.STATUS_FAILED
 			} else {
 				glog.Errorf("%s  find one repo failed err:%v\n", method, err)
@@ -847,7 +847,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 				ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 				ennFlow.Flag = 2
 				ennFlow.Message = "search repo " + depot + " failed "
-				Send(ennFlow, queue.Conn)
+				EnnFlowChan <- ennFlow
 				return common.STATUS_FAILED
 			}
 
@@ -863,7 +863,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 			ennFlow.Flag = 2
 			ennFlow.Message = "No repo auth info found"
-			Send(ennFlow, queue.Conn)
+			EnnFlowChan <- ennFlow
 			return common.STATUS_FAILED
 		}
 
@@ -904,7 +904,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
 			ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 			ennFlow.Flag = 2
-			Send(ennFlow, queue.Conn)
+			EnnFlowChan <- ennFlow
 			return common.STATUS_FAILED
 		}
 		if ciConfig.BuildCluster != "" {
@@ -963,8 +963,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
-		Send(ennFlow, queue.Conn)
 		queue.SetFailedStatus()
+		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 
 	}
@@ -996,7 +996,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
-		Send(ennFlow, queue.Conn)
+		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 	} else if status == common.STATUS_SUCCESS {
 		ennFlow.Status = http.StatusOK
@@ -1007,7 +1007,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
-		Send(ennFlow, queue.Conn)
+		EnnFlowChan <- ennFlow
 		return common.STATUS_SUCCESS
 	}
 	return common.STATUS_FAILED
@@ -1023,7 +1023,7 @@ func (queue *StageQueueNew) Run() {
 	queue.BuildReqbody.FlowId = queue.CiFlow.FlowId
 	queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
 	queue.BuildReqbody.Flag = 1
-	Send(queue.BuildReqbody, queue.Conn)
+	EnnFlowChan <- queue.BuildReqbody
 
 	go func() {
 		for index, stage := range queue.StageList {
@@ -1042,7 +1042,7 @@ func (queue *StageQueueNew) Run() {
 				queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
 				queue.BuildReqbody.StageId = stage.StageId
 				queue.BuildReqbody.Flag = 2 //1 表示stage构建  2表示flow构建
-				Send(queue.BuildReqbody, queue.Conn)
+				EnnFlowChan <- queue.BuildReqbody
 
 				status := queue.StartStageBuild(stage, index)
 				glog.Infof("StartStageBuild build result======>%d\n", status)
@@ -1059,8 +1059,8 @@ func (queue *StageQueueNew) Run() {
 					queue.BuildReqbody.FlowId = queue.CiFlow.FlowId
 					queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
 					queue.BuildReqbody.Flag = 1
-					Send(queue.BuildReqbody, queue.Conn)
 					queue.SetFailedStatus()
+					EnnFlowChan <- queue.BuildReqbody
 					return
 				} else {
 					res, err := models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_SUCCESS, queue.StageBuildLog.BuildId)
@@ -1077,7 +1077,7 @@ func (queue *StageQueueNew) Run() {
 					queue.BuildReqbody.FlowBuildId = queue.FlowbuildLog.BuildId
 					queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
 					queue.BuildReqbody.Flag = 1
-					Send(queue.BuildReqbody, queue.Conn)
+					EnnFlowChan <- queue.BuildReqbody
 					return
 				}
 			}

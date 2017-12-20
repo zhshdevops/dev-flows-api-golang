@@ -180,7 +180,7 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 		readCloser, err := imageBuild.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 		if err != nil {
 			glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
-			SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error] Failed to get log of %s</font>`, podName), conn)
+			SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]获取日志失败</font>`), conn)
 			return
 		}
 
