@@ -200,11 +200,11 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						EnnFlowChan <- flow
 						return
 					} else if ok && flow.WebSocketIfClose == 0 {
-						var connOfFlow Conn
-						connOfFlow.Conn = conn
-						connOfFlow.Op = op
-						delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
-						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
+						//var connOfFlow Conn
+						//connOfFlow.Conn = conn
+						//connOfFlow.Op = op
+						//delete(SOCKETS_OF_FLOW_MAPPING_NEW, flow.FlowId)
+						//SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = connOfFlow
 						flow.Status = http.StatusOK
 						flow.Flag = 1
 						flow.Message = "success"
