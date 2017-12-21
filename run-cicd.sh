@@ -21,6 +21,5 @@ docker run --restart=always --name cicd \
                -e FLOW_DETAIL_URL=http://$vip_url \
                -e CICD_IMAGE_BUILDER_IMAGE=enncloud/image-builder:v2.2 \
                -e CICD_REPO_CLONE_IMAGE=qinzhao-harbor/clone-repo:v2.2 \
-            -d $regip/qinzhao-harbor/dev-flows-api:v1.0.0 \
+            -d $regip/qinzhao-harbor/cicd:v1.4 \
           /run.sh -u root -p enN12345 -H $db_url -P 3306
-
