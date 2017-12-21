@@ -1236,8 +1236,8 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	ennFlow.UserNamespace = cf.User.Namespace
 	var conn Conn
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
-	if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
-		conn = con
+	if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
+
 	} else {
 		SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 		cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
@@ -1411,7 +1411,6 @@ func (cf *CiFlowsController) StopBuild() {
 
 	method := "CiFlowsController.StopBuild"
 	//更新flow构建状态
-	var conn Conn
 	flowId := cf.Ctx.Input.Param(":flow_id")
 	namespace := cf.Namespace
 	if namespace == "" {
@@ -1422,8 +1421,8 @@ func (cf *CiFlowsController) StopBuild() {
 	buildId := cf.Ctx.Input.Param(":build_id")
 
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
-	if con, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
-		conn = con
+	if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
+		//conn = con
 	}
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 
@@ -1474,7 +1473,7 @@ func (cf *CiFlowsController) StopBuild() {
 		ennFlow.StageBuildId = buildId
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = "停止失败"
-		Send(ennFlow, conn)
+		Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 		_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 		if err != nil {
 			glog.Errorf("%s update flowBuild log failed: %v \n", method, err)
@@ -1524,7 +1523,7 @@ func (cf *CiFlowsController) StopBuild() {
 		ennFlow.StageBuildId = buildId
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = "停止任务成功"
-		Send(ennFlow, conn)
+		Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 		_, err = models.NewCiStageBuildLogs().UpdateBuildLogById(buildRec, build.BuildId)
 		if err != nil {
 			glog.Errorf("%s update stage build status failed : err:%v \n", method, err)
@@ -1648,7 +1647,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
 
 	//如果创建失败
-	if build.Status == 1 {
+	if build.Status != 0 {
 		eventlist, err := imageBuilder.GetPodEvents(namespace, build.PodName, "type!=Normal")
 		if err != nil {
 			glog.Errorf("%s get pod events failed: %v\n", method, err)
@@ -1688,13 +1687,10 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	if response != nil {
 		hits := response.Hits.Hits
-		glog.Infoln("========================hits>>>>%v\n", hits)
 		if len(hits) != 0 {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
-
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-						glog.Infoln("========================>>>>>")
 						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
 
 					}
@@ -1759,7 +1755,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 					}
 				}
 
-			}else {
+			} else {
 				glog.Infof("will get log form kubernetes=======>>")
 				getLogFromK8S()
 				cf.Ctx.ResponseWriter.Status = 200

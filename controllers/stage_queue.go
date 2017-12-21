@@ -74,14 +74,14 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Status = http.StatusNotFound
 			buildReqbody.BuildStatus = common.STATUS_FAILED
 			glog.Errorf("%s %s %v\n", method, "Failed to find flow "+flowId+" Of "+namespace, err)
-			Send(buildReqbody, conn)
+			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			return queue
 		} else {
 			buildReqbody.Message = "Flow cannot be found"
 			buildReqbody.Status = http.StatusInternalServerError
 			buildReqbody.BuildStatus = common.STATUS_FAILED
 			glog.Errorf("%s %s %v\n", method, "Failed to find flow "+flowId+" Of "+namespace, err)
-			Send(buildReqbody, conn)
+			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			return queue
 		}
 	}
@@ -91,7 +91,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 		buildReqbody.Status = http.StatusNotFound
 		buildReqbody.BuildStatus = common.STATUS_FAILED
 		glog.Errorf("%s %s %v\n", method, "Failed to find flow "+flowId+" Of "+namespace, err)
-		Send(buildReqbody, conn)
+		Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 		return queue
 	}
 
@@ -110,14 +110,14 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 				buildReqbody.Message = "not found the stage!"
 				buildReqbody.Status = http.StatusNotFound
 				buildReqbody.BuildStatus = common.STATUS_FAILED
-				Send(buildReqbody, conn)
+				Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 				glog.Errorf("%s %s %v\n", method, "Failed to find stage "+stageId+" Of "+namespace, err)
 				return queue
 			} else {
 				buildReqbody.Message = "stage cannot be found"
 				buildReqbody.Status = http.StatusInternalServerError
 				buildReqbody.BuildStatus = common.STATUS_FAILED
-				Send(buildReqbody, conn)
+				Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 				glog.Errorf("%s %s %v\n", method, "Failed to find stage "+stageId+" Of "+namespace, err)
 				return queue
 			}
@@ -127,7 +127,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "not found the stage!"
 			buildReqbody.Status = http.StatusNotFound
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, conn)
+			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			glog.Errorf("%s %s %v\n", method, "Failed to find stage "+stageId+" Of "+namespace, err)
 			return queue
 		}
@@ -137,7 +137,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "Stage does not belong to Flow!"
 			buildReqbody.Status = http.StatusBadRequest
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, conn)
+			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			return queue
 		}
 		stages, _, err := stageServer.FindBuildEnabledStages(flowId)
@@ -146,7 +146,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "not find the stage of flow " + flowId
 			buildReqbody.Status = http.StatusBadRequest
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, conn)
+			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			return queue
 		}
 		stageList = append(stageList, stage)
@@ -165,7 +165,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "not find the stage of flow " + flowId
 			buildReqbody.Status = http.StatusBadRequest
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, conn)
+			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			return queue
 		}
 		queue.TotalStage = total

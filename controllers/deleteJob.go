@@ -150,7 +150,7 @@ func getAllJobsInAllNamespaces() (*v1batch.JobList, error) {
 //int(time.Now().Sub(c.Audit.StartTime) / time.Microsecond)
 func CanDeleteJob(job v1batch.Job) bool {
 
-	return time.Now().Sub(job.Status.StartTime.Time) >= 3*time.Hour
+	return time.Now().Sub(job.Status.StartTime.Time) >= 2*time.Hour
 
 }
 
