@@ -140,7 +140,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			Send(buildReqbody, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
 			return queue
 		}
-		stages, _, err := stageServer.FindBuildEnabledStages(flowId)
+		stages, _, err := stageServer.FindAllFlowByFlowId(flowId)
 		if err != nil {
 			glog.Errorf("%s FindFirstOfFlow find stage failed from database: %v\n", method, err)
 			buildReqbody.Message = "not find the stage of flow " + flowId
