@@ -232,7 +232,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						connOfFlow.Conn = conn
 						connOfFlow.Op = op
 						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId][randId] = connOfFlow
-						
+
 						glog.Infof("SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]=%d,%v\n", len(SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]), SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
 						flow.Status = http.StatusOK
 						flow.Flag = 1
@@ -408,7 +408,7 @@ func Send(flow interface{}, conns map[string]Conn) {
 				for j := 1; j <= 5; j++ {
 					err := SendRetry(flow, conn)
 					if err != nil {
-						glog.Errorf("key=%s retry  %d times send msg to client\n", key, j)
+						glog.Errorf("key=%s retry  %d times send msg to client:%v\n", key, j, err)
 						if j == 5 {
 							flowInfo, ok := flow.(EnnFlow)
 							if ok {
