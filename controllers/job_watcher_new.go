@@ -16,7 +16,6 @@ import (
 	"github.com/gobwas/ws/wsutil"
 	"net"
 	"sync"
-	"time"
 )
 
 type EnnFlow struct {
@@ -45,7 +44,7 @@ type Conn struct {
 
 var EnnFlowChan = make(chan interface{}, 10240)
 
-var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string][]Conn, 0)
+var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string]map[string]Conn, 0)
 
 type JobLogSocket struct {
 	Handler http.Handler
@@ -78,7 +77,6 @@ func NewJobLogSocket() *JobLogSocket {
 				return
 			}
 
-			glog.Infof("msg=============>%v\n", string(msg))
 			con.Op = op
 
 			err = json.Unmarshal(msg, &buildMessage)
@@ -101,7 +99,7 @@ func NewJobLogSocket() *JobLogSocket {
 	}
 }
 
-func ClearOrAddConnect(flowId string, disconn net.Conn) {
+func ClearOrCloseConnect(flowId string, disconn net.Conn) {
 
 	conns, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]
 
@@ -109,14 +107,11 @@ func ClearOrAddConnect(flowId string, disconn net.Conn) {
 
 	if ok {
 		if connsLen != 0 {
-			for index, conn := range conns {
+			for key, conn := range conns {
 				if conn.Conn == disconn {
-					glog.Infof("===============>>index=%d\n",index)
 					conn.Conn.Close()
-					SOCKETS_OF_FLOW_MAPPING_NEW[flowId] = append(SOCKETS_OF_FLOW_MAPPING_NEW[flowId][:index],
-						SOCKETS_OF_FLOW_MAPPING_NEW[flowId][index+1:]...)
+					delete(conns, key)
 				}
-
 			}
 		} else {
 			delete(SOCKETS_OF_FLOW_MAPPING_NEW, flowId)
@@ -141,9 +136,6 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 				w.Write([]byte("建立Websocket状态链接失败"))
 				return
 			}
-
-			conn.SetDeadline(time.Now().Add(time.Second * 1000))
-
 			go func() {
 				for {
 					select {
@@ -169,6 +161,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 
 			for {
 				var flow EnnFlow
+				var randId string = newId(r)
 				msg, op, err := wsutil.ReadClientData(conn)
 				if err != nil && len(msg) != 0 {
 					glog.Errorf("connect JobWatcherSocket websocket failed: msg:%s,err:%v\n", msg, err)
@@ -201,7 +194,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 
 				if len(string(msg)) == 0 {
 					SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-					ClearOrAddConnect(flow.FlowId, conn)
+					ClearOrCloseConnect(flow.FlowId, conn)
 					SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 				}
 
@@ -216,7 +209,9 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						var connOfFlow Conn
 						connOfFlow.Conn = conn
 						connOfFlow.Op = op
-						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = append(SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId], connOfFlow)
+						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = map[string]Conn{
+							randId: connOfFlow,
+						}
 						flow.Status = http.StatusOK
 						flow.Message = "success"
 						flow.Flag = 1
@@ -227,7 +222,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 					} else if ok && flow.WebSocketIfClose == 1 {
 						//释放资源
 						glog.Infof("the websocket is closeing=======>>%v\n", SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
-						ClearOrAddConnect(flow.FlowId, conn)
+						ClearOrCloseConnect(flow.FlowId, conn)
 						glog.Infof("the websocket is closeed=======>>%v\n", SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
 						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 						return
@@ -236,7 +231,9 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						var connOfFlow Conn
 						connOfFlow.Conn = conn
 						connOfFlow.Op = op
-						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = append(SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId], connOfFlow)
+						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = map[string]Conn{
+							randId: connOfFlow,
+						}
 						glog.Infof("SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]=%d,%v\n", len(SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]), SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
 						flow.Status = http.StatusOK
 						flow.Flag = 1
@@ -264,7 +261,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 					data, _ := json.Marshal(flow)
 					err := wsutil.WriteServerMessage(conn, op, data)
 					if err != nil {
-						glog.Errorf("=======err:%v\n", err)
+						glog.Errorf("WriteServerMessage to client failed:%v\n", err)
 					}
 					return
 				}
@@ -369,7 +366,7 @@ func Retry(flow interface{}, conn Conn) {
 				flowInfo, ok := flow.(EnnFlow)
 				if ok {
 					SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-					ClearOrAddConnect(flowInfo.FlowId, conn.Conn)
+					ClearOrCloseConnect(flowInfo.FlowId, conn.Conn)
 					SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 				}
 				break
@@ -404,20 +401,20 @@ func SendRetry(flow interface{}, conn Conn) error {
 	return nil
 }
 
-func Send(flow interface{}, conns []Conn) {
+func Send(flow interface{}, conns map[string]Conn) {
 	ConnLen := len(conns)
 	if ConnLen != 0 {
-		for i := 0; i < ConnLen; i++ {
-			if conns[i].Conn != nil {
+		for key, conn := range conns {
+			if conn.Conn != nil {
 				for j := 1; j <= 5; j++ {
-					err := SendRetry(flow, conns[i])
+					err := SendRetry(flow, conn)
 					if err != nil {
-						glog.Errorf("retry %d time send msg to client\n", i)
+						glog.Errorf("key=%s retry  %d times send msg to client\n", key, j)
 						if j == 5 {
 							flowInfo, ok := flow.(EnnFlow)
 							if ok {
 								SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-								ClearOrAddConnect(flowInfo.FlowId, conns[i].Conn)
+								ClearOrCloseConnect(flowInfo.FlowId, conn.Conn)
 								SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 							}
 							break
