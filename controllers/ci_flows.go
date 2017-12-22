@@ -1657,7 +1657,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, event := range eventlist.Items {
 				glog.Infof("%s\n",fmt.Sprintf(`<font color="#ffc20e">[%s] %s</font> %s`, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message))
 
-				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s] %s</font> %s`, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message)))
+				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s] %s</font> %s </br>`, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message)))
 
 			}
 
@@ -1693,7 +1693,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s </br>`, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
+						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
 
 					}
 				}
