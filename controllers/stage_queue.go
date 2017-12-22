@@ -174,6 +174,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 
 	}
 	glog.Infof("the queue length==========>>:%d\n", len(stageList))
+	glog.Infof("the queue length==========>>:%v\n", stageList)
 	queue.StageList = stageList
 
 	return queue
