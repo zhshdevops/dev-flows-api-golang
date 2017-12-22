@@ -231,9 +231,8 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						var connOfFlow Conn
 						connOfFlow.Conn = conn
 						connOfFlow.Op = op
-						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = map[string]Conn{
-							randId: connOfFlow,
-						}
+						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId][randId] = connOfFlow
+						
 						glog.Infof("SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]=%d,%v\n", len(SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]), SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
 						flow.Status = http.StatusOK
 						flow.Flag = 1
