@@ -141,7 +141,7 @@ func WatchEvent(imageBuild *models.ImageBuilder, namespace, podName string, conn
 				}
 				SendLog(imageBuild.EventToLog(*EventInfo), conn)
 			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(30 * time.Second):
 			return
 
 		}

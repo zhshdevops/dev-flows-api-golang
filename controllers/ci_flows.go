@@ -1648,6 +1648,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	//如果创建失败
 	if build.Status != 0 {
+		glog.Infof("===========================>>>>>>>>>>>>")
 		eventlist, err := imageBuilder.GetPodEvents(namespace, build.PodName, "type!=Normal")
 		if err != nil {
 			glog.Errorf("%s get pod events failed: %v\n", method, err)
