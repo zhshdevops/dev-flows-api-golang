@@ -233,6 +233,15 @@ func (cs *CiStages) FindFirstOfFlow(flowId string) (stage CiStages, err error) {
 	return
 }
 
+func (cs *CiStages) FindAllFlowByFlowId(flowId string) (stages []CiStages, total int64, err error) {
+	o := orm.NewOrm()
+	sql := fmt.Sprintf("select * from %s where flow_id=? order by seq ", cs.TableName())
+
+	total, err = o.Raw(sql, flowId).QueryRows(&stages)
+
+	return
+}
+
 func (cs *CiStages) InsertOneStage(stage CiStages, orms ...orm.Ormer) (int64, error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
@@ -361,8 +370,6 @@ func (cs *CiStages) FindOneByName(flowId, name string) (stages CiStages, err err
 	err = o.Raw(sql, flowId, name).QueryRow(&stages)
 	return
 }
-
-
 
 func (cs *CiStages) FindFlowMaxSeq(flowId string) (seq int, err error) {
 	o := orm.NewOrm()
