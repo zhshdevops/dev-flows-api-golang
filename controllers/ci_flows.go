@@ -1600,7 +1600,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	build, err := GetValidStageBuild(flowId, stageId, stageBuildId)
 	if err != nil {
 		glog.Errorf("%s get log from ES failed:===>%v\n", method, err)
-		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>`))
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>\n`))
 		return
 	}
 	namespace := build.Namespace
@@ -1627,11 +1627,11 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	if err != nil {
 		if errno == sqlstatus.SQLErrNoRowFound {
 			glog.Errorln(method, "cluster", client.ClusterID, "not found")
-			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 找不到构建集群的信息</font>`))
+			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 找不到构建集群的信息</font>\n`))
 			return
 		}
 		glog.Errorln(method, "get cluster info from database failed", err)
-		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 找不到构建集群的信息</font>`))
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 找不到构建集群的信息</font>\n`))
 		return
 	}
 	// get logs from kubernetes client function
@@ -1657,7 +1657,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, event := range eventlist.Items {
 				glog.Infof("%s\n",fmt.Sprintf(`<font color="#ffc20e">[%s] %s</font> %s`, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message))
 
-				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s] %s</font> %s </br>`, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message)))
+				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s \n`, event.CreationTimestamp.Format(time.RFC3339), event.Type, event.Message)))
 
 			}
 
@@ -1693,7 +1693,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
+						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s \n`, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
 
 					}
 				}
@@ -1751,7 +1751,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 					if hit.Source.Kubernetes["pod_name"] == build.PodName {
 
 						if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
+							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s \n`, hit.Source.Timestamp.Format(time.RFC3339), hit.Source.Log)))
 							//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 						}
 					}
@@ -1792,7 +1792,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		//}
 
 	}
-	cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>\n`))
 	return
 
 }
