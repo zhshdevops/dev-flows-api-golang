@@ -290,6 +290,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 
 				} else if stageInfo.Link.Enabled == 0 && index != 0 {
 					stage.StageId = nextStageId
+					nextStageId = uuid.NewStageID()
 					glog.Infof("=======================>>stageInfo.Link.Enabled == 0 && index != 0")
 					stageLink.SourceId = stage.StageId
 					//stageLink.TargetId = nextStageId
