@@ -1453,6 +1453,7 @@ func (cf *CiFlowsController) StopBuild() {
 		cf.ResponseErrorAndCode("Stage build not found", http.StatusNotFound)
 		return
 	}
+
 	//已构建完成，直接返回
 	if stageBuilds.Status < common.STATUS_BUILDING {
 		cf.ResponseErrorAndCode("build is not running", http.StatusOK)
@@ -1512,8 +1513,6 @@ func (cf *CiFlowsController) StopBuild() {
 				job, err := imageBuilder.StopJob(build.Namespace, build.JobName, true, 1)
 				if err != nil {
 					glog.Errorf("%s Failed to delete job of stage build: build=%s,job.message=%v, err:%v \n", method, build.BuildId, job.Status, err)
-					cf.ResponseErrorAndCode("Failed to stop build", http.StatusInternalServerError)
-					return
 				}
 
 			}
