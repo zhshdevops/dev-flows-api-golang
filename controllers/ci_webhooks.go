@@ -35,7 +35,7 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 
 	body := cimp.Ctx.Input.RequestBody
 
-	glog.Infof("%s,%s\n", method, string(body))
+	//glog.Infof("%s,%s\n", method, string(body))
 
 	project := &models.CiManagedProjects{}
 	err := project.FindProjectByIdNew(projectId)
