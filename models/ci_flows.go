@@ -67,7 +67,7 @@ type ListFlowsInfo struct {
 	Default_branch  string `orm:"column(default_branch)" json:"default_branch"`
 	Address         string `orm:"column(address)" json:"address"`
 	BuildInfo       string `orm:"column(buildInfo)" json:"buildInfo"`
-	Image       string `orm:"-" json:"image"`
+	Image           string `orm:"-" json:"image"`
 }
 
 type ListFlowsInfoResp struct {
@@ -88,7 +88,7 @@ type ListFlowsInfoResp struct {
 	Default_branch  interface{} `orm:"column(default_branch)" json:"default_branch"`
 	Address         string `orm:"column(address)" json:"address"`
 	BuildInfo       interface{} `orm:"column(buildInfo)" json:"buildInfo"`
-	Image       string `orm:"-" json:"image"`
+	Image           string `orm:"-" json:"image"`
 }
 
 type CiFlowsResp struct {
@@ -169,7 +169,7 @@ func NewCiFlows() *CiFlows {
 
 // List flow for specified user
 func (cf *CiFlows) ListFlowsAndLastBuild(namespace string, isBuildImage int, orms ...orm.Ormer) (listFlowsInfo []ListFlowsInfo, total int64, err error) {
-	glog.Infoln("The namespace:",namespace)
+	glog.Infoln("The namespace:", namespace)
 	sql := "select tmp_flow.*, scount.stages_count, project_id, repo_type, default_branch, address, build_info as buildInfo " +
 	//tmp_flow查找flow信息和最后一次构建时间和状态
 		"from (select f.flow_id, f.name, f.owner, f.namespace, f.init_type, f.create_time, f.update_time, b.start_time as last_build_time, b.status, b.build_id as last_build_id, f.is_build_image " +
@@ -205,15 +205,13 @@ func (cf *CiFlows) ListFlowsAndLastBuild(namespace string, isBuildImage int, orm
 }
 
 // Add a flow
-func (cf *CiFlows) CreateCIFlow(user *user.UserModel, body CiFlows, isBuildImage int, orms ...orm.Ormer) (int, string, error) {
+func (cf *CiFlows) CreateCIFlow(namespace string, user *user.UserModel, body CiFlows, isBuildImage int, orms ...orm.Ormer) (int, string, error) {
 
-	status, message, ciflows := cf.checkAndGenFlow(user, body)
+	status, message, ciflows := cf.checkAndGenFlow(namespace, user, body)
 	if status > 209 {
 		return status, ciflows.FlowId, errors.New(message)
 
 	}
-
-	glog.Infof("status=%s;message=%s;", status, message)
 
 	result, err := cf.CreateOneFlow(ciflows)
 	if err != nil {
@@ -241,7 +239,7 @@ func (cf *CiFlows) CreateOneFlow(flow CiFlows, orms ...orm.Ormer) (int64, error)
 //notification_config :
 //"{"email_list":["QINZHAO@ENNEW.CN"],"ci":{"success_notification":true,"failed_notification":true},"cd":{"success_notification":true,"failed_notification":true}}"
 //yaml : null
-func (cf *CiFlows) checkAndGenFlow(user *user.UserModel, flows CiFlows, orms ...orm.Ormer) (int, string, CiFlows) {
+func (cf *CiFlows) checkAndGenFlow(namespace string, user *user.UserModel, flows CiFlows, orms ...orm.Ormer) (int, string, CiFlows) {
 	var status int
 	message := ""
 
@@ -256,23 +254,23 @@ func (cf *CiFlows) checkAndGenFlow(user *user.UserModel, flows CiFlows, orms ...
 		message = "Invalid init_type, must be 1 (user interface) or 2 (yaml)"
 		return status, message, flows
 	}
-	flow, err := cf.FindFlowByName(user.Namespace, flows.Name)
+
+	flow, err := cf.FindFlowByName(namespace, flows.Name)
 	if err == nil && flow.FlowId != "" {
 		glog.Warningf("the flow already exist: %s", flows.Name)
 		status = 409
 		message = "Flow (name - '" + flows.Name + "') already exists"
 		return status, message, flows
 	}
-	if err!=nil{
-		glog.Errorf("get flow info by name failed from database: %s err:%v\n", flows.Name,err)
-		status=500
-		message="get flow info by name failed from database"
+
+	if err != nil {
+		glog.Errorf("get flow info by name failed from database: %s err:%v\n", flows.Name, err)
+		status = 500
+		message = "服务错误,请稍后再试"
 		return status, message, flows
 	}
 
-
 	flows.FlowId = uuid.NewCIFlowID()
-	glog.Infof("flows_id=%s", flows.FlowId)
 	flows.Owner = user.Username
 	flows.Namespace = user.Namespace
 	flows.CreateTime = time.Now()
@@ -286,19 +284,18 @@ func (cf *CiFlows) checkAndGenFlow(user *user.UserModel, flows CiFlows, orms ...
 func (cf *CiFlows) FindFlowByName(namespace, flowName string, orms ...orm.Ormer) (CiFlows, error) {
 	method := "models/CiFlows.FindFlowByName"
 	var o orm.Ormer
-	ciflow := CiFlows{Name: flowName,Namespace:namespace}
+	ciflow := CiFlows{Name: flowName, Namespace: namespace}
 	if len(orms) != 1 {
 		o = orm.NewOrm()
 	} else {
 		o = orms[0]
 	}
-	err := o.Read(&ciflow, "name","namespace")
+	err := o.Read(&ciflow, "name", "namespace")
 	if err == orm.ErrNoRows {
 		glog.Infof("%s flow info:%v\n", method, ciflow)
 		return ciflow, nil
 	}
 
-	glog.Infof("%s %s", method, err)
 	return ciflow, err
 
 }
