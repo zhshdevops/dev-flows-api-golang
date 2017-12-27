@@ -272,7 +272,7 @@ func (cf *CiFlows) checkAndGenFlow(namespace string, user *user.UserModel, flows
 
 	flows.FlowId = uuid.NewCIFlowID()
 	flows.Owner = user.Username
-	flows.Namespace = user.Namespace
+	flows.Namespace = namespace
 	flows.CreateTime = time.Now()
 
 	status = 200
