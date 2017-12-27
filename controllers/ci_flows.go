@@ -207,7 +207,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 	var buildInfo models.Build
 
 	//var preStageInfo models.Stage_info
-	stageInfoLen := len(stageInfos.StageInfo)
+	//stageInfoLen := len(stageInfos.StageInfo)
 
 	updateResult := func() bool {
 		//====================>trans begin
@@ -231,7 +231,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 				stage.FlowId = ciFlow.FlowId
 				stage.StageName = stageInfo.Metadata.Name
 				stage.Seq = index + 1
-				stage.ProjectId = stageInfo.Spec.Project.Id
+				stage.ProjectId = ""
 				stage.DefaultBranch = stageInfo.Spec.Project.Branch
 				stage.Type = stageInfo.Metadata.Type
 				stage.CustomType = ""
@@ -273,9 +273,9 @@ func (cf *CiFlowsController) SyncCIFlow() {
 
 					stage.StageId = nextStageId
 
-					if index != stageInfoLen-1 {
-						nextStageId = uuid.NewStageID()
-					}
+					//if index != stageInfoLen-1 {
+					nextStageId = uuid.NewStageID()
+					//}
 
 					glog.Infof("nextStageId====%s\n", nextStageId)
 
@@ -379,9 +379,10 @@ func (cf *CiFlowsController) SyncCIFlow() {
 				}
 
 				glog.Infof("stage=============>>%v\n", stage)
+
 				_, err = models.NewCiStage().InsertOneStage(stage, orm)
 				if err != nil {
-					glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
+					glog.Errorf("%s InsertOneStage to database failed:%v\n", method, err)
 					trans.Rollback(method, "insert stage info to database failed", err)
 					return
 				}
@@ -645,7 +646,6 @@ func (cf *CiFlowsController) GetCIFlowById() {
 			cf.ResponseErrorAndCode("JSONToYAML failed  failed", http.StatusForbidden)
 			return
 		}
-		glog.Infof("the stage yaml info:%s", string(y))
 
 		cf.ResponseResultAndStatusDevops(string(y), http.StatusOK)
 		return
@@ -1660,9 +1660,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 		if len(eventlist.Items) != 0 {
 			for _, event := range eventlist.Items {
-				glog.Infof("%s\n", fmt.Sprintf(`<font color="#ffc20e">[%s] %s</font> %s`, event.CreationTimestamp.Format("2006/01/02 15:04:05"), event.Type, event.Message))
-
-				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s \n`, event.CreationTimestamp.Format("2006/01/02 15:04:05"), event.Type, event.Message)))
+				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s \n`, event.CreationTimestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), event.Type, event.Message)))
 
 			}
 
@@ -1698,7 +1696,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
+						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), hit.Source.Log)))
 
 					}
 				}
@@ -1756,7 +1754,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 					if hit.Source.Kubernetes["pod_name"] == build.PodName {
 
 						if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s \n`, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)))
+							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s \n`, hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), hit.Source.Log)))
 							//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 						}
 					}

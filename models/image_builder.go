@@ -1147,11 +1147,13 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		Follow:     follow,
 		Timestamps: true,
 	}
-	glog.Infof("%s socket get pods log readCloser faile from kubernetes:podName==>%s\n", method, podName)
+
 	readCloser, err := builder.Client.Pods(namespace).GetLogs(podName, opt).Stream()
 	if err != nil {
 		glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
-		ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+		if containerName == BUILDER_CONTAINER_NAME {
+			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+		}
 		return
 	}
 
@@ -1168,7 +1170,10 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 				}
 				return
 			}
-			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+			if containerName == BUILDER_CONTAINER_NAME {
+				ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+
+			}
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
 			return
 		}
