@@ -647,8 +647,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		}
 	}
 
-	glog.Infof("index======>>%d======>>FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s\n",index, stage.FlowId, stage.StageId,
-		queue.StageBuildLog.FlowBuildId, queue.StageBuildLog.BuildId)
+	glog.Infof("index======>>%d======>>FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s,podName=%s\n", index, stage.FlowId, stage.StageId,
+		queue.StageBuildLog.FlowBuildId, queue.StageBuildLog.BuildId, queue.StageBuildLog.PodName)
 
 	//获取存贮volume
 	volumeMapping, message, respCode := models.GetVolumeSetting(stage.FlowId, stage.StageId,
@@ -971,6 +971,16 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	queue.StageBuildLog.JobName = job.ObjectMeta.Name
+
+	pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+	if err != nil {
+		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
+		//stageBuildResp.Message = "get pod failed from kubernetes"
+	}
+
+	queue.StageBuildLog.PodName = pod.ObjectMeta.Name
+	queue.StageBuildLog.NodeName = pod.Spec.NodeName
+
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {
 		glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
