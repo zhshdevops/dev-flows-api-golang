@@ -67,25 +67,17 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 		return
 	}
 
-	if build.PodName == "" {
-		glog.Infof("the podName is empty============PodName=%s\n", build.PodName)
-		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
-		if err != nil || podName == "" {
-			glog.Errorf("%s 获取构建任务信息失败 get job name=[%s] pod name failed:======>%v\n", method, build.JobName, err)
-			SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, "获取构建任务信息失败"), conn)
-			return
-		}
-		build.PodName = podName
-		glog.Infof("the podName is =================PodName=%s\n", build.PodName)
-		models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
-		GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn, build.BuildId)
+	glog.Infof("the podName is empty============PodName=%s\n", build.PodName)
+	podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
+	if err != nil || podName == "" {
+		glog.Errorf("%s 获取构建任务信息失败 get job name=[%s] pod name failed:======>%v\n", method, build.JobName, err)
+		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, "获取构建任务信息失败"), conn)
 		return
 	}
-
-	glog.Infof("========================build==build=>>>>>%s\n",build.PodName)
-	glog.Infof("========================build==build=>>>>>%s\n",build)
-
-	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, build.PodName, conn, build.BuildId)
+	build.PodName = podName
+	glog.Infof("the podName is =================PodName=%s\n", build.PodName)
+	models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
+	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn, build.BuildId)
 	return
 
 }
