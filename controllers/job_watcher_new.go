@@ -78,7 +78,7 @@ func NewJobLogSocket() *JobLogSocket {
 			}
 
 			con.Op = op
-
+			glog.Errorf("get log msg:%s,err:%v========err:%v\n", string(msg))
 			err = json.Unmarshal(msg, &buildMessage)
 			if err != nil {
 				glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", string(msg), err)

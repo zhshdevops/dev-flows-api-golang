@@ -53,6 +53,7 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, err), conn)
 		return
 	}
+	glog.Infof("build info ==========>>jobName:%v\n",build)
 	glog.Infof("build info ==========>>jobName:%s\n", build.JobName)
 	//正在等待中
 	if build.Status == common.STATUS_WAITING {
@@ -141,7 +142,7 @@ func WatchEvent(imageBuild *models.ImageBuilder, namespace, podName string, conn
 				}
 				SendLog(imageBuild.EventToLog(*EventInfo), conn)
 			}
-		case <-time.After(30 * time.Second):
+		case <-time.After(5 * time.Second):
 			return
 
 		}
