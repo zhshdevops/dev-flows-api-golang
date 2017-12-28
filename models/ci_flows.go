@@ -352,21 +352,19 @@ func (cf *CiFlows) UpdateFlowById(namespace, flowId string, flow UpdateFlowReqBo
 	}
 	//update flow name
 	if flow.Name != "" {
-		glog.Info("=========>>update flow name and notification_config<<==============")
 		updateRes, err = o.QueryTable(cf.TableName()).Filter("flow_id", flowId).
 			Filter("namespace", namespace).Update(orm.Params{
 			"name":                flow.Name,
 			"notification_config": flow.Notification_config,
 		})
+
+		return
 	}
-	// update 邮件通知
-	if flow.Notification_config != "" {
-		glog.Info("=========>>update flow notification_config<<==============")
-		updateRes, err = o.QueryTable(cf.TableName()).Filter("flow_id", flowId).
-			Filter("namespace", namespace).Update(orm.Params{
-			"notification_config": flow.Notification_config,
-		})
-	}
+
+	updateRes, err = o.QueryTable(cf.TableName()).Filter("flow_id", flowId).
+		Filter("namespace", namespace).Update(orm.Params{
+		"notification_config": flow.Notification_config,
+	})
 
 	if err != nil {
 		glog.Errorf("UpdateFlowById flowId =%s failed err=[%v] \n", flowId, err)
