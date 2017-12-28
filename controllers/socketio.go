@@ -53,7 +53,7 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, err), conn)
 		return
 	}
-	glog.Infof("build info ==========>>jobName:%v\n",build)
+	glog.Infof("build info ==========>>jobName:%#v\n",build)
 	glog.Infof("build info ==========>>jobName:%s\n", build.JobName)
 	//正在等待中
 	if build.Status == common.STATUS_WAITING {
@@ -75,6 +75,7 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 			SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, "获取构建任务信息失败"), conn)
 			return
 		}
+		glog.Infof("the podName is =================PodName=%s\n", build.PodName)
 		models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
 		GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn, build.BuildId)
 		return
@@ -176,6 +177,8 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 		Follow:     follow,
 		Timestamps: true,
 	}
+
+	glog.Info("==========>>>>>>>>>>>>>>>podName:%s=====================<<<<<<\n",podName)
 	//websocket的请求
 	if conn.Conn != nil {
 		readCloser, err := imageBuild.Client.Pods(namespace).GetLogs(podName, opt).Stream()
@@ -201,7 +204,6 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 					glog.Infof("%s [Enn Flow API ] finish get log of %s.%s!\n", method, podName, containerName)
 					glog.Infof("==========>>Get log successfully from socket.!!<<============\n")
 					if containerName == models.BUILDER_CONTAINER_NAME {
-
 						for {
 							buildInfo, err := models.NewCiStageBuildLogs().FindOneById(buildId)
 							if err != nil {
