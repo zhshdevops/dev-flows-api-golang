@@ -196,18 +196,19 @@ func (cf *CiFlowsController) SyncCIFlow() {
 	var stage models.CiStages
 	var script models.CiScripts
 	var ciConfig models.CiConfig
-	var nextStageId string
 	var stageLink models.CiStageLinks
-	var stageLinks []models.CiStageLinks
-	stageLinks = make([]models.CiStageLinks, 0)
 	var dockerfile models.CiDockerfile
 	var dockerfiles []models.CiDockerfile
 	dockerfiles = make([]models.CiDockerfile, 0)
 	var container models.Container
 	var buildInfo models.Build
 
-	//var preStageInfo models.Stage_info
-	//stageInfoLen := len(stageInfos.StageInfo)
+	stageInfoLen := len(stageInfos.StageInfo)
+
+	if stageInfoLen == 0 {
+		cf.ResponseErrorAndCode("不能同步子任务为空的EnnFlow", http.StatusBadRequest)
+		return
+	}
 
 	updateResult := func() bool {
 		//====================>trans begin
@@ -242,65 +243,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 				container.Dependencies = stageInfo.Spec.Container.Dependencies
 				container.Env = stageInfo.Spec.Container.Env
 
-				//check link 第一个
-				if stageInfo.Link.Enabled == 1 && index == 0 {
-					glog.Infof("=======================>>stageInfo.Link.Enabled == 1 && index == 0")
-					nextStageId = uuid.NewStageID()
-					stageLink.SourceId = stage.StageId
-					stageLink.TargetId = nextStageId
-					stageLink.FlowId = ciFlow.FlowId
-					stageLink.SourceDir = stageInfo.Link.SourceDir
-					stageLink.TargetDir = stageInfo.Link.TargetDir
-					stageLink.Enabled = int8(stageInfo.Link.Enabled)
-
-					stageLinks = append(stageLinks, stageLink)
-				} else if stageInfo.Link.Enabled == 0 && index == 0 {
-					glog.Infof("=======================>>stageInfo.Link.Enabled == 0 && index == 0")
-					nextStageId = ""
-					stageLink.SourceId = stage.StageId
-					stageLink.TargetId = ""
-					stageLink.FlowId = ciFlow.FlowId
-					stageLink.SourceDir = stageInfo.Link.SourceDir
-					stageLink.TargetDir = stageInfo.Link.TargetDir
-					stageLink.Enabled = int8(stageInfo.Link.Enabled)
-					stageLinks = append(stageLinks, stageLink)
-
-				} else if stageInfo.Link.Enabled == 1 && index != 0 {
-					glog.Infof("=======================>>stageInfo.Link.Enabled == 1 && index != 0 ")
-					if nextStageId == "" {
-						nextStageId = uuid.NewStageID()
-					}
-
-					stage.StageId = nextStageId
-
-					//if index != stageInfoLen-1 {
-					nextStageId = uuid.NewStageID()
-					//}
-
-					glog.Infof("nextStageId====%s\n", nextStageId)
-
-					stageLink.SourceId = stage.StageId
-					stageLink.TargetId = nextStageId
-
-					stageLink.FlowId = ciFlow.FlowId
-					stageLink.SourceDir = stageInfo.Link.SourceDir
-					stageLink.TargetDir = stageInfo.Link.TargetDir
-					stageLink.Enabled = int8(stageInfo.Link.Enabled)
-					stageLinks = append(stageLinks, stageLink)
-
-				} else if stageInfo.Link.Enabled == 0 && index != 0 {
-					stage.StageId = nextStageId
-					nextStageId = uuid.NewStageID()
-					glog.Infof("=======================>>stageInfo.Link.Enabled == 0 && index != 0")
-					stageLink.SourceId = stage.StageId
-					//stageLink.TargetId = nextStageId
-					stageLink.FlowId = ciFlow.FlowId
-					stageLink.SourceDir = stageInfo.Link.SourceDir
-					stageLink.TargetDir = stageInfo.Link.TargetDir
-					stageLink.Enabled = int8(stageInfo.Link.Enabled)
-					stageLinks = append(stageLinks, stageLink)
-
-				}
+				stageInfos.StageInfo[index].Metadata.Id = stage.StageId
 
 				if stageInfo.Spec.Container.Scripts_id != "" {
 					script.ID = uuid.NewScriptID()
@@ -390,16 +333,39 @@ func (cf *CiFlowsController) SyncCIFlow() {
 
 			}
 
-			if len(stageLinks) != 0 {
-				for _, link := range stageLinks {
-					glog.Infof("link===========%v\n", link)
-					err = models.NewCiStageLinks().InsertLink(link, orm)
+			for index, stageInfo := range stageInfos.StageInfo {
+
+				glog.Infof("=======================>>stageInfo.Metadata.Id=%d\n", stageInfo.Metadata.Id)
+
+				stageLink.SourceId = stageInfo.Metadata.Id
+				if stageInfoLen != index+1 {
+					stageLink.TargetId = stageInfos.StageInfo[index+1].Metadata.Id
+				} else {
+					stageLink.TargetId = ""
+				}
+				stageLink.FlowId = ciFlow.FlowId
+				stageLink.SourceDir = stageInfo.Link.SourceDir
+				stageLink.TargetDir = stageInfo.Link.TargetDir
+				stageLink.Enabled = int8(stageInfo.Link.Enabled)
+
+				glog.Infof("stageLink===========%v\n", stageLink)
+
+				if stageLink.TargetId != "" {
+					err = models.NewCiStageLinks().InsertLink(stageLink, orm)
 					if err != nil {
-						trans.Rollback(method, "insert stage info to database failed", err)
+						trans.Rollback(method, "insert stage link info to database failed", err)
+						glog.Errorf(" add stage link failed:%v\n", err)
+						return
+					}
+				} else {
+					err = models.NewCiStageLinks().Insert(stageLink, orm)
+					if err != nil {
+						trans.Rollback(method, "insert stage link info to database failed", err)
 						glog.Errorf(" add stage link failed:%v\n", err)
 						return
 					}
 				}
+
 			}
 
 			if len(dockerfiles) != 0 {
@@ -421,12 +387,12 @@ func (cf *CiFlowsController) SyncCIFlow() {
 
 	if !updateResult() {
 
-		cf.ResponseErrorAndCode("sync flow failed", http.StatusInternalServerError)
+		cf.ResponseErrorAndCode("Sync flow failed", http.StatusInternalServerError)
 
 		return
 	}
 
-	cf.ResponseErrorAndCode("sync flow success", http.StatusOK)
+	cf.ResponseErrorAndCode("Sync flow success", http.StatusOK)
 	return
 }
 

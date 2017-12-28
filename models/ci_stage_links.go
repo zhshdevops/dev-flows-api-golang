@@ -59,7 +59,24 @@ func (ci *CiStageLinks) InsertLink(cisrageLink CiStageLinks, orms ...orm.Ormer) 
 		cisrageLink.SourceDir, cisrageLink.TargetDir, cisrageLink.Enabled).Exec()
 
 	return err
-	//reult, err = o.InsertOrUpdate(&cisrageLink)
+
+}
+
+func (ci *CiStageLinks) Insert(cisrageLink CiStageLinks, orms ...orm.Ormer) (err error) {
+	var o orm.Ormer
+
+	if len(orms) != 1 {
+		o = orm.NewOrm()
+	} else {
+		o = orms[0]
+	}
+
+	sql := fmt.Sprintf("INSERT INTO %s (flow_id, source_id,source_dir,target_dir,enabled) VALUES (?,?,?,?,?);", ci.TableName())
+
+	_, err = o.Raw(sql, cisrageLink.FlowId, cisrageLink.SourceId,
+		cisrageLink.SourceDir, cisrageLink.TargetDir, cisrageLink.Enabled).Exec()
+
+	return err
 
 }
 
