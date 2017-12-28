@@ -446,8 +446,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 
 	glog.Infof("=========jobContainer.Env:%v\n", jobContainer.Env)
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
-	dataJob, _ := json.Marshal(jobTemplate)
-	glog.V(1).Infof("%s ============>>jobTemplate=[%v]\n", method, string(dataJob))
+	//dataJob, _ := json.Marshal(jobTemplate)
+	//glog.V(1).Infof("%s ============>>jobTemplate=[%v]\n", method, string(dataJob))
 
 	return builder.Client.BatchClient.Jobs(buildInfo.Namespace).Create(jobTemplate)
 

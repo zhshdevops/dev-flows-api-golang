@@ -53,7 +53,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		strings.Index(events.Target.MediaType, "docker.distribution.manifest") < 0 ||
 		strings.Index(events.Request.UserAgent, "docker") < 0 {
 		message = "Skipped due to: 1) Not a push. 2) Not manifest update. 3. Not from docker client"
-		glog.Errorf("%s %v\n", method, "Skipped due to: 1) Not a push. 2) Not manifest update. 3. Not from docker client")
+		glog.Infof("%s %v\n", method, "Skipped due to: 1) Not a push. 2) Not manifest update. 3. Not from docker client")
 		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
 	}

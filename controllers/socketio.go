@@ -84,6 +84,7 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 
 	glog.Infof("========================build==build=>>>>>%s\n",build.PodName)
 	glog.Infof("========================build==build=>>>>>%s\n",build)
+
 	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, build.PodName, conn, build.BuildId)
 	return
 

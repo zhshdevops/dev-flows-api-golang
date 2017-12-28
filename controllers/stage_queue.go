@@ -647,7 +647,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		}
 	}
 
-	glog.Infof("FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s\n", stage.FlowId, stage.StageId,
+	glog.Infof("index======>>%d======>>FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s\n",index, stage.FlowId, stage.StageId,
 		queue.StageBuildLog.FlowBuildId, queue.StageBuildLog.BuildId)
 
 	//获取存贮volume
@@ -976,8 +976,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
 	}
 
-	jobdata, _ := json.Marshal(job)
-	glog.Infof("%s build images job=%v\n", method, string(jobdata))
+	//jobdata, _ := json.Marshal(job)
+	//glog.Infof("%s build images job=%v\n", method, string(jobdata))
 	var options BuildStageOptions
 	options.BuildWithDependency = buildWithDependency
 	options.FlowOwner = queue.CiFlow.Owner
