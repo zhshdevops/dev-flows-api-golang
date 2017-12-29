@@ -1179,8 +1179,8 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		}
 
 		logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
-
-		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, logInfo[0], logInfo[1])
+		logTime, _ := time.Parse(time.RFC3339, logInfo[0])
+		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
 		ctx.ResponseWriter.Write([]byte(log))
 
 	}
