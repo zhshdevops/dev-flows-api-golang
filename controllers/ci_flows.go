@@ -1663,6 +1663,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
+						glog.Infof("time=====%s , %s\n",hit.Source.Timestamp.Add(8 * time.Hour),hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"))
 						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), hit.Source.Log)))
 
 					}
@@ -1722,7 +1723,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 						if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
 							cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), hit.Source.Log)))
-							//LogData += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s `, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
 						}
 					}
 				}
