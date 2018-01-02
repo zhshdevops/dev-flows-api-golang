@@ -307,6 +307,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 
 		}
 	}
+
 	delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
 	ic.ResponseErrorAndCode("Continuous deployment completed successfully", http.StatusOK)

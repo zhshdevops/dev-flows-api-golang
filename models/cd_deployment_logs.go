@@ -100,7 +100,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		lastCdTs := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]
 		cdTs, _ := strconv.ParseInt(lastCdTs, 10, 64)
 		//当前时间与上一次相差不足冷却间隔时，不进行更新
-		if (time.Now().Unix() - cdTs) < int64(cooldownSec*1000) {
+		if (time.Now().Unix() - cdTs) < int64(cooldownSec) {
 			glog.Warningf("%s %s\n", method, "Upgrade is rejected because the"+
 				" deployment was updated too frequently")
 			return ifUpgrade
