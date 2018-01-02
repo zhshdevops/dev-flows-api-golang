@@ -133,7 +133,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 			err := json.Unmarshal([]byte(stage.CiConfig), &ciConfig)
 			if err != nil {
 				glog.Errorf("%s json marshal failed==>%v\n", method, err)
-				return err
+				continue
 			}
 		}
 		if event.Type != "" {
@@ -170,7 +170,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Branch.Name),
 							}
 							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
-							return err
+							continue
 						}
 						if matchWayReg.MatchString(event.Name) {
 							matched = true
@@ -182,7 +182,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Branch.Name),
 							}
 							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
-							return fmt.Errorf("解析正则表达式失败，请检查格式 %s", ciConfig.Branch.Name)
+							continue
 						}
 					}
 				} else if eventType == "tag" {
@@ -203,7 +203,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Tag.Name),
 							}
 							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
-							return err
+							continue
 						}
 						if matchWayReg.MatchString(event.Name) {
 							matched = true
@@ -215,7 +215,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 								Body:    fmt.Sprintf(`解析正则表达式失败，请检查格式: %s`, ciConfig.Tag.Name),
 							}
 							detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
-							return fmt.Errorf("解析正则表达式失败，请检查格式 %s", ciConfig.Tag.Name)
+							continue
 						}
 					}
 				}
@@ -232,7 +232,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 				Body:    fmt.Sprintf(`没有配置CI规则`),
 			}
 			detail.SendEmailUsingFlowConfig(user.Namespace, stage.FlowId)
-			return fmt.Errorf("no ci rule")
+			continue
 		}
 
 		if matched {
@@ -270,7 +270,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 						ennFlow.Flag = 1
 						Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId])
-						return nil
+						continue
 					} else {
 						ennFlow.Message = "找不到对应的EnnFlow"
 						ennFlow.Status = http.StatusOK
@@ -279,7 +279,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 						ennFlow.Flag = 1
 						Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId])
-						return nil
+						continue
 					}
 				}
 				//开始执行 把执行日志插入到数据库

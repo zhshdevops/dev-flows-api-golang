@@ -50,6 +50,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
 		return
 	}
+
 	events := notification.Events[0]
 	if events.Action != "push" ||
 		strings.Index(events.Target.MediaType, "docker.distribution.manifest") < 0 ||
