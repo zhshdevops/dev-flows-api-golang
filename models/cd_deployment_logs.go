@@ -149,12 +149,19 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		// reset strategy to rollingupdate which is default value
 		//var rollingUpdateDeployment v1beta1.RollingUpdateDeployment
 
+		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 		maxSurge := intstr.FromInt(1)
 		maxUnavailable := intstr.FromInt(0)
-		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
-		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable = &maxUnavailable
-		deployment.Spec.Strategy.RollingUpdate.MaxSurge = &maxSurge
-
+		if nil != deployment.Spec.Strategy.RollingUpdate {
+			deployment.Spec.Strategy.RollingUpdate.MaxUnavailable = &maxUnavailable
+			deployment.Spec.Strategy.RollingUpdate.MaxSurge = &maxSurge
+		} else {
+			deployment.Spec.Strategy.RollingUpdate = &v1beta1.RollingUpdateDeployment{
+				MaxUnavailable: &maxUnavailable,
+				MaxSurge:       &maxSurge,
+			}
+		}
+		
 		//strategy 1
 	} else {
 
