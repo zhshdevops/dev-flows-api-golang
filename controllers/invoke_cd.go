@@ -19,8 +19,6 @@ type InvokeCDController struct {
 	ErrorController
 }
 
-var ImageMap = make(map[string]string, 1024)
-
 // @router /notification-handler [POST]
 func (ic *InvokeCDController) NotificationHandler() {
 	ic.Audit.Skip = true
@@ -66,14 +64,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
 
-	if _, ok := ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag]; !ok {
-
-		ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag] = ""
-
-	} else {
-
-		return
-	}
 
 	glog.Infof("imageInfo====>%v\n", imageInfo)
 
@@ -83,7 +73,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 		glog.Infof("%s There is no CD rule that matched this image:result=%d err=[%v]\n", method, result, err)
 		message = "There is no CD rule that matched this image:" + imageInfo.Fullname
 		ic.ResponseErrorAndCode(message, http.StatusOK)
-		delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 		return
 	}
 
@@ -101,7 +90,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 			glog.Errorf(" The specified cluster %s does not exist %s %v \n", cdrule.BindingClusterId, method, err)
 			if (len(cdrules) - 1) == index {
 				ic.ResponseErrorAndCode("The specified cluster"+cdrule.BindingClusterId+" does not exist", http.StatusNotFound)
-				delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 				return
 			}
 			continue
@@ -121,7 +109,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 				glog.Errorf("%s json marshal failed:%v\n", method, err)
 				message = "json Marshal failed " + string(data)
 				ic.ResponseErrorAndCode(message, 401)
-				delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 				return
 			}
 			log.Result = string(data)
@@ -138,7 +125,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 				glog.Errorf("%s inertRes=%d %v\n", method, inertRes, err)
 				message = "InsertCDLog failed " + string(data)
 				ic.ResponseErrorAndCode(message, http.StatusConflict)
-				delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 				return
 			}
 			////send mail
@@ -210,7 +196,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 					glog.Errorf("%s json marshal failed:%v\n", method, err)
 					message = "json Marshal failed " + string(data)
 					ic.ResponseErrorAndCode(message, 401)
-					delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 					return
 				}
 				log.Result = string(data)
@@ -227,7 +212,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 					glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
 					message = "InsertCDLog failed " + string(data)
 					ic.ResponseErrorAndCode(message, http.StatusConflict)
-					delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 					return
 				}
 
@@ -286,7 +270,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 				glog.Errorf("%s json marshal failed:%v\n", method, err)
 				message = "json Marshal failed " + string(data)
 				ic.ResponseErrorAndCode(message, 401)
-				delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 				return
 			}
 			log.Result = string(data)
@@ -308,7 +291,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 		}
 	}
 
-	delete(ImageMap, ImageMap[imageInfo.Fullname+"/"+imageInfo.Tag])
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
 	ic.ResponseErrorAndCode("Continuous deployment completed successfully", http.StatusOK)
 	return

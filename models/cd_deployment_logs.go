@@ -85,15 +85,13 @@ func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit in
 	return
 }
 
+
 func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTag string, strategy int8) bool {
-	glog.Infof("Upgrade==========>deployment.Kind:%s\n", deployment.Kind)
+	glog.Infof("Upgrade==========>deployment.Name:%s\n", deployment.Name)
 	method := "kubernetes Upgrade"
 	matched := false
 	ifUpgrade := false
 	now := time.Now()
-	//if !strings.Contains(deployment., "Deployment") {
-	//	return ifUpgrade
-	//}
 
 	if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
 		cooldownSec := 30
@@ -139,6 +137,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 			}
 		}
 	}
+
 
 	// README:
 	//   目前设置spec.strategy时存在缺陷，修改之后自动更新会失效。

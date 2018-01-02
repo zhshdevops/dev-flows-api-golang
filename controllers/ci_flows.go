@@ -1107,6 +1107,7 @@ func (cf *CiFlowsController) UpdateCDRule() {
 	cdRule.BindingClusterId = cdRuleReq.Binding_service.Cluster_id
 	cdRule.BindingDeploymentId = cdRuleReq.Binding_service.Deployment_id
 	cdRule.BindingDeploymentName = cdRuleReq.Binding_service.Deployment_name
+	cdRule.RuleId = ruleId
 	updateResult, err := models.NewCdRules().UpdateCDRule(namespace, flowId, ruleId, cdRule)
 	if err != nil {
 		parseResult, _ := sqlstatus.ParseErrorCode(err)
