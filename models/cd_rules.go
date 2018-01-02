@@ -104,7 +104,6 @@ func (cd *CDRules) DeleteDeploymentCDRule(namespace, cluster, name string, orms 
 	return nil
 }
 
-
 func (cd *CDRules) UpdateCDRule(namespace, flow_id, rule_id string, rule CDRules, orms ...orm.Ormer) (int64, error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
@@ -113,7 +112,8 @@ func (cd *CDRules) UpdateCDRule(namespace, flow_id, rule_id string, rule CDRules
 		o = orms[0]
 	}
 
-	return o.Update(&rule, "update_time", "binding_cluster_id", "binding_deployment_id", "binding_deployment_name")
+	return o.Update(&rule, "update_time", "binding_cluster_id", "binding_deployment_id", "binding_deployment_name",
+		"image_name", "flow_id", "upgrade_strategy", "match_tag")
 }
 
 func (cd *CDRules) ListRulesByFlowId(namespace, flow_id string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {

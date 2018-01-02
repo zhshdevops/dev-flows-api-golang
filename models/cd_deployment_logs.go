@@ -6,6 +6,7 @@ import (
 	"time"
 	"github.com/golang/glog"
 	"k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/util/intstr"
 	"strconv"
 	"fmt"
 	"strings"
@@ -85,7 +86,6 @@ func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit in
 	return
 }
 
-
 func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTag string, strategy int8) bool {
 	glog.Infof("Upgrade==========>deployment.Name:%s\n", deployment.Name)
 	method := "kubernetes Upgrade"
@@ -138,7 +138,6 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		}
 	}
 
-
 	// README:
 	//   目前设置spec.strategy时存在缺陷，修改之后自动更新会失效。
 	//   当前采用策略为：灰度升级时重置spec.strategy为rollingupdate，否则删除对应pods
@@ -149,9 +148,12 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade
 		// reset strategy to rollingupdate which is default value
 		//var rollingUpdateDeployment v1beta1.RollingUpdateDeployment
+
+		maxSurge := intstr.FromInt(1)
+		maxUnavailable := intstr.FromInt(0)
 		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
-		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal = 0
-		deployment.Spec.Strategy.RollingUpdate.MaxSurge.IntVal = 1
+		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable = &maxUnavailable
+		deployment.Spec.Strategy.RollingUpdate.MaxSurge = &maxSurge
 
 		//strategy 1
 	} else {
