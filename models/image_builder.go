@@ -152,12 +152,14 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 		Name:            BUILDER_CONTAINER_NAME,
 		Image:           buildImage,
 		ImagePullPolicy: apiv1.PullAlways,
-		Args:            buildInfo.Build_command,
+		//Args:            buildInfo.Build_command,
 		VolumeMounts:    volumeMounts,
 	}
 
 	if len(buildInfo.Command) != 0 && buildInfo.Type != 3 {
 		jobContainer.Command = buildInfo.Command
+	} else if len(buildInfo.Command) == 0 && buildInfo.Type != 3 {
+		jobContainer.Command = buildInfo.Build_command
 	}
 
 	if buildInfo.Type == 3 {
@@ -1177,7 +1179,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
 			return
 		}
-		glog.Infof("==========>>%s\n",template.HTMLEscapeString(string(data[:n])))
+		glog.Infof("==========>>%s\n", template.HTMLEscapeString(string(data[:n])))
 		logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
 		logTime, _ := time.Parse(time.RFC3339, logInfo[0])
 		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
