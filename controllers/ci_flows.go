@@ -977,7 +977,7 @@ func (cf *CiFlowsController) CreateCDRule() {
 
 	deployment, err := k8sClient.ExtensionsClient.Deployments(namespace).
 		Get(cdRuleReq.Binding_service.Deployment_name)
-	if err != nil || deployment.Status.AvailableReplicas <= 0 {
+	if err != nil || deployment.Status.Replicas <= 0 {
 		glog.Errorf("k8sClient get deployment failed or Failed to validate service information %s %v \n", method, err)
 		cf.ResponseErrorAndCode("您的服务不存在或者该服务已经停止", http.StatusUnauthorized)
 		return
