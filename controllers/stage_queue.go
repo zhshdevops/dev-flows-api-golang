@@ -399,7 +399,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 			Subject: fmt.Sprintf(`'%s'构建成功`, stage.StageName),
 			Body:    fmt.Sprintf(`构建流程%s成功完成一次构建`, stage.StageName),
 		}
-		detail.SendEmailUsingFlowConfig(queue.Namespace, stage.FlowId)
+		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
 		return common.STATUS_SUCCESS
 
 	}
@@ -442,7 +442,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
 		Body:    fmt.Sprintf(`%s <br/>请点击<a href="%s?%s">此处</a>查看EnnFlow详情.`, errMsg, common.FlowDetailUrl, stage.FlowId),
 	}
-	detail.SendEmailUsingFlowConfig(queue.Namespace, stage.FlowId)
+	detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
 
 	glog.Infof("%s kubernetes run the job failed:%s\n", method, errMsg)
 

@@ -1209,9 +1209,8 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	ennFlow.UserNamespace = cf.User.Namespace
 	var conn Conn
 	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
-	if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
+	if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; !ok {
 
-	} else {
 		SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 		cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
 		return
@@ -1663,7 +1662,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			for _, hit := range hits {
 				if hit.Source.Kubernetes["pod_name"] == build.PodName {
 					if len(hit.Source.Log) != 0 && !strings.Contains(hit.Source.Log, "shutting down, got signal: Terminated") {
-						glog.Infof("time=====%s , %s\n",hit.Source.Timestamp.Add(8 * time.Hour),hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"))
+						glog.Infof("time=====%s , %s\n", hit.Source.Timestamp.Add(8*time.Hour), hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"))
 						cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, hit.Source.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), hit.Source.Log)))
 
 					}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"github.com/golang/glog"
 )
 
 func ReadBody(resp *http.Response, obj interface{}) error {
@@ -17,6 +16,5 @@ func ReadBody(resp *http.Response, obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	glog.Infoln("data info :",string(data))
 	return nil
 }
