@@ -320,6 +320,8 @@ func (cf *CiFlowsController) SyncCIFlow() {
 						return
 					}
 					stage.BuildInfo = string(buildInfoData)
+				} else {
+					stage.BuildInfo = ""
 				}
 
 				glog.Infof("stage=============>>%v\n", stage)
@@ -383,7 +385,6 @@ func (cf *CiFlowsController) SyncCIFlow() {
 
 		return trans.IsCommit()
 	}
-	//==========>rrans end
 
 	if !updateResult() {
 
@@ -895,7 +896,7 @@ func (cf *CiFlowsController) ListDeploymentLogsOfFlow() {
 		Cluster_name     string `json:"cluster_name"`
 		Upgrade_strategy int `json:"upgrade_strategy"`
 		Result           Result  `json:"result"`
-		Create_time      time.Time `json:"create_time"`
+		Create_time      string `json:"create_time"`
 	}
 	listLogs := make([]ListLog, 0)
 	listLog := ListLog{}
@@ -908,7 +909,7 @@ func (cf *CiFlowsController) ListDeploymentLogsOfFlow() {
 		listLog.Cluster_name = log.Cluster_name
 		listLog.Upgrade_strategy = log.Upgrade_strategy
 		listLog.Result = result
-		listLog.Create_time = log.Create_time
+		listLog.Create_time = log.Create_time.Format("2006-01-02 15:04:05")
 		listLogs = append(listLogs, listLog)
 	}
 

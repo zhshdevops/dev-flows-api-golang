@@ -32,7 +32,7 @@ type ListLogs struct {
 
 type Result struct {
 	Status   int `json:"status"`
-	Duration int64 `orm:"column(duration)" json:"duration"`
+	Duration string `orm:"column(duration)" json:"duration"`
 	Error    string
 }
 
@@ -105,6 +105,17 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		}
 	}
 
+	//for i, container := range deployment.Spec.Template.Spec.Containers {
+	//	if targetImage, ok := upgrader.Targets[container.Name]; true == ok && container.Image != targetImage {
+	//		results = append(results, Accepted{
+	//			Name: container.Name,
+	//			From: container.Image,
+	//			To:   targetImage,
+	//		})
+	//		container.Image = targetImage
+	//		deployment.Spec.Template.Spec.Containers[i] = container
+	//	}
+	//}
 	glog.Infof("deployment==========>>%v\n", deployment)
 
 	for index, container := range deployment.Spec.Template.Spec.Containers {
@@ -118,10 +129,12 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 				glog.Infof("======================>>isMatchTag=%s\n", isMatchTag)
 				matched = true
 				container.Image = oldImage.Host + "/" + oldImage.Image + ":" + newTag
+				container.ImagePullPolicy = v1.PullAlways
 				glog.Infof("container.Image===============>>%s\n", container.Image)
+				//deployment.Spec.Template.Spec.Containers[index] = container
 				deployment.Spec.Template.Spec.Containers[index].Image = container.Image
 				deployment.Spec.Template.Spec.Containers[index].ImagePullPolicy = v1.PullAlways
-				container.ImagePullPolicy = v1.PullAlways
+
 			}
 		}
 
@@ -161,7 +174,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 				MaxSurge:       &maxSurge,
 			}
 		}
-		
+
 		//strategy 1
 	} else {
 

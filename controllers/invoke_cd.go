@@ -116,7 +116,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			log.TargetVersion = imageInfo.Tag
 			log.CreateTime = time.Now()
 			cdresult.Status = 2
-			cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+			cdresult.Duration = fmt.Sprintf("%d s",time.Now().Sub(start_time) / time.Second)
 			cdresult.Error = fmt.Sprintf("%s", err)
 			data, err := json.Marshal(cdresult)
 			if err != nil {
@@ -204,7 +204,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 				log.TargetVersion = imageInfo.Tag
 				log.CreateTime = time.Now()
 				cdresult.Status = 2
-				cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+				cdresult.Duration = fmt.Sprintf("%d s",time.Now().Sub(start_time) / time.Second)
 				cdresult.Error = fmt.Sprintf("%s", err)
 				data, err := json.Marshal(cdresult)
 				if err != nil {
@@ -246,7 +246,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			log.TargetVersion = imageInfo.Tag
 			log.CreateTime = time.Now()
 			cdresult.Status = 1
-			cdresult.Duration = int64(time.Now().Sub(start_time) / time.Microsecond)
+			cdresult.Duration = fmt.Sprintf("%d s",time.Now().Sub(start_time) / time.Second)
 			cdresult.Error = fmt.Sprintf("%s", err)
 			data, err := json.Marshal(cdresult)
 			if err != nil {
