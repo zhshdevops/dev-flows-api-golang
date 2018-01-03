@@ -64,7 +64,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
 
-
 	glog.Infof("imageInfo====>%v\n", imageInfo)
 
 	//查询CD规则
@@ -95,7 +94,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 			continue
 		}
 		deployment, err := k8sClient.ExtensionsClient.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName)
-		if err != nil || deployment.Status.Replicas == 0 {
+		//if err != nil || deployment.Status.Replicas == 0 {
+		if err != nil {
 			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
 
 			log.CdRuleId = cdrule.RuleId
