@@ -878,7 +878,6 @@ func (cf *CiFlowsController) ListDeploymentLogsOfFlow() {
 		cf.ResponseErrorAndCode("ListLogsByFlowId failed", 500)
 		return
 	}
-	glog.Infof(" ListDeploymentLogsOfFlow %d %v\n", total, logs)
 	if total == 0 {
 		cf.ResponseSuccessStatusAndMessageDevops("No CD rule created for now")
 		return

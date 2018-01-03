@@ -15,6 +15,7 @@ import (
 	"dev-flows-api-golang/util/uuid"
 )
 
+
 type InvokeCDController struct {
 	ErrorController
 }
@@ -301,7 +302,10 @@ func (ic *InvokeCDController) NotificationHandler() {
 			}
 			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
 
+			continue
+
 		}
+
 	}
 
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
