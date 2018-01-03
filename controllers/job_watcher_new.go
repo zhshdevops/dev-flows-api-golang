@@ -274,7 +274,6 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 //WatchJob  watch  the job event fieldSelectorStr := "status.phase!=Succeeded,status.phase!=Failed"
 func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 	method := "WatchJob"
-	var job *v1beta1.Job
 
 	glog.Infof("%s begin watch job jobName=[%s]  namespace=[%s]\n", method, jobName, namespace)
 
@@ -283,8 +282,7 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 
 	if err != nil {
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
-		job.Status.Conditions[0].Status = v1.ConditionUnknown
-		return job
+		return nil
 	}
 
 	listOptions := api.ListOptions{
@@ -294,8 +292,7 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs(namespace).Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
-		job.Status.Conditions[0].Status = v1.ConditionUnknown
-		return job
+		return nil
 	}
 
 	for {
@@ -303,14 +300,12 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 		case event, isOpen := <-watchInterface.ResultChan():
 			if isOpen == false {
 				glog.Errorf("%s the watch job chain is close\n", method)
-				job.Status.Conditions[0].Status = v1.ConditionUnknown
-				return job
+				return nil
 			}
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if false == parseIsOk {
 				glog.Errorf("%s job %s\n", method, ">>>>>>断言失败<<<<<<")
-				job.Status.Conditions[0].Status = v1.ConditionUnknown
-				return job
+				return nil
 			}
 			glog.Infof("%s job event.Type=%s\n", method, event.Type)
 			glog.Infof("%s job event.Status=%#v\n", method, dm.Status)
@@ -353,7 +348,7 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 
 		}
 	}
-	return job
+	return nil
 }
 
 func Retry(flow interface{}, conn Conn) {

@@ -287,6 +287,16 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		}
 	}
 
+	if jobWatch == nil {
+		detail := &EmailDetail{
+			Type:    "ci",
+			Result:  "failed",
+			Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+			Body:    "发生未知错误，构建失败",
+		}
+		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
+		return common.STATUS_FAILED
+	}
 	statusCode := 1
 	//手动停止
 	if jobWatch.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
