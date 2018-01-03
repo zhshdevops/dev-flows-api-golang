@@ -97,13 +97,14 @@ func (ic *InvokeCDController) NotificationHandler() {
 		if err != nil || deployment.Status.Replicas == 0 {
 
 			if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
-				cooldownSec := 180
+				cooldownSec := 30
 				lastCdTs := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]
 				cdTs, _ := strconv.ParseInt(lastCdTs, 10, 64)
 				//当前时间与上一次相差不足冷却间隔时，不进行更新
 				if (time.Now().Unix() - cdTs) < int64(cooldownSec) {
-					glog.Warningf("%s %s\n", method, "Upgrade is rejected because the"+
-						" deployment was updated too frequently")
+					glog.Warningf("%s %s %d\n", method, "Upgrade is rejected because the"+
+						" deployment was updated too frequently (time.Now().Unix() - cdTs) < int64(cooldownSec)=",
+						(time.Now().Unix() - cdTs) < int64(cooldownSec))
 					return
 				}
 			}
