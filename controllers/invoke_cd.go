@@ -15,6 +15,7 @@ import (
 	"dev-flows-api-golang/util/uuid"
 )
 
+var ImageMap = make(map[string]string, 2048)
 
 type InvokeCDController struct {
 	ErrorController
@@ -64,8 +65,14 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Tag = events.Target.Tag
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
-
+	var ImageMapKey string = imageInfo.Fullname + ":" + imageInfo.Tag
 	glog.Infof("imageInfo====>%v\n", imageInfo)
+	if _, ok := ImageMap[ImageMapKey]; !ok {
+		ImageMap[ImageMapKey] = ImageMapKey
+	} else {
+		glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
+		return
+	}
 
 	//查询CD规则
 	cdrules, result, err := models.NewCdRules().FindEnabledRuleByImage(imageInfo.Fullname)
@@ -73,6 +80,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		glog.Infof("%s There is no CD rule that matched this image:result=%d err=[%v]\n", method, result, err)
 		message = "There is no CD rule that matched this image:" + imageInfo.Fullname
 		ic.ResponseErrorAndCode(message, http.StatusOK)
+		delete(ImageMap, ImageMapKey)
 		return
 	}
 
@@ -90,6 +98,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			glog.Errorf(" The specified cluster %s does not exist %s %v \n", cdrule.BindingClusterId, method, err)
 			if (len(cdrules) - 1) == index {
 				ic.ResponseErrorAndCode("The specified cluster"+cdrule.BindingClusterId+" does not exist", http.StatusNotFound)
+				delete(ImageMap, ImageMapKey)
 				return
 			}
 			continue
@@ -105,8 +114,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 				if (time.Now().Unix() - cdTs) < int64(cooldownSec) {
 					glog.Warningf("%s %s %d\n", method, "Upgrade is rejected because the"+
 						" deployment was updated too frequently (time.Now().Unix() - cdTs) < int64(cooldownSec)=",
-						(time.Now().Unix() - cdTs) - int64(cooldownSec))
-					return
+						(time.Now().Unix()-cdTs)-int64(cooldownSec))
+					continue
 				}
 			}
 
@@ -116,14 +125,13 @@ func (ic *InvokeCDController) NotificationHandler() {
 			log.TargetVersion = imageInfo.Tag
 			log.CreateTime = time.Now()
 			cdresult.Status = 2
-			cdresult.Duration = fmt.Sprintf("%d s",time.Now().Sub(start_time) / time.Second)
-			cdresult.Error = fmt.Sprintf("%s", err)
+			cdresult.Duration = fmt.Sprintf("%d ms", time.Now().Sub(start_time)/time.Millisecond)
+			cdresult.Error = fmt.Sprintf("%v", err)
 			data, err := json.Marshal(cdresult)
 			if err != nil {
 				glog.Errorf("%s json marshal failed:%v\n", method, err)
 				message = "json Marshal failed " + string(data)
-				ic.ResponseErrorAndCode(message, 401)
-				return
+				continue
 			}
 			log.Result = string(data)
 			log.Id = uuid.NewCDLogID()
@@ -139,7 +147,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 				glog.Errorf("%s inertRes=%d %v\n", method, inertRes, err)
 				message = "InsertCDLog failed " + string(data)
 				ic.ResponseErrorAndCode(message, http.StatusConflict)
-				return
+				continue
 			}
 			////send mail
 			detail := &EmailDetail{
@@ -171,6 +179,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			imageInfo.Fullname+" "+imageInfo.Tag)
 		message = "No rule matched to invoke the service deployment."
 		ic.ResponseErrorAndCode(message, http.StatusOK)
+		delete(ImageMap, ImageMapKey)
 		return
 	}
 
@@ -192,7 +201,10 @@ func (ic *InvokeCDController) NotificationHandler() {
 		k8sClient := client.GetK8sConnection(dep.Cluster_id)
 		if k8sClient == nil {
 			glog.Errorf("%s get kubernetes clientset failed: %v \n", method, err)
-			continue
+			message = "连不上集群，请稍后再试"
+			ic.ResponseErrorAndCode(message, http.StatusInternalServerError)
+			delete(ImageMap, ImageMapKey)
+			return
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 
@@ -204,14 +216,12 @@ func (ic *InvokeCDController) NotificationHandler() {
 				log.TargetVersion = imageInfo.Tag
 				log.CreateTime = time.Now()
 				cdresult.Status = 2
-				cdresult.Duration = fmt.Sprintf("%d s",time.Now().Sub(start_time) / time.Second)
-				cdresult.Error = fmt.Sprintf("%s", err)
+				cdresult.Duration = fmt.Sprintf("%d ms", time.Now().Sub(start_time)/time.Millisecond)
+				cdresult.Error = fmt.Sprintf("%v", err)
 				data, err := json.Marshal(cdresult)
 				if err != nil {
 					glog.Errorf("%s json marshal failed:%v\n", method, err)
-					message = "json Marshal failed " + string(data)
-					ic.ResponseErrorAndCode(message, 401)
-					return
+					continue
 				}
 				log.Result = string(data)
 				log.Id = uuid.NewCDLogID()
@@ -225,9 +235,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 					}
 					detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
 					glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
-					message = "InsertCDLog failed " + string(data)
-					ic.ResponseErrorAndCode(message, http.StatusConflict)
-					return
+					continue
 				}
 
 				detail := &EmailDetail{
@@ -246,14 +254,12 @@ func (ic *InvokeCDController) NotificationHandler() {
 			log.TargetVersion = imageInfo.Tag
 			log.CreateTime = time.Now()
 			cdresult.Status = 1
-			cdresult.Duration = fmt.Sprintf("%d s",time.Now().Sub(start_time) / time.Second)
-			cdresult.Error = fmt.Sprintf("%s", err)
+			cdresult.Duration = fmt.Sprintf("%d ms", time.Now().Sub(start_time)/time.Millisecond)
+			cdresult.Error = fmt.Sprintf("%v", err)
 			data, err := json.Marshal(cdresult)
 			if err != nil {
 				glog.Errorf("%s json marshal failed:%v\n", method, err)
-				message = "json Marshal failed " + string(data)
-				ic.ResponseErrorAndCode(message, 401)
-				return
+				continue
 			}
 			log.Result = string(data)
 			log.Id = uuid.NewCDLogID()
@@ -270,12 +276,42 @@ func (ic *InvokeCDController) NotificationHandler() {
 					dep.Deployment.ObjectMeta.Name, imageInfo.Fullname, imageInfo.Tag),
 			}
 			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
+			continue
+		} else {
+			log.CdRuleId = dep.Rule_id
+			log.TargetVersion = imageInfo.Tag
+			log.CreateTime = time.Now()
+			cdresult.Status = 2
+			cdresult.Duration = fmt.Sprintf("%d ms", time.Now().Sub(start_time)/time.Millisecond)
+			cdresult.Error = fmt.Sprintf("%v", err)
+			data, err := json.Marshal(cdresult)
+			if err != nil {
+				glog.Errorf("%s json marshal failed:%v\n", method, err)
+				message = "json Marshal failed " + string(data)
+				continue
+			}
+			log.Result = string(data)
+			log.Id = uuid.NewCDLogID()
+			inertRes, err := cdlog.InsertCDLog(log)
+			if err != nil {
+				glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
+			}
 
+			detail := &EmailDetail{
+				Type:    "cd",
+				Result:  "failed",
+				Subject: fmt.Sprintf(`镜像%s持续集成执行失败`, imageInfo.Fullname),
+				Body: fmt.Sprintf(`已将服务%s使用更新版本时间太短`,
+					dep.Deployment.ObjectMeta.Name),
+			}
+			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
+			continue
 		}
 
 	}
 
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
+	delete(ImageMap, ImageMapKey)
 	ic.ResponseErrorAndCode("Continuous deployment completed successfully", http.StatusOK)
 	return
 }
