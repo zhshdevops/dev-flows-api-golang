@@ -28,7 +28,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 	method := "InvokeCDController.NotificationHandler"
 	message := ""
 	body := ic.Ctx.Input.RequestBody
-	glog.V(7).Infof("%s %s\n", method, string(body))
+	glog.Infof("%s %s\n", method, string(body))
 	if string(body) == "" {
 		message = " request body is empty or Invalid request body."
 		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
@@ -42,7 +42,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-	glog.V(7).Infof("response:======>>%#v\n", notification)
+	glog.Infof("response:======>>%#v\n", notification)
 
 	if len(notification.Events) < 1 {
 		message = "Invalid request body."
