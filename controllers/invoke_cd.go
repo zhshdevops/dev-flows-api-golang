@@ -66,14 +66,17 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
 	var ImageMapKey string = imageInfo.Fullname + ":" + imageInfo.Tag
-	glog.Infof("imageInfo====>%v\n", imageInfo)
-	if _, ok := ImageMap[ImageMapKey]; !ok {
+	glog.Infof("imageInfo====>%v，ImageMapKey:%s\n", imageInfo,ImageMapKey)
+	 _, ok := ImageMap[ImageMapKey]
+	if !ok {
 		ImageMap[ImageMapKey] = ImageMapKey
 	} else {
 		glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
+		message="已经部署，触发的次数过多"
+		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
 	}
-
+	glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
 	//查询CD规则
 	cdrules, result, err := models.NewCdRules().FindEnabledRuleByImage(imageInfo.Fullname)
 	if err != nil || result == 0 {
