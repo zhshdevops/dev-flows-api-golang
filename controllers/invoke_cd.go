@@ -8,7 +8,7 @@ import (
 	"time"
 	"dev-flows-api-golang/modules/client"
 	"fmt"
-
+	"strconv"
 	//"k8s.io/client-go/1.4/pkg/api/v1"
 
 	"net/http"
@@ -94,8 +94,20 @@ func (ic *InvokeCDController) NotificationHandler() {
 			continue
 		}
 		deployment, err := k8sClient.ExtensionsClient.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName)
-		//if err != nil || deployment.Status.Replicas == 0 {
-		if err != nil {
+		if err != nil || deployment.Status.Replicas == 0 {
+
+			if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
+				cooldownSec := 180
+				lastCdTs := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]
+				cdTs, _ := strconv.ParseInt(lastCdTs, 10, 64)
+				//当前时间与上一次相差不足冷却间隔时，不进行更新
+				if (time.Now().Unix() - cdTs) < int64(cooldownSec) {
+					glog.Warningf("%s %s\n", method, "Upgrade is rejected because the"+
+						" deployment was updated too frequently")
+					return
+				}
+			}
+
 			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
 
 			log.CdRuleId = cdrule.RuleId
