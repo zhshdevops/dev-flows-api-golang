@@ -41,6 +41,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
+	glog.Infof("NotificationHandler body := ic.Ctx.Input.RequestBody:%v\n", string(body))
+
 	if len(notification.Events) < 1 {
 		message = "Invalid request body."
 		glog.Errorf("%s Invalid request body:%s\n", method, notification)
@@ -63,16 +65,17 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
 	var ImageMapKey string = imageInfo.Fullname + ":" + imageInfo.Tag
-	glog.Infof("imageInfo====>%v，ImageMapKey:%s\n", imageInfo,ImageMapKey)
-	 _, ok := ImageMap[ImageMapKey]
+	glog.Infof("imageInfo====>%v，ImageMapKey:%s\n", imageInfo, ImageMapKey)
+	_, ok := ImageMap[ImageMapKey]
 	if !ok {
 		ImageMap[ImageMapKey] = ImageMapKey
 	} else {
 		glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
-		message="已经部署，触发的次数过多"
+		message = "自动部署触发的次数过多"
 		ic.ResponseErrorAndCode(message, http.StatusOK)
 		return
 	}
+
 	glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
 	//查询CD规则
 	cdrules, result, err := models.NewCdRules().FindEnabledRuleByImage(imageInfo.Fullname)
