@@ -607,6 +607,9 @@ func (queue *StageQueueNew) SetFailedStatus() {
 		}
 
 	}
+	glog.Infof("%s ==========>>%v\n", method, queue.StageBuildLog)
+	queue.ImageBuilder.StopJob(queue.StageBuildLog.Namespace, queue.StageBuildLog.JobName, false, 0)
+
 }
 
 func (queue *StageQueueNew) SetSuncessStatus() {

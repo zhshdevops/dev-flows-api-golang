@@ -215,11 +215,13 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 
 					}
 					return
+				} else {
+					SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API ]获取日志失败%v!</font>`, err), conn)
+					return
 				}
 
-				SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API ]获取日志失败%v!</font>`, err), conn)
-				return
 			}
+
 			glog.Infof("=======the log is ===>>string(data[:n])==>%s\n", string(data[:n]))
 
 			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)

@@ -10,15 +10,47 @@ import (
 	"fmt"
 	"strconv"
 	//"k8s.io/client-go/1.4/pkg/api/v1"
-
+	"sync"
 	"net/http"
 	"dev-flows-api-golang/util/uuid"
 )
 
-var ImageMap = make(map[string]string, 2048)
+var imageMaps ImageMaps
+
+type ImageMaps struct {
+	ImageMap        map[string]time.Time
+	ImageMapRWMutex sync.RWMutex
+}
 
 type InvokeCDController struct {
 	ErrorController
+}
+
+func init() {
+
+	imageMaps = ImageMaps{
+		ImageMap: make(map[string]time.Time, 2048),
+	}
+
+	go func() {
+
+		for {
+			select {
+			case <-time.After(10 * time.Minute):
+				imageMaps.ImageMapRWMutex.RLock()
+				for key, value := range imageMaps.ImageMap {
+					if (time.Now().Sub(value) / time.Second) > 180 {
+
+						delete(imageMaps.ImageMap, key)
+					}
+				}
+				imageMaps.ImageMapRWMutex.RUnlock()
+			}
+
+		}
+
+	}()
+
 }
 
 // @router /notification-handler [POST]
@@ -41,9 +73,9 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-	glog.Infof("NotificationHandler body := ic.Ctx.Input.RequestBody:%v\n", string(body))
+	glog.Infof("NotificationHandler body := ic.Ctx.Input.RequestBody:%v\n", notification)
 
-	if len(notification.Events) < 1 {
+	if len(notification.Events) < 1 || string(body) == "" {
 		message = "Invalid request body."
 		glog.Errorf("%s Invalid request body:%s\n", method, notification)
 		ic.ResponseErrorAndCode(message, http.StatusBadRequest)
@@ -65,25 +97,27 @@ func (ic *InvokeCDController) NotificationHandler() {
 	imageInfo.Fullname = events.Target.Repository
 	imageInfo.Projectname = strings.Split(events.Target.Repository, "/")[0]
 	var ImageMapKey string = imageInfo.Fullname + ":" + imageInfo.Tag
-	glog.Infof("imageInfo====>%v，ImageMapKey:%s\n", imageInfo, ImageMapKey)
-	_, ok := ImageMap[ImageMapKey]
+	imageMaps.ImageMapRWMutex.RLock()
+	_, ok := imageMaps.ImageMap[ImageMapKey]
 	if !ok {
-		ImageMap[ImageMapKey] = ImageMapKey
+		imageMaps.ImageMap[ImageMapKey] = time.Now()
+		imageMaps.ImageMapRWMutex.RUnlock()
 	} else {
-		glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
 		message = "自动部署触发的次数过多"
 		ic.ResponseErrorAndCode(message, http.StatusOK)
+		imageMaps.ImageMapRWMutex.RUnlock()
 		return
 	}
 
-	glog.Infof("===================>>ImageMapKey:%s\n", ImageMapKey)
 	//查询CD规则
 	cdrules, result, err := models.NewCdRules().FindEnabledRuleByImage(imageInfo.Fullname)
 	if err != nil || result == 0 {
 		glog.Infof("%s There is no CD rule that matched this image:result=%d err=[%v]\n", method, result, err)
 		message = "There is no CD rule that matched this image:" + imageInfo.Fullname
 		ic.ResponseErrorAndCode(message, http.StatusOK)
-		delete(ImageMap, ImageMapKey)
+		imageMaps.ImageMapRWMutex.RLock()
+		delete(imageMaps.ImageMap, ImageMapKey)
+		imageMaps.ImageMapRWMutex.RUnlock()
 		return
 	}
 
@@ -101,7 +135,9 @@ func (ic *InvokeCDController) NotificationHandler() {
 			glog.Errorf(" The specified cluster %s does not exist %s %v \n", cdrule.BindingClusterId, method, err)
 			if (len(cdrules) - 1) == index {
 				ic.ResponseErrorAndCode("The specified cluster"+cdrule.BindingClusterId+" does not exist", http.StatusNotFound)
-				delete(ImageMap, ImageMapKey)
+				imageMaps.ImageMapRWMutex.RLock()
+				delete(imageMaps.ImageMap, ImageMapKey)
+				imageMaps.ImageMapRWMutex.RUnlock()
 				return
 			}
 			continue
@@ -205,7 +241,9 @@ func (ic *InvokeCDController) NotificationHandler() {
 			glog.Errorf("%s get kubernetes clientset failed: %v \n", method, err)
 			message = "连不上集群，请稍后再试"
 			ic.ResponseErrorAndCode(message, http.StatusInternalServerError)
-			delete(ImageMap, ImageMapKey)
+			imageMaps.ImageMapRWMutex.RLock()
+			delete(imageMaps.ImageMap, ImageMapKey)
+			imageMaps.ImageMapRWMutex.RUnlock()
 			return
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
@@ -313,7 +351,9 @@ func (ic *InvokeCDController) NotificationHandler() {
 	}
 
 	glog.Infof("%s %s", method, "Continuous deployment completed successfully")
-	delete(ImageMap, ImageMapKey)
+	imageMaps.ImageMapRWMutex.RLock()
+	delete(imageMaps.ImageMap, ImageMapKey)
+	imageMaps.ImageMapRWMutex.RUnlock()
 	ic.ResponseErrorAndCode("Continuous deployment completed successfully", http.StatusOK)
 	return
 }
