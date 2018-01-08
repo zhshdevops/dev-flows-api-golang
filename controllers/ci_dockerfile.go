@@ -40,7 +40,8 @@ func (dfile *CiDockerfileController) ListDockerfiles() {
 	if total == 0 {
 		var body Resp
 		body.StatusDevops = http.StatusOK
-		resp, _ := json.MarshalIndent(body, "", "  ")
+		body.ResultsDevops = []string{}
+		resp, _ := json.Marshal(body)
 		dfile.writeResponseHeader(http.StatusOK)
 		dfile.Ctx.ResponseWriter.Write(resp)
 		return
