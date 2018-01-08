@@ -176,7 +176,10 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 							continue
 						}
 						if matchWayReg.MatchString(event.Name) {
-							matched = true
+							if strings.Contains(event.Name, ciConfig.Branch.Name) {
+								matched = true
+							}
+
 						} else {
 							detail := &EmailDetail{
 								Type:    "ci",
@@ -209,7 +212,11 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 							continue
 						}
 						if matchWayReg.MatchString(event.Name) {
-							matched = true
+
+							if strings.Contains(event.Name, ciConfig.Tag.Name) {
+								matched = true
+							}
+
 						} else {
 							detail := &EmailDetail{
 								Type:    "ci",
