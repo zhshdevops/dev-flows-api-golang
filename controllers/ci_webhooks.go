@@ -192,7 +192,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 				} else if eventType == "tag" {
 					if _, ok := ciConfig.Tag.MatchWay.(bool); ok {
 						//the branch same
-						if ciConfig.Branch.Name == event.Name {
+						if ciConfig.Tag.Name == event.Name {
 							matched = true
 						}
 					} else {
@@ -210,7 +210,6 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 							continue
 						}
 						if matchWayReg.MatchString(event.Name) {
-
 							matched = true
 
 						} else {
