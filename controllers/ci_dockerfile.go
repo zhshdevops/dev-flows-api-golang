@@ -30,10 +30,6 @@ func (dfile *CiDockerfileController) ListDockerfiles() {
 	//	data[index].Update_time.Format("2006-01-02 15:04:05")
 	//}
 
-	if total == 0 {
-		dfile.ResponseErrorAndCode("not found the dockerfile info", http.StatusOK)
-		return
-	}
 	dfile.ResponseSuccessDevops(data, total)
 	return
 }

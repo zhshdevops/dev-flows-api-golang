@@ -96,12 +96,14 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 				return
 			}
 		}
+
 		GitlabProjectId, _ := strconv.Atoi(project.GitlabProjectId)
 		if project.RepoType != SVN && event.ScmProjectId != GitlabProjectId {
 			glog.Errorf("%s Project id does not match with exiting one\n", method)
 			cimp.ResponseErrorAndCode("Project id does not match with exiting one", 404)
 			return
 		}
+
 		glog.V(1).Infof("Validate CI rule of each stage ...")
 
 		//create builds by ci rules
@@ -111,10 +113,12 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 			return
 		}
 	} else {
+
 		glog.Errorf("%s %s\n", method, "Only gitlab/github/gogs/svn is supported by now")
 		cimp.ResponseErrorAndCode("Only gitlab/github/gogs/svn is supported by now", http.StatusBadRequest)
 		return
 	}
+
 	cimp.ResponseErrorAndCode("Webhook handled normally", http.StatusOK)
 	return
 
@@ -152,8 +156,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 			} else if strings.Contains(stage.CiConfig, eventType) {
 				glog.V(1).Infof("%s : [%v] vs [%s]\n", method, ciConfig, event.Name)
 				if eventType == "branch" {
-					//if ciConfig.Branch.MatchWay != "RegExp" {
-					if RegExp, ok := ciConfig.Branch.MatchWay.(string); ok && RegExp != "RegExp" {
+					if _, ok := ciConfig.Branch.MatchWay.(bool); ok {
 						//the branch same
 						if ciConfig.Branch.Name == event.Name {
 							matched = true
@@ -186,7 +189,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						}
 					}
 				} else if eventType == "tag" {
-					if RegExp, ok := ciConfig.Tag.MatchWay.(string); ok && RegExp != "RegExp" {
+					if _, ok := ciConfig.Tag.MatchWay.(bool); ok {
 						//the branch same
 						if ciConfig.Branch.Name == event.Name {
 							matched = true
@@ -296,9 +299,9 @@ func getGitlabEventInfo(req *http.Request, body []byte, project models.CiManaged
 		glog.Errorf("%s json unmarshal failed:%v\n", method, err)
 		return event, err
 	}
-	glog.V(1).Infof("%s gitlab hookPayload info :%v\n", method, hookPayload)
+	glog.Infof("%s gitlab hookPayload info :%v\n", method, hookPayload)
 
-	glog.V(1).Infof("%s  gitlab event type in the header: %s\n", method, headerEvnt)
+	glog.Infof("%s  gitlab event type in the header: %s\n", method, headerEvnt)
 
 	if hookPayload.ObjectKind != HOOK_EVENT_PUSH && hookPayload.ObjectKind != HOOK_EVENT_MERGE_REQUEST && hookPayload.ObjectKind != HOOK_EVENT_TAG_PUSH {
 
@@ -330,7 +333,7 @@ func getGitlabEventInfo(req *http.Request, body []byte, project models.CiManaged
 
 		pushName = strings.SplitN(hookPayload.Ref, "/", 3)[2]
 
-		glog.V(1).Infof("%s push payload pushName info :%v\n", method, pushName)
+		glog.Infof("%s push payload pushName info :%v\n", method, pushName)
 
 		eventType = strings.SplitN(hookPayload.Ref, "/", 3)[1]
 
