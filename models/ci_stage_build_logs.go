@@ -56,11 +56,11 @@ func (ci *CiStageBuildLogs) UpdateById(build CiStageBuildLogs, buildId string, o
 		//"flow_build_id":build.FlowBuildId,
 		//"stage_id":build.StageId,
 		//"stage_name":build.StageName,
-		"status":     build.Status,
-		"pod_name":   build.PodName,
-		"node_name":  build.NodeName,
+		"status":    build.Status,
+		"pod_name":  build.PodName,
+		"node_name": build.NodeName,
 		//"start_time": build.StartTime,
-		"end_time":   time.Now(),
+		"end_time": time.Now(),
 		//"build_alone": build.BuildAlone,
 		//"is_first": build.IsFirst,
 		"job_name": build.JobName,
@@ -152,6 +152,20 @@ func (ci *CiStageBuildLogs) UpdateStageBuildStatusById(status int, buildId strin
 	return
 }
 
+func (ci *CiStageBuildLogs) UpdateStageBuildNodeById(nodeName, buildId string, orms ...orm.Ormer) (updateResult int64, err error) {
+	var o orm.Ormer
+	if len(orms) != 1 {
+		o = orm.NewOrm()
+	} else {
+		o = orms[0]
+	}
+	updateResult, err = o.QueryTable(ci.TableName()).
+		Filter("build_id", buildId).Update(orm.Params{
+		"node_name": nodeName,
+	})
+	return
+}
+
 func (ci *CiStageBuildLogs) DeleteById(buildId string, orms ...orm.Ormer) (result int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
@@ -198,9 +212,6 @@ func (ci *CiStageBuildLogs) FindOneById(buildId string) (stageBuildLog CiStageBu
 		One(&stageBuildLog)
 	return
 }
-
-
-
 
 func (ci *CiStageBuildLogs) FindAllOfStage(stageId string, size int) (stageBuildLog []CiStageBuildLogs, reslut int64, err error) {
 	o := orm.NewOrm()

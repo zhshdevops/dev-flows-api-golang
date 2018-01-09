@@ -607,7 +607,6 @@ func (queue *StageQueueNew) SetFailedStatus() {
 		}
 
 	}
-	glog.Infof("%s ==========>>%v\n", method, queue.StageBuildLog)
 	queue.ImageBuilder.StopJob(queue.StageBuildLog.Namespace, queue.StageBuildLog.JobName, false, 0)
 
 }
@@ -1092,6 +1091,10 @@ func (queue *StageQueueNew) Run() {
 						glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
 					}
 				}
+
+				models.NewCiStageBuildLogs().UpdateStageBuildNodeById(queue.StageBuildLog.NodeName,
+					queue.StageBuildLog.BuildId)
+
 				if index == (queue.LengthOfStage() - 1) {
 					//通知EnnFlow 成功构建
 					queue.SetSuncessStatus()
