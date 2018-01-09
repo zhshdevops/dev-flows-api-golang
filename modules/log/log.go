@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"os"
-	"io"
 	"gopkg.in/olivere/elastic.v5"
 	beegoCtx "github.com/astaxie/beego/context"
 	"fmt"
@@ -67,10 +66,8 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 	for {
 		results, err := svc.
 		Do(context.Background())
-		if err == io.EOF {
-			break
-		}
-		if err != nil && err != io.EOF {
+
+		if err != nil  {
 			fmt.Printf("get logs failed from ES:%v\n", err)
 			return err
 		}
