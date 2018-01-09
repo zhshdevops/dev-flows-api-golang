@@ -1666,7 +1666,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	err = logClient.SearchTodayLog(indexs, namespace, containerNames, build.PodName, client.ClusterID, cf.Ctx)
 	if err != nil {
-		glog.Infof("will get log form kubernetes=======>>")
+		glog.Infof("will get log form kubernetes=======>>err:%v\n",err)
 		getLogFromK8S()
 		cf.Ctx.ResponseWriter.Status = 200
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))

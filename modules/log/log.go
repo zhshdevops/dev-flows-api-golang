@@ -68,7 +68,7 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 		results, err := svc.
 		Do(context.Background())
 		if err == io.EOF {
-			return err
+			break
 		}
 		if err != nil && err != io.EOF {
 			fmt.Printf("get logs failed from ES:%v\n", err)
