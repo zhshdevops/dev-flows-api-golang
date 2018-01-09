@@ -159,6 +159,7 @@ func Int64Toint64Point(input int64) *int64 {
 
 //WaitForLogs websocket get logs
 func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerName string, conn Conn, buildId string) {
+	time.Sleep(3 * time.Second)
 	method := "WaitForLogs"
 	follow := false
 	previous := true

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"io"
 	"gopkg.in/olivere/elastic.v5"
 	beegoCtx "github.com/astaxie/beego/context"
 	"fmt"
@@ -58,6 +59,7 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 	}
 
 	query.Should(shouldQuery...)
+	var retry int
 
 	svc := c.client.Scroll(indexs...).Query(query).Sort("time_nano", true).Size(200)
 
@@ -66,8 +68,16 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 	for {
 		results, err := svc.
 		Do(context.Background())
-
-		if err != nil  {
+		if err == io.EOF {
+			retry += retry + 1
+			if retry >= 5 {
+				ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[EnnFlow API INFO]</font> %s <br/>`, "日志正在搜集中，请稍后再试")))
+				break
+			}
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		if err != nil && err != io.EOF {
 			fmt.Printf("get logs failed from ES:%v\n", err)
 			return err
 		}
