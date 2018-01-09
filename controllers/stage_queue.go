@@ -940,6 +940,9 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 	//构建job的参数以及执行job命令
 	job, err := queue.ImageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
+
+	time.Sleep(5 * time.Second)
+
 	if err != nil || job == nil {
 
 		queue.StageBuildLog.Status = common.STATUS_FAILED

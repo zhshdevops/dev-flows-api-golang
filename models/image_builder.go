@@ -522,7 +522,6 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...s
 	if err != nil {
 		return podList, err
 	}
-	time.Sleep(5 * time.Second)
 	listOptions := api.ListOptions{
 		LabelSelector: labelsSel,
 	}
