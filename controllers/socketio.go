@@ -68,7 +68,7 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 	}
 
 	glog.Infof("the podName is empty============PodName=%s\n", build.PodName)
-	podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
+	podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName, build.BuildId)
 	if err != nil || podName == "" {
 		glog.Errorf("%s 获取构建任务信息失败 get job name=[%s] pod name failed:======>%v\n", method, build.JobName, err)
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, "获取构建任务信息失败"), conn)
