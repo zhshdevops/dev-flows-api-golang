@@ -68,7 +68,7 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 		results, err := svc.
 		Do(context.Background())
 		if err == io.EOF {
-			break
+			return err
 		}
 		if err != nil && err != io.EOF {
 			fmt.Printf("get logs failed from ES:%v\n", err)
@@ -85,7 +85,7 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 			var esHitSource ESHitSource
 			data, err := hit.Source.MarshalJSON()
 			if err != nil {
-				continue
+				return err
 			}
 			err = json.Unmarshal(data, &esHitSource)
 			if err != nil {

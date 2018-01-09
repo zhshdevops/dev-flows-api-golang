@@ -1672,6 +1672,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 		return
 	}
+	glog.Infof("will get log form ES successfully=======>>")
 	cf.Ctx.ResponseWriter.Status = 200
 	cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 	return
