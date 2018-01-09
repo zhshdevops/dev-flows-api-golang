@@ -1669,9 +1669,8 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	if err != nil {
 		glog.Infof("will get log form kubernetes=======>>")
 		getLogFromK8S()
-
 		cf.Ctx.ResponseWriter.Status = 200
-		//cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或者日志信息已过期</font>`))
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 		return
 	}
 

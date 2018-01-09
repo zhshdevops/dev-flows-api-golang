@@ -62,9 +62,9 @@ type ESHit struct {
 // ESHitSource represents data structure of .hits.hits._source
 type ESHitSource struct {
 	Log        string                 `json:"log,omitempty"`
-	Kubernetes map[string]string      `json:"kubernetes,omitempty"` // corresponding to variable requiredFields
+	//Kubernetes map[string]string      `json:"kubernetes,omitempty"` // corresponding to variable requiredFields
 	Stream     string                 `json:"stream,omitempty"`
-	Docker     map[string]interface{} `json:"docker,omitempty"`
+	//Docker     map[string]interface{} `json:"docker,omitempty"`
 	TimeNano   string                 `json:"time_nano,omitempty"`
 	Tag        string                 `json:"tag,omitempty"`
 	Timestamp  time.Time              `json:"@timestamp,omitempty"`
