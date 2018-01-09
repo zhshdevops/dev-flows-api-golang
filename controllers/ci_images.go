@@ -5,6 +5,8 @@ import (
 	"dev-flows-api-golang/util/uuid"
 	"encoding/json"
 	"github.com/golang/glog"
+	"net/http"
+	"time"
 )
 
 type CiImagesController struct {
@@ -53,7 +55,7 @@ func (ciImage *CiImagesController) UpdateBaseImage() {
 
 	} else {
 
-		ciImageModel.UpdateBaseImage(Id, ciImage.Namespace, image)
+		ciImageModel.UpdateBaseImage(Id, ciImage.User.Namespace, image)
 
 	}
 
@@ -87,7 +89,7 @@ func (ciImage *CiImagesController) CreateNewBaseImage() {
 		return
 	}
 
-	image.Namespace = ciImage.Namespace
+	image.Namespace = ciImage.User.Namespace
 
 	if ciImage.User.Role == 2 {
 		image.IsSystem = 1
@@ -97,7 +99,7 @@ func (ciImage *CiImagesController) CreateNewBaseImage() {
 
 	image.CategoryName = GetCategoryName(int(image.CategoryId))
 	image.IsAllowDeletion = 0
-
+	image.CreateTime = time.Now()
 	_, err = models.NewCiImages().CreateNewBaseImage(image)
 	if err != nil {
 		glog.Errorf("%s %v\n", method, err)
@@ -114,7 +116,9 @@ func (ciImage *CiImagesController) CreateNewBaseImage() {
 func (ciImage *CiImagesController) GetAvailableImages() {
 	method := "CiImagesController.GetAvailableImages"
 
-	images, total, err := models.NewCiImages().GetImagesByNamespace(ciImage.Namespace)
+	glog.Infof("namespace=%s\n", ciImage.Namespace)
+
+	images, total, err := models.NewCiImages().GetImagesByNamespace(ciImage.User.Namespace)
 	if err != nil {
 		glog.Errorf("%s %v\n", method, err)
 		ciImage.ResponseErrorAndCode("GetAvailableImages failed ", 502)
@@ -130,7 +134,19 @@ func (ciImage *CiImagesController) GetAvailableImages() {
 func (ciImage *CiImagesController) DeleteBaseImage() {
 	method := "CiImagesController.DeleteBaseImage"
 	Id := ciImage.Ctx.Input.Param(":id")
-	err := models.NewCiImages().DeleteImage(Id, ciImage.Namespace)
+
+	var err error
+
+	if ciImage.User.Role == 2 {
+
+		err = models.NewCiImages().DeleteImageById(Id)
+
+	} else {
+
+		err = models.NewCiImages().DeleteImage(Id, ciImage.User.Namespace)
+
+	}
+
 	ciImage.Audit.SetResourceID(Id)
 	ciImage.Audit.SetResourceName(Id)
 	ciImage.Audit.SetOperationType(models.AuditOperationDelete)
@@ -138,7 +154,7 @@ func (ciImage *CiImagesController) DeleteBaseImage() {
 
 	if err != nil {
 		glog.Errorf("%s %v\n", method, err)
-		ciImage.ResponseErrorAndCode(method+" DeleteBaseImage failed ", 502)
+		ciImage.ResponseErrorAndCode(method+" DeleteBaseImage failed ", http.StatusForbidden)
 		return
 	}
 
@@ -146,6 +162,7 @@ func (ciImage *CiImagesController) DeleteBaseImage() {
 	return
 
 }
+
 func GetCategoryName(category_id int) string {
 	switch category_id {
 	case 1:
