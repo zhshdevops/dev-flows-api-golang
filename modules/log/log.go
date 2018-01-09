@@ -86,8 +86,6 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 				return err
 			}
 
-			glog.Infoln(esHitSource.Log)
-
 			if esHitSource.Log != "" {
 				ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, esHitSource.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), esHitSource.Log)))
 			}
