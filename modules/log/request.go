@@ -6,14 +6,7 @@
 
 package log
 
-import (
-	"io/ioutil"
-	"net/http"
-	"strings"
-	"time"
-
-	"github.com/golang/glog"
-)
+import "time"
 
 // ESResponse represents the data structure of logging data returned from elasticsearch
 type ESResponse struct {
@@ -76,34 +69,4 @@ type ESHitSource struct {
 	Tag        string                 `json:"tag,omitempty"`
 	Timestamp  time.Time              `json:"@timestamp,omitempty"`
 	FileName   string                 `json:"filename,omitempty"`
-}
-
-// httpRequest sends http request and returns response as byte[]
-func (lc *LoggingClient) httpRequest(httpMethod, url, requestbody string) ([]byte, int, error) {
-	var statusCode int
-	method := "httpRequest"
-
-	request, err := http.NewRequest(httpMethod, url, strings.NewReader(requestbody))
-	if err != nil {
-		glog.Errorln("SendRequest create new request failed, error:", err)
-		return nil, statusCode, err
-	}
-
-	request.Header.Set("Authorization", "Bearer "+lc.Token)
-	response, err := lc.httpClient.Do(request)
-	if err != nil {
-		glog.Errorln(method, "Request log data failed, error:", err)
-		return nil, statusCode, err
-	}
-
-	defer response.Body.Close()
-
-	statusCode = response.StatusCode
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		glog.Errorln(method, "Read http response failed", err)
-		return nil, statusCode, err
-	}
-	return body, statusCode, err
 }

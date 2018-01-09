@@ -1,162 +1,110 @@
-/*
- * Licensed Materials - Property of tenxcloud.com
- * (C) Copyright 2016 TenxCloud. All Rights Reserved.
- * 2016-09-18  @author liuyang
- */
-
 package log
 
 import (
-	"crypto/tls"
-	"fmt"
-	"net/http"
+	"context"
+	"encoding/json"
+	"log"
 	"os"
-	"strings"
-	"time"
-
+	"io"
+	"gopkg.in/olivere/elastic.v5"
+	beegoCtx "github.com/astaxie/beego/context"
+	"fmt"
 	"github.com/golang/glog"
+	"time"
 )
 
-// LoggingClient logging client
-type LoggingClient struct {
-	URL        string `json:"url"`   // url: "https://192.168.1.93:6443/",
-	Token      string `json:"token"` // "bpnxUMd0v10EOOHvAWCwY4A5wtZBXIrz"
-	httpClient *http.Client
+type ESClient struct {
+	client   *elastic.Client
+	scrollId string
 }
 
-// NewLoggingClient new logging client
-func NewLoggingClient(protocol, apiHost, pluginNamespace, loggingService, token string) *LoggingClient {
-	// Check env for customized elasticsearch service
-	elasticsearchURL := os.Getenv("EXTERNAL_ES_URL")
-	elasticsearchURL="http://paasdev.enncloud.cn:9200"
+func NewESClient(elasticsearchURL string) (*ESClient, error) {
+
 	if elasticsearchURL == "" {
-		elasticsearchURL = fmt.Sprintf("%s://%s/api/v1/proxy/namespaces/%s/services/%s", protocol, apiHost, pluginNamespace, loggingService)
+		elasticsearchURL = os.Getenv("EXTERNAL_ES_URL")
 	}
-	var l = &LoggingClient{
-		URL:   elasticsearchURL,
-		Token: token,
+	islog := false
+	var options []elastic.ClientOptionFunc
+	options = append(options, elastic.SetURL(elasticsearchURL))
+	options = append(options, elastic.SetSniff(false))
+	if islog {
+		errorlog := log.New(os.Stdout, "ELASTICSEARCH ", log.LstdFlags)
+		options = append(options, elastic.SetTraceLog(errorlog))
 	}
-
-	l.httpClient = &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			IdleConnTimeout: time.Second * 30,
-		},
-		Timeout: 30 * time.Second,
-	}
-	return l
-}
-
-// Get fetch log from elastic search service
-func (l *LoggingClient) Get(names []string, namespace, kind, lt, lv string, days []time.Time, from, size int, kw, nano, direction, action, fileName, clusterID string) (*ESResponse, error) {
-	method := "modules/log/LoggingClient.Get"
-
-	// convert date list into elasticsearch indices
-	indices := days2indices(days)
-	indexes := getIndexBydate(days)
-
-	if size < defaultLogSize {
-		size = defaultLogSize
-	}
-	if from < defaultLogOffset {
-		from = defaultLogOffset
-	}
-	logs, err := l.QueryGetLog(indexes, indices, names, namespace, kind, lt, lv, from, size, kw, nano, direction, action, fileName, clusterID)
+	client, err := elastic.NewClient(options...)
 	if err != nil {
-		glog.Errorln(method, "Get logs failed, namespace:", namespace, ", name:", names, ", kind:", kind, ", error:", err)
 		return nil, err
 	}
 
-	return logs, err
+	return &ESClient{client: client}, nil
 }
 
-func (l *LoggingClient) ClearScroll(scrollId string) error {
+//{"range":{"@timestamp":{"gte":"%s", "lte":"%s"}}}
+func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerName []string, podName, clusterID string, ctx *beegoCtx.Context) error {
+	query := elastic.NewBoolQuery()
 
-	method := "LoggingClient.ClearScroll"
-	scrollIdArray := make([]string, 0)
-	scrollIdArray = append(scrollIdArray, scrollId)
+	var mustQuery []elastic.Query
+	mustQuery = make([]elastic.Query, 0)
+	mustQuery = append(mustQuery, elastic.NewMatchQuery("kubernetes.namespace_name", namespace))
+	mustQuery = append(mustQuery, elastic.NewMatchQuery("kubernetes.pod_name", podName))
+	mustQuery = append(mustQuery, elastic.NewMatchQuery("kubernetes.labels.ClusterID", clusterID))
+	query.Must(mustQuery...)
 
-	// 1. Build request url
-	var url string
+	var shouldQuery []elastic.Query
+	shouldQuery = make([]elastic.Query, 0)
 
-	url = fmt.Sprintf("%s/_search?scroll", strings.Trim(l.URL, "/"))
-
-	// 2. build request body
-	scroll := `{
-		"scroll_id":%s
-	}`
-	requestBody := fmt.Sprintf(scroll, scrollIdArray)
-
-	glog.V(2).Infoln(method, "url:", url)
-	glog.V(4).Infoln(method, "body:", requestBody)
-
-	// send request
-	rawBytes, _, err := l.httpRequest("DELETE", url, requestBody)
-	if err != nil {
-		return err
+	if len(containerName) != 0 {
+		for _, name := range containerName {
+			shouldQuery = append(shouldQuery, elastic.NewMatchQuery("kubernetes.container_name", name))
+		}
 	}
-	glog.V(1).Info(string(rawBytes))
+
+	query.Should(shouldQuery...)
+
+	svc := c.client.Scroll(indexs...).Query(query).Sort("time_nano", true).Size(200)
+
+	var docs int64 = 0
+
+	for {
+		results, err := svc.
+		Do(context.Background())
+		if err == io.EOF {
+			break
+		}
+		if err != nil && err != io.EOF {
+			fmt.Printf("get logs failed from ES:%v\n", err)
+			return err
+		}
+		for _, hit := range results.Hits.Hits {
+			var esHitSource ESHitSource
+			data, err := hit.Source.MarshalJSON()
+			if err != nil {
+				continue
+			}
+			glog.Infoln("=======log  data:%s\n", string(data))
+			err = json.Unmarshal(data, &esHitSource)
+			if err != nil {
+				glog.Errorf("err============>>")
+				continue
+			}
+
+			if esHitSource.Log != "" {
+
+				ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, esHitSource.Timestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), esHitSource.Log)))
+
+			}
+
+		}
+
+		if docs > results.Hits.TotalHits {
+
+			break
+		}
+
+		docs = docs + 200
+
+	}
 
 	return nil
 
-}
-
-func (l *LoggingClient) RefineLogEnnFlowLog(podName string, esResponse *ESResponse) string {
-	method := "modules/log/refineLogEnnFlowLog"
-
-	refinedLogs := ""
-	if esResponse!=nil{
-		hits := esResponse.Hits.Hits
-
-		if len(hits) != 0 {
-			for _, hit := range hits {
-				if hit.Source.Kubernetes["pod_name"] == podName {
-					refinedLogs += fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s \n`, hit.Source.Timestamp.Format("2006/01/02 15:04:05"), hit.Source.Log)
-				}
-			}
-
-			return refinedLogs
-		}
-
-		glog.Infof("%s from elasticsearch resp data is empty===>%v\n", method, hits)
-	}
-
-
-	return ""
-}
-
-func (l *LoggingClient) GetEnnFlowLog(namespace, podName, ScmContainerName,BuildContainerName string, date time.Time, clusterID string) (*ESResponse, error) {
-	method := "modules/log/GetEnnFlowLog.Get"
-
-	//namespace, podName,containerName string, date time.Time,clusterID string
-	logs, err := l.QueryGetEnnFLowLog(namespace, podName, ScmContainerName,BuildContainerName, date, clusterID)
-	if err != nil {
-		glog.Errorln(method, "Get logs failed, namespace:", namespace, ", podName:", podName, ", error:", err)
-		return nil, err
-	}
-
-	return logs, err
-}
-
-// CheckHealth check elasticsearch-logging service health
-func (l *LoggingClient) CheckHealth() (map[string]string, error) {
-	method := "CheckHealth"
-
-	url := fmt.Sprintf("%s/_cat/health?v", strings.Trim(l.URL, "/"))
-
-	rawBytes, _, err := l.httpRequest("GET", url, "")
-	if err != nil {
-		glog.Errorln("%s check elastic search health fails, error: %v", method, err)
-		return nil, err
-	}
-	arr := reMatchNonSpaces.FindAll(rawBytes, -1)
-	res := make(map[string]string)
-	mapLen := len(arr) / 2
-	for i := 0; i < mapLen; i++ {
-		key := strings.Trim(string(arr[i]), " \n")
-		val := strings.Trim(string(arr[i+mapLen]), " \n")
-		res[key] = val
-	}
-
-	return res, nil
 }
