@@ -153,7 +153,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 		Image:           buildImage,
 		ImagePullPolicy: apiv1.PullAlways,
 		//Args:            buildInfo.Build_command,
-		VolumeMounts:    volumeMounts,
+		VolumeMounts: volumeMounts,
 	}
 
 	if len(buildInfo.Command) != 0 && buildInfo.Type != 3 {
@@ -510,7 +510,7 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...s
 	method := "ImageBuilder.GetPod"
 	var podList apiv1.Pod
 	labelsStr := ""
-	glog.Infof("stageBuildId[0]======>>%v\n",stageBuildId)
+	glog.Infof("stageBuildId[0]======>>%v\n", stageBuildId)
 	if len(stageBuildId) != 0 {
 		labelsStr = fmt.Sprintf("stage-build-id=%s", stageBuildId[0])
 	} else {
@@ -522,7 +522,7 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...s
 	if err != nil {
 		return podList, err
 	}
-
+	time.Sleep(5 * time.Second)
 	listOptions := api.ListOptions{
 		LabelSelector: labelsSel,
 	}
