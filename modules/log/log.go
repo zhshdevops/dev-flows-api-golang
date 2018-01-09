@@ -74,6 +74,13 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 			fmt.Printf("get logs failed from ES:%v\n", err)
 			return err
 		}
+
+		if results.Hits.TotalHits <= 0 {
+
+			return fmt.Errorf("%s", "no logs in es ")
+
+		}
+
 		for _, hit := range results.Hits.Hits {
 			var esHitSource ESHitSource
 			data, err := hit.Source.MarshalJSON()

@@ -1639,7 +1639,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 	//如果创建失败
 	if build.Status != 0 {
-		glog.Infof("===========================>>>>>>>>>>>>")
 		eventlist, err := imageBuilder.GetPodEvents(namespace, build.PodName, "type!=Normal")
 		if err != nil {
 			glog.Errorf("%s get pod events failed: %v\n", method, err)
@@ -1673,7 +1672,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 		return
 	}
-
+	cf.Ctx.ResponseWriter.Status = 200
 	cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 	return
 
