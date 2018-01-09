@@ -9,7 +9,6 @@ import (
 	"gopkg.in/olivere/elastic.v5"
 	beegoCtx "github.com/astaxie/beego/context"
 	"fmt"
-	"github.com/golang/glog"
 	"time"
 )
 
