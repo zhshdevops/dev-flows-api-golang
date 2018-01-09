@@ -328,7 +328,8 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 	}
 
 	if pod.ObjectMeta.Name == "" {
-		pod, err = queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+		pod, err = queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name,
+			queue.StageBuildLog.BuildId)
 		if err != nil {
 			glog.Errorf("%s get pod from kubernetes cluster failed:%v\n", method, err)
 		}
@@ -946,7 +947,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		glog.Errorf("%s BuildImage create job failed Err: %v\n", method, err)
 		//stageBuildResp.Message = "Failed to create job"
 
-		pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+		pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name,
+			queue.StageBuildLog.BuildId)
 		if err != nil {
 			glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
 			//stageBuildResp.Message = "get pod failed from kubernetes"
@@ -984,7 +986,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 	queue.StageBuildLog.JobName = job.ObjectMeta.Name
 
-	pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+	pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
+		job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
 	if err != nil {
 		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
 		//stageBuildResp.Message = "get pod failed from kubernetes"
@@ -1068,7 +1071,6 @@ func (queue *StageQueueNew) Run() {
 				EnnFlowChan <- queue.BuildReqbody
 
 				status := queue.StartStageBuild(stage, index)
-				glog.Infof("StartStageBuild build result======>%d\n", status)
 
 				if status == common.STATUS_FAILED {
 					res, err := models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_FAILED, queue.StageBuildLog.BuildId)
