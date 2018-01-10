@@ -1481,6 +1481,15 @@ func (cf *CiFlowsController) StopBuild() {
 					glog.Errorf("%s Failed to delete job of stage build: build=%s,job.message=%v, err:%v \n", method, build.BuildId, job.Status, err)
 				}
 
+				pod, err := imageBuilder.GetPod(job.ObjectMeta.Namespace,
+					job.ObjectMeta.Name, build.BuildId)
+				if err != nil {
+					glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
+					//stageBuildResp.Message = "get pod failed from kubernetes"
+				}
+
+				models.NewCiStageBuildLogs().UpdateStageBuildNodeById(pod.Spec.NodeName, build.BuildId)
+
 			}
 		}
 
@@ -1655,7 +1664,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 	}
 
-	if time.Now().Sub(endTime) < 1*time.Minute {
+	if time.Now().Sub(endTime) < 10*time.Second {
 		err = getLogFromK8S()
 		if err != nil {
 			//get log client
