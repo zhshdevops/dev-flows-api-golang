@@ -988,17 +988,15 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 	queue.StageBuildLog.JobName = job.ObjectMeta.Name
 
-	defer func() {
-		pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
-			job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
-		if err != nil {
-			glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
-			//stageBuildResp.Message = "get pod failed from kubernetes"
-		}
+	pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
+		job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
+	if err != nil {
+		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
+		//stageBuildResp.Message = "get pod failed from kubernetes"
+	}
 
-		queue.StageBuildLog.PodName = pod.ObjectMeta.Name
-		queue.StageBuildLog.NodeName = pod.Spec.NodeName
-	}()
+	queue.StageBuildLog.PodName = pod.ObjectMeta.Name
+	queue.StageBuildLog.NodeName = pod.Spec.NodeName
 
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {
@@ -1016,6 +1014,19 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	queue.StageBuildLog.Namespace = job.ObjectMeta.Namespace
 	//等待构建完成
 	status := queue.WaitForBuildToComplete(job, stage, options)
+	pod, err = queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
+		job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
+	if err != nil {
+		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
+		//stageBuildResp.Message = "get pod failed from kubernetes"
+	}
+
+	queue.StageBuildLog.PodName = pod.ObjectMeta.Name
+	queue.StageBuildLog.NodeName = pod.Spec.NodeName
+	res, err = models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
+	if err != nil {
+		glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
+	}
 	if status >= common.STATUS_FAILED {
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK

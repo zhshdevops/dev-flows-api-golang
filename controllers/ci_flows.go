@@ -1655,7 +1655,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 	}
 
-	if time.Now().Sub(endTime) < 10*time.Second {
+	if time.Now().Sub(endTime) < 1*time.Minute {
 		err = getLogFromK8S()
 		if err != nil {
 			//get log client
