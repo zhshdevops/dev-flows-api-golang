@@ -1488,7 +1488,7 @@ func (cf *CiFlowsController) StopBuild() {
 					//stageBuildResp.Message = "get pod failed from kubernetes"
 				}
 
-				models.NewCiStageBuildLogs().UpdateStageBuildNodeById(pod.Spec.NodeName, build.BuildId)
+				models.NewCiStageBuildLogs().UpdateStageBuildNodeNameAndPodNameById(pod.Spec.NodeName, pod.ObjectMeta.Name, build.BuildId)
 
 			}
 		}

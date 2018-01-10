@@ -166,6 +166,21 @@ func (ci *CiStageBuildLogs) UpdateStageBuildNodeById(nodeName, buildId string, o
 	return
 }
 
+func (ci *CiStageBuildLogs) UpdateStageBuildNodeNameAndPodNameById(nodeName, podName, buildId string, orms ...orm.Ormer) (updateResult int64, err error) {
+	var o orm.Ormer
+	if len(orms) != 1 {
+		o = orm.NewOrm()
+	} else {
+		o = orms[0]
+	}
+	updateResult, err = o.QueryTable(ci.TableName()).
+		Filter("build_id", buildId).Update(orm.Params{
+		"node_name": nodeName,
+		"pod_name":  podName,
+	})
+	return
+}
+
 func (ci *CiStageBuildLogs) DeleteById(buildId string, orms ...orm.Ormer) (result int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {

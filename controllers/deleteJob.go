@@ -177,7 +177,6 @@ func deleteImmediately(job v1batch.Job) bool {
 
 //too old job
 func tooOld(job v1batch.Job) bool {
-	//glog.Infof("time.Now().Sub(job.Status.StartTime.Time)/time.Hour:%s\n", time.Now().Sub(job.Status.StartTime.Time))
 	return time.Now().Sub(job.Status.StartTime.Time) > 24*7*time.Hour
 
 }
