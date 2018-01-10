@@ -297,6 +297,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
 		return common.STATUS_FAILED
 	}
+
 	statusCode := 1
 	//手动停止
 	if jobWatch.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
@@ -941,19 +942,6 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	//构建job的参数以及执行job命令
 	job, err := queue.ImageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
 
-	//time.Sleep(3 * time.Second)
-
-	//stageBuildLog, err := models.NewCiStageBuildLogs().FindOneById(queue.StageBuildLog.BuildId)
-	//if err != nil {
-	//	glog.Errorf("find stage build log failed:%v\n", err)
-	//}
-	//
-	//if stageBuildLog.Status == 4 {
-	//	_, _ = queue.ImageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, true, 1)
-	//	models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_FAILED, queue.StageBuildLog.BuildId)
-	//	return common.STATUS_FAILED
-	//}
-
 	if err != nil || job == nil {
 
 		queue.StageBuildLog.Status = common.STATUS_FAILED
@@ -1000,15 +988,17 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 	queue.StageBuildLog.JobName = job.ObjectMeta.Name
 
-	pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
-		job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
-	if err != nil {
-		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
-		//stageBuildResp.Message = "get pod failed from kubernetes"
-	}
+	defer func() {
+		pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
+			job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
+		if err != nil {
+			glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
+			//stageBuildResp.Message = "get pod failed from kubernetes"
+		}
 
-	queue.StageBuildLog.PodName = pod.ObjectMeta.Name
-	queue.StageBuildLog.NodeName = pod.Spec.NodeName
+		queue.StageBuildLog.PodName = pod.ObjectMeta.Name
+		queue.StageBuildLog.NodeName = pod.Spec.NodeName
+	}()
 
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {

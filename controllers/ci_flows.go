@@ -1500,7 +1500,6 @@ func (cf *CiFlowsController) StopBuild() {
 			glog.Errorf("%s update stage build status failed : err:%v \n", method, err)
 		}
 
-
 	}
 
 	_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
@@ -1656,7 +1655,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 	}
 
-	if time.Now().Sub(endTime) < 1*time.Minute {
+	if time.Now().Sub(endTime) < 10*time.Second {
 		err = getLogFromK8S()
 		if err != nil {
 			//get log client
