@@ -941,7 +941,18 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	//构建job的参数以及执行job命令
 	job, err := queue.ImageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
 
-	time.Sleep(5 * time.Second)
+	//time.Sleep(3 * time.Second)
+
+	//stageBuildLog, err := models.NewCiStageBuildLogs().FindOneById(queue.StageBuildLog.BuildId)
+	//if err != nil {
+	//	glog.Errorf("find stage build log failed:%v\n", err)
+	//}
+	//
+	//if stageBuildLog.Status == 4 {
+	//	_, _ = queue.ImageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, true, 1)
+	//	models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_FAILED, queue.StageBuildLog.BuildId)
+	//	return common.STATUS_FAILED
+	//}
 
 	if err != nil || job == nil {
 
@@ -1059,6 +1070,7 @@ func (queue *StageQueueNew) Run() {
 			if index != 0 {
 				queue.InsertStageBuildLog(stage)
 			}
+
 			glog.Infof("第%d个子任务构建,构建任务名称为:================%s\n", index+1, stage.StageName)
 			//开始使用websocket通知前端,开始构建 开始此次构建
 			if common.STATUS_BUILDING == queue.StageBuildLog.Status {
