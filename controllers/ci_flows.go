@@ -1398,12 +1398,6 @@ func (cf *CiFlowsController) StopBuild() {
 
 	buildId := cf.Ctx.Input.Param(":build_id")
 
-	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
-	if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; ok {
-		//conn = con
-	}
-	SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
-
 	cf.Audit.SetOperationType(models.AuditOperationStop)
 	cf.Audit.SetResourceType(models.AuditResourceBuilds)
 
@@ -1505,6 +1499,8 @@ func (cf *CiFlowsController) StopBuild() {
 		if err != nil {
 			glog.Errorf("%s update stage build status failed : err:%v \n", method, err)
 		}
+
+
 	}
 
 	_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
@@ -1584,7 +1580,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	glog.Infof("Build info====%s\n", build)
 
 	if build.PodName == "" {
-		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
+		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName, build.BuildId)
 		if err != nil || podName == "" {
 			glog.Errorf("%s get job name=[%s] pod name failed from kubernetes:======>%v\n", method, build.JobName, err)
 		}

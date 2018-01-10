@@ -496,13 +496,23 @@ func (builder *ImageBuilder) GetLabel(flowName, stageName string) string {
 
 func (builder *ImageBuilder) GetPodName(namespace, jobName string, buildId ...string) (string, error) {
 	method := "GetPodName"
-	pod, err := builder.GetPod(namespace, jobName, buildId[0])
-	if err != nil {
-		glog.Errorf("%s get pod name failed:====> %v\n", method, err)
-		return "", err
-	}
+	if len(buildId) == 0 {
+		pod, err := builder.GetPod(namespace, jobName)
+		if err != nil {
+			glog.Errorf("%s get pod name failed:====> %v\n", method, err)
+			return "", err
+		}
 
-	return pod.ObjectMeta.Name, nil
+		return pod.ObjectMeta.Name, nil
+	} else {
+		pod, err := builder.GetPod(namespace, jobName, buildId[0])
+		if err != nil {
+			glog.Errorf("%s get pod name failed:====> %v\n", method, err)
+			return "", err
+		}
+
+		return pod.ObjectMeta.Name, nil
+	}
 
 }
 

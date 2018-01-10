@@ -175,7 +175,6 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 		Timestamps: true,
 	}
 
-	glog.Info("==========>>>>>>>>>>>>>>>podName:%s=====================<<<<<<\n", podName)
 	//websocket的请求
 	if conn.Conn != nil {
 		readCloser, err := imageBuild.Client.Pods(namespace).GetLogs(podName, opt).Stream()
@@ -222,8 +221,6 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 				}
 
 			}
-
-			glog.Infof("=======the log is ===>>string(data[:n])==>%s\n", string(data[:n]))
 
 			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
 
