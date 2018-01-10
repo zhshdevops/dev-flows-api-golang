@@ -1137,7 +1137,7 @@ func Int64Toint64Point(input int64) *int64 {
 }
 
 //ESgetLogFromK8S 从Elaticsearch 获取日志失败就从kubernetes 获取日志
-func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName string, ctx *context.Context) {
+func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName string, ctx *context.Context) error {
 	method := "ESgetLogFromK8S"
 	follow := true
 	previous := false
@@ -1156,7 +1156,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		if containerName == BUILDER_CONTAINER_NAME {
 			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 		}
-		return
+		return err
 	}
 
 	data := make([]byte, 1024*1024, 1024*1024)
@@ -1170,16 +1170,15 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 					ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志读取结束</font><br/>`)))
 
 				}
-				return
+				return nil
 			}
 			if containerName == BUILDER_CONTAINER_NAME {
 				ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 
 			}
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
-			return
+			return nil
 		}
-		glog.Infof("==========>>%s\n", template.HTMLEscapeString(string(data[:n])))
 		logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
 		logTime, _ := time.Parse(time.RFC3339, logInfo[0])
 		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
@@ -1187,28 +1186,10 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 
 	}
 
-	return
+	return nil
 
 }
 
-func FormatLog(data string) (buildLogs string) {
-	glog.Infof("log data :=======>%s\n", data)
-	var logdataHtml []string
-	if data != "" {
-		dataLine := strings.Split(data, "\n")
-		dataLineLne := len(dataLine)
-		for index, d := range dataLine {
-			if index == dataLineLne-1 {
-				break
-			}
-			logdataHtml = strings.Split(d, " ")
-			buildLogs += `<font color="#ffc20e">['` + logdataHtml[0] + `']</font> ` + logdataHtml[1] + `<br/>`
-		}
-
-	}
-
-	return
-}
 func (builder *ImageBuilder) GetJobEvents(namespace, jobName, podName string) (*apiv1.EventList, error) {
 	method := "GetJobEvents"
 	var eventList *apiv1.EventList

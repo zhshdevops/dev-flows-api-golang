@@ -1626,11 +1626,19 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		return
 	}
 	// get logs from kubernetes client function
-	getLogFromK8S := func() {
+	getLogFromK8S := func() error {
 		glog.Infof("will get log from kubernetes.......\n")
-		imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.SCM_CONTAINER_NAME, cf.Ctx)
-		imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.BUILDER_CONTAINER_NAME, cf.Ctx)
-		return
+
+		err = imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.SCM_CONTAINER_NAME, cf.Ctx)
+		if err != nil {
+			return err
+		}
+
+		err = imageBuilder.ESgetLogFromK8S(namespace, build.PodName, models.BUILDER_CONTAINER_NAME, cf.Ctx)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
@@ -1652,27 +1660,55 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 	}
 
-	//get log client
-	logClient, err := log.NewESClient("")
-	if logClient == nil || err != nil {
-		glog.Errorf("NewESClient failed: %v\n", err)
-		glog.Infoln("will get log form kubernetes=======>>\n")
-		getLogFromK8S()
-		cf.Ctx.ResponseWriter.Status = 200
-		return
+	if time.Now().Sub(endTime) < 1*time.Minute {
+		err = getLogFromK8S()
+		if err != nil {
+			//get log client
+			logClient, err := log.NewESClient("")
+			if logClient == nil || err != nil {
+				glog.Errorf("NewESClient failed: %v\n", err)
+				glog.Infoln("will get log form kubernetes=======>>\n")
+				getLogFromK8S()
+				cf.Ctx.ResponseWriter.Status = 200
+				return
+			}
+
+			var containerNames = []string{models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME}
+			err = logClient.SearchTodayLog(indexs, namespace, containerNames, build.PodName, client.ClusterID, cf.Ctx)
+			if err != nil {
+				glog.Errorf("get logs from es failed,will get logs form kubernetes=======>>err:%v\n", err)
+				getLogFromK8S()
+				cf.Ctx.ResponseWriter.Status = 200
+				cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
+				return
+			}
+		}
+
+	} else {
+		//get log client
+		logClient, err := log.NewESClient("")
+		if logClient == nil || err != nil {
+			glog.Errorf("NewESClient failed: %v\n", err)
+			glog.Infoln("will get log form kubernetes=======>>\n")
+			getLogFromK8S()
+			cf.Ctx.ResponseWriter.Status = 200
+			return
+		}
+
+		var containerNames = []string{models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME}
+		err = logClient.SearchTodayLog(indexs, namespace, containerNames, build.PodName, client.ClusterID, cf.Ctx)
+		if err != nil {
+			glog.Errorf("get logs from es failed,will get logs form kubernetes=======>>err:%v\n", err)
+			getLogFromK8S()
+			cf.Ctx.ResponseWriter.Status = 200
+			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
+			return
+		}
+
+		glog.Infof("will get log form ES successfully=======>>")
+
 	}
 
-	var containerNames = []string{models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME}
-
-	err = logClient.SearchTodayLog(indexs, namespace, containerNames, build.PodName, client.ClusterID, cf.Ctx)
-	if err != nil {
-		glog.Infof("will get log form kubernetes=======>>err:%v\n",err)
-		getLogFromK8S()
-		cf.Ctx.ResponseWriter.Status = 200
-		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
-		return
-	}
-	glog.Infof("will get log form ES successfully=======>>")
 	cf.Ctx.ResponseWriter.Status = 200
 	cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 	return
