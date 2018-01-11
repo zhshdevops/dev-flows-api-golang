@@ -1198,7 +1198,6 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 
 	var bodyReqBody models.BuildReqbody
 
-	glog.Infof("%s request body===================>>:%v\n", method, string(body))
 	err := json.Unmarshal(body, &bodyReqBody)
 	if err != nil {
 		glog.Errorf("%s json unmarshal bodyReqBody failed: %v\n", method, err)
@@ -1721,7 +1720,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
 //@router /:flow_id/stages/:stage_id/builds/:stage_build_id/events [GET]
 func (cf *CiFlowsController) GetBuildEvents() {
-	method := "CiFlowsController.GetBuildLogs"
+	method := "CiFlowsController.GetBuildEvents"
 	flowId := cf.Ctx.Input.Param(":flow_id")
 
 	namespace := cf.Namespace

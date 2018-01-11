@@ -13,7 +13,9 @@ type CiFlowBuildLogs struct {
 	StartTime    time.Time `orm:"column(start_time)" json:"startTime"`
 	EndTime      time.Time `orm:"column(end_time)" json:"endTime"`
 	UserId       int32 `orm:"-" json:"user_id"`
-	Status       int8  `orm:"column(status)" json:"status"` //状态。0-成功 1-失败 2-执行中
+	Status       int8  `orm:"column(status)" json:"status"`    //状态。0-成功 1-失败 2-执行中
+	Branch       string  `orm:"column(branch)" json:"branch"`  //状态。0-成功 1-失败 2-执行中
+	Creater      string  `orm:"column(creater)" json:"creater"` //状态。0-成功 1-失败 2-执行中
 }
 
 func (ci *CiFlowBuildLogs) TableName() string {
@@ -114,6 +116,7 @@ type FlowBuildLogResp struct {
 	StartTime    string `json:"startTime"`
 	EndTime      string `json:"endTime"`
 	Namespace    string `json:"namespace"`
+	Branch       string `json:"branch"`
 }
 
 func FormatBuild(flowBuildLog CiFlowBuildLogs, fieldPrefix string) (flowbuildResp FlowBuildLogResp) {
@@ -123,6 +126,8 @@ func FormatBuild(flowBuildLog CiFlowBuildLogs, fieldPrefix string) (flowbuildRes
 	flowbuildResp.CreationTime = fieldPrefix + flowBuildLog.CreationTime.Format("2006-01-02 15:04:05")
 	flowbuildResp.StartTime = fieldPrefix + flowBuildLog.StartTime.Format("2006-01-02 15:04:05")
 	flowbuildResp.EndTime = fieldPrefix + flowBuildLog.EndTime.Format("2006-01-02 15:04:05")
+	flowbuildResp.Branch = fieldPrefix + flowBuildLog.Branch
+	flowbuildResp.Namespace = fieldPrefix + flowBuildLog.Creater
 	return
 }
 
@@ -159,9 +164,10 @@ func (ci *CiFlowBuildLogs) FindLastBuildOfFlowWithStages(flowId string, orms ...
 }
 
 type FlowBuildStats struct {
-	Status                int `orm:"column(status)" json:"buildId"`
-	Count                 int `orm:"column(count)" json:"flow_id"`
+	Status int `orm:"column(status)" json:"buildId"`
+	Count  int `orm:"column(count)" json:"flow_id"`
 }
+
 //Query failed/running/success flow builds
 func (ci *CiFlowBuildLogs) QueryFlowBuildStats(namespace string, orms ...orm.Ormer) (cFbl []FlowBuildStats, total int64, err error) {
 	var o orm.Ormer

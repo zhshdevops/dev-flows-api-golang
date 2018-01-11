@@ -173,8 +173,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 		stageList = append(stageList, stages...)
 
 	}
-	glog.Infof("the queue length==========>>:%d\n", len(stageList))
-	glog.Infof("the queue length==========>>:%v\n", stageList)
+
 	queue.StageList = stageList
 
 	return queue
@@ -191,7 +190,6 @@ func (queue *StageQueueNew) LengthOfStage() int {
 func (queue *StageQueueNew) InsertLog() error {
 	//开始执行 把执行日志插入到数据库
 	flowBuildId := uuid.NewFlowBuildID()
-	glog.Infof("====StartFlowBuild==before==flowBuildId===>%s\n", flowBuildId)
 	stageBuildId := uuid.NewStageBuildID()
 	codeBranch := ""
 	if queue.Event != "" {
@@ -232,6 +230,8 @@ func (queue *StageQueueNew) InsertLog() error {
 	flowBuildRec.UserId = queue.User.UserID
 	flowBuildRec.CreationTime = now
 	flowBuildRec.StartTime = now
+	flowBuildRec.Branch = stageBuildRec.BranchName
+	flowBuildRec.Creater = queue.LoginUserName
 	//InsertBuildLog will update 执行状态
 	err := models.InsertBuildLog(&flowBuildRec, &stageBuildRec, queue.StageList[0].StageId)
 	if err != nil {
