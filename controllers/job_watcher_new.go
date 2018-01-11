@@ -42,6 +42,33 @@ type Conn struct {
 	Op   ws.OpCode
 }
 
+func init() {
+
+	go func() {
+		for {
+			select {
+			case ennFlowInfo, ok := <-EnnFlowChan:
+				if ok {
+					glog.Infof("%v", ennFlowInfo)
+
+					flow, ok := ennFlowInfo.(EnnFlow)
+					if ok {
+						if flow.WebSocketIfClose == 1 {
+							return
+						} else {
+							Send(flow, SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
+						}
+					}
+				} else {
+					glog.Errorf("===========>>EnnFlowChan is closed<<========%v\n", ennFlowInfo)
+				}
+
+			}
+		}
+	}()
+
+}
+
 var EnnFlowChan = make(chan interface{}, 10240)
 
 var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string]map[string]Conn, 0)
@@ -136,28 +163,6 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 				w.Write([]byte("建立Websocket状态链接失败"))
 				return
 			}
-			go func() {
-				for {
-					select {
-					case ennFlowInfo, ok := <-EnnFlowChan:
-						if ok {
-							glog.Infof("%v", ennFlowInfo)
-
-							flow, ok := ennFlowInfo.(EnnFlow)
-							if ok {
-								if flow.WebSocketIfClose == 1 {
-									return
-								} else {
-									Send(flow, SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
-								}
-							}
-						} else {
-							glog.Errorf("===========>>EnnFlowChan is closed<<========%v\n", ennFlowInfo)
-						}
-
-					}
-				}
-			}()
 
 			for {
 				var flow EnnFlow
