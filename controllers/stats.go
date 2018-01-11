@@ -19,17 +19,19 @@ func (auth *StatsController) CollectServerStats() {
 	namespace := auth.Ctx.Input.Header("teamspace")
 	onbehalfuser := auth.Ctx.Input.Header("onbehalfuser")
 
+
 	if username == "" || token == "" {
 		glog.Warningf("%s User is not authorized:%v\n", method, auth.Ctx.Request.Header)
 		auth.ResponseErrorAndCode("User is not authorized. Authorization, username are required. ", 400)
 		return
 	}
-	glog.Infof("teamspace=%s,onbehalfuser=%s", namespace, onbehalfuser)
 
 	prefix := "token "
 	if strings.HasPrefix(strings.ToLower(token), prefix) {
 		if token[len(prefix):] == auth.User.APIToken {
 			userInfo := user.NewUserModel()
+			userInfo.Username = username
+			userInfo.APIToken = token[len(prefix):]
 			resultCOunt, err := userInfo.FindByToken()
 			if err != nil || resultCOunt < 1 {
 				glog.Warningf("%s User is not authorized:%v,err:%v\n", method, auth.Ctx.Request.Header, err)
@@ -95,7 +97,6 @@ func CollectServerStats(namespace string) ResultStats {
 		}
 
 		for _, flowBuid := range flowBuilds {
-			glog.Infof("%s, total:%d, err:%v\n", method, total, flowBuid)
 			if flowBuid.Status == 0 {
 				stats.FlowBuild.SucceedNumber = flowBuid.Count
 			} else if flowBuid.Status == 1 {
