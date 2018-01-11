@@ -428,8 +428,9 @@ func InsertBuildLog(flowBuildRec *CiFlowBuildLogs, stageBuild *CiStageBuildLogs,
 		return err
 	}
 	flowBuildRec.StartTime = flowBuildRec.CreationTime
-	sqlFlowBuild := `INSERT INTO tenx_ci_flow_build_logs(build_id, flow_id, creation_time, start_time, end_time, status) VALUES (?, ?, ?, ?, ?, ?);`
-	_, err = o.Raw(sqlFlowBuild, flowBuildRec.BuildId, flowBuildRec.FlowId, flowBuildRec.CreationTime, flowBuildRec.StartTime, flowBuildRec.EndTime, common.STATUS_BUILDING).Exec()
+	sqlFlowBuild := `INSERT INTO tenx_ci_flow_build_logs(build_id, flow_id, creation_time, start_time, end_time, status,branch,creater) VALUES (?, ?, ?, ?, ?, ?,?,?);`
+	_, err = o.Raw(sqlFlowBuild, flowBuildRec.BuildId, flowBuildRec.FlowId, flowBuildRec.CreationTime, flowBuildRec.StartTime, flowBuildRec.EndTime, common.STATUS_BUILDING,
+		flowBuildRec.Branch, flowBuildRec.Creater).Exec()
 	if err != nil {
 		glog.Errorf("%s flowBuildRec %v \n", method, err)
 		o.Rollback()
