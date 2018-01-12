@@ -1214,7 +1214,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	ennFlow.UserNamespace = cf.User.Namespace
 
 	if ok := FlowMapping.Exist(flowId); !ok {
-		cf.ResponseErrorAndCode("网络异常，请刷新页面", http.StatusBadRequest)
+		cf.ResponseErrorAndCode("网络异常，请刷新页面", http.StatusContinue)
 		return
 	}
 

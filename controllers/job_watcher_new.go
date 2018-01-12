@@ -103,6 +103,8 @@ func (soc *SocketsOfFlowMapping) ClearOrCloseConnect(flowId string, disconn net.
 		}
 
 	}
+
+	return
 }
 
 func (soc *SocketsOfFlowMapping) Exist(flowId string) bool {
@@ -130,16 +132,17 @@ func (soc *SocketsOfFlowMapping) JoinConn(flowId, randId string, conn Conn) {
 	_, ok := soc.FlowMap[flowId]
 	if ok {
 		glog.Infof("the websocket is exist=======>>")
-		soc.FlowMap[flowId] = map[string]Conn{
-			randId: conn,
-		}
-		glog.Infof("soc.FlowMap[%s]=%v\n", flowId, soc.FlowMap[flowId])
+		soc.FlowMap[flowId][randId] = conn
+		glog.Infof("exist soc.FlowMap[%s]=%v\n", flowId, soc.FlowMap[flowId])
 		return
 	}
+
 	glog.Infof("the websocket is not exist=======>>")
 	soc.FlowMap[flowId] = map[string]Conn{
 		randId: conn,
 	}
+
+	glog.Infof("not exist soc.FlowMap[%s]=%v\n", flowId, soc.FlowMap[flowId])
 	return
 }
 
@@ -245,7 +248,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 					return
 				}
 
-				glog.Infof("Flow info ====>>%#v\n", flow)
+				glog.Infof("Flow info ====>>%#v\n", flow.FlowId)
 
 				if flow.FlowId != "" {
 
@@ -261,21 +264,12 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						FlowMapping.JoinConn(flow.FlowId, randId, connOfFlow)
 						continue
 
-					//} else if flow.WebSocketIfClose == 1 {
-					//	//释放资源
-					//	glog.Infof("the websocket is closeing=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
-					//	FlowMapping.ClearOrCloseConnect(flow.FlowId, conn)
-					//	glog.Infof("the websocket is closeed=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
-					//	return
-					} else if flow.WebSocketIfClose == 2 {
-						flow.Status = http.StatusOK
-						flow.Flag = 1
-						flow.Message = "ok"
-						var connOfFlow Conn
-						connOfFlow.Conn = conn
-						connOfFlow.Op = op
-						Retry(flow, connOfFlow)
-						continue
+					} else if flow.WebSocketIfClose == 1 {
+						//释放资源
+						glog.Infof("the websocket is closeing=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
+						FlowMapping.ClearOrCloseConnect(flow.FlowId, conn)
+						glog.Infof("the websocket is closeed=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
+						return
 					}
 
 				} else {
