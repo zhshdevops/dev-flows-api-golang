@@ -32,7 +32,6 @@ type BuildMessage struct {
 	ClusterId     string `json:"cluster_id"`
 }
 
-const CILOG = "ciLogs"
 const TailLines = 200
 const POD_INIT = "pod-init"
 const GET_LOG_RETRY_COUNT = 3

@@ -250,9 +250,8 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 			ennFlow.LoginUserName = user.Username
 			ennFlow.Namespace = project.Namespace  //用来查询flow
 			ennFlow.UserNamespace = user.Namespace //用来构建
-			var conn Conn
 			imageBuild := models.NewImageBuilder(client.ClusterID)
-			stagequeue := NewStageQueueNew(ennFlow, event.Name, ennFlow.Namespace, ennFlow.LoginUserName, stage.FlowId, imageBuild, conn)
+			stagequeue := NewStageQueueNew(ennFlow, event.Name, ennFlow.Namespace, ennFlow.LoginUserName, stage.FlowId, imageBuild)
 
 			if stagequeue != nil {
 				//判断是否该EnnFlow当前有执行中
@@ -266,7 +265,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						ennFlow.FlowBuildId = stagequeue.FlowbuildLog.BuildId
 						ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 						ennFlow.Flag = 1
-						Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId])
+						Send(ennFlow, FlowMapping.FlowMap[stage.FlowId])
 						continue
 					} else {
 						ennFlow.Message = "找不到对应的EnnFlow"
@@ -275,7 +274,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						ennFlow.FlowBuildId = stagequeue.FlowbuildLog.BuildId
 						ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 						ennFlow.Flag = 1
-						Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[stage.FlowId])
+						Send(ennFlow, FlowMapping.FlowMap[stage.FlowId])
 						continue
 					}
 				}

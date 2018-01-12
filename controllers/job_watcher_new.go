@@ -16,6 +16,7 @@ import (
 	"github.com/gobwas/ws/wsutil"
 	"net"
 	"sync"
+	"time"
 )
 
 type EnnFlow struct {
@@ -35,32 +36,31 @@ type EnnFlow struct {
 	WebSocketIfClose int `json:"webSocketIfClose"` //0表示不关闭 1表示关闭 2心跳
 }
 
-var SOCKETS_OF_BUILD_MAPPING_MUTEX sync.RWMutex
-//前端记得要关闭websoccket 一个flow对应一个websocket
+var FlowMapping *SocketsOfFlowMapping
+
 type Conn struct {
-	Conn net.Conn
-	Op   ws.OpCode
+	Conn     net.Conn
+	Op       ws.OpCode
+	ConnTime time.Time
 }
 
 func init() {
-
+	FlowMapping = NewSocketsOfFlowMapping()
 	go func() {
 		for {
 			select {
 			case ennFlowInfo, ok := <-EnnFlowChan:
 				if ok {
-					glog.Infof("%v", ennFlowInfo)
-
 					flow, ok := ennFlowInfo.(EnnFlow)
 					if ok {
 						if flow.WebSocketIfClose == 1 {
 							return
 						} else {
-							Send(flow, SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
+							Send(flow, FlowMapping.FlowMap[flow.FlowId])
 						}
 					}
 				} else {
-					glog.Errorf("===========>>EnnFlowChan is closed<<========%v\n", ennFlowInfo)
+					glog.Errorf(" EnnFlowChan is closed:%v\n", ennFlowInfo)
 				}
 
 			}
@@ -71,7 +71,77 @@ func init() {
 
 var EnnFlowChan = make(chan interface{}, 10240)
 
-var SOCKETS_OF_FLOW_MAPPING_NEW = make(map[string]map[string]Conn, 0)
+type SocketsOfFlowMapping struct {
+	SocketMutex sync.RWMutex
+	FlowMap     map[string]map[string]Conn
+}
+
+func NewSocketsOfFlowMapping() *SocketsOfFlowMapping {
+	return &SocketsOfFlowMapping{
+		FlowMap: make(map[string]map[string]Conn, 0),
+	}
+}
+
+func (soc *SocketsOfFlowMapping) ClearOrCloseConnect(flowId string, disconn net.Conn) {
+	soc.SocketMutex.Lock()
+	defer soc.SocketMutex.Unlock()
+
+	conns, ok := soc.FlowMap[flowId]
+
+	connsLen := len(conns)
+
+	if ok {
+		if connsLen != 0 {
+			for key, conn := range conns {
+				if conn.Conn == disconn {
+					conn.Conn.Close()
+					delete(conns, key)
+				}
+			}
+		} else {
+			delete(soc.FlowMap, flowId)
+		}
+
+	}
+}
+
+func (soc *SocketsOfFlowMapping) Exist(flowId string) bool {
+	soc.SocketMutex.Lock()
+	defer soc.SocketMutex.Unlock()
+	conns, ok := soc.FlowMap[flowId]
+	connsLen := len(conns)
+	if ok {
+		if connsLen != 0 {
+			for key, conn := range conns {
+				if time.Now().Sub(conn.ConnTime) > 2*time.Hour {
+					conn.Conn.Close()
+					delete(conns, key)
+				}
+			}
+		}
+	}
+
+	return ok
+}
+
+func (soc *SocketsOfFlowMapping) JoinConn(flowId, randId string, conn Conn) {
+	soc.SocketMutex.Lock()
+	defer soc.SocketMutex.Unlock()
+	_, ok := soc.FlowMap[flowId]
+	if ok {
+		glog.Infof("the websocket is exist=======>>")
+		soc.FlowMap[flowId] = map[string]Conn{
+			randId: conn,
+		}
+		glog.Infof("soc.FlowMap[%s]=%v\n", flowId, soc.FlowMap[flowId])
+		return
+	}
+	glog.Infof("the websocket is not exist=======>>")
+	soc.FlowMap[flowId] = map[string]Conn{
+		randId: conn,
+	}
+	return
+}
 
 type JobLogSocket struct {
 	Handler http.Handler
@@ -95,7 +165,7 @@ func NewJobLogSocket() *JobLogSocket {
 
 			con.Conn = conn
 			var buildMessage EnnFlow
-			//go func() {
+
 			msg, op, err := wsutil.ReadClientData(conn)
 			if err != nil {
 
@@ -105,7 +175,7 @@ func NewJobLogSocket() *JobLogSocket {
 			}
 
 			con.Op = op
-			glog.Errorf("get log msg:%s,err:%v========err:%v\n", string(msg))
+
 			err = json.Unmarshal(msg, &buildMessage)
 			if err != nil {
 				glog.Errorf("反系列化数据库包失败 msg:%s,err:%v========err:%v\n", string(msg), err)
@@ -121,29 +191,7 @@ func NewJobLogSocket() *JobLogSocket {
 
 			GetStageBuildLogsFromK8S(buildMessage, con)
 
-			//}()
 		}),
-	}
-}
-
-func ClearOrCloseConnect(flowId string, disconn net.Conn) {
-
-	conns, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]
-
-	connsLen := len(conns)
-
-	if ok {
-		if connsLen != 0 {
-			for key, conn := range conns {
-				if conn.Conn == disconn {
-					conn.Conn.Close()
-					delete(conns, key)
-				}
-			}
-		} else {
-			delete(SOCKETS_OF_FLOW_MAPPING_NEW, flowId)
-		}
-
 	}
 }
 
@@ -197,55 +245,29 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 					return
 				}
 
-				if len(string(msg)) == 0 {
-					SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-					ClearOrCloseConnect(flow.FlowId, conn)
-					SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
-				}
-
 				glog.Infof("Flow info ====>>%#v\n", flow)
 
 				if flow.FlowId != "" {
-					SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-					//存websocket,通过flowId获取某个Ennflow的websocket
-					_, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]
-					if !ok && flow.WebSocketIfClose == 0 {
-						glog.Infof("the websocket is not exist=======>>")
+
+					if flow.WebSocketIfClose == 0 {
 						var connOfFlow Conn
 						connOfFlow.Conn = conn
 						connOfFlow.Op = op
-						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId] = map[string]Conn{
-							randId: connOfFlow,
-						}
+						connOfFlow.ConnTime = time.Now()
 						flow.Status = http.StatusOK
 						flow.Message = "success"
 						flow.Flag = 1
 						Retry(flow, connOfFlow)
-						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+						FlowMapping.JoinConn(flow.FlowId, randId, connOfFlow)
 						continue
 
-					} else if ok && flow.WebSocketIfClose == 1 {
-						//释放资源
-						glog.Infof("the websocket is closeing=======>>%v\n", SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
-						ClearOrCloseConnect(flow.FlowId, conn)
-						glog.Infof("the websocket is closeed=======>>%v\n", SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
-						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
-						return
-					} else if ok && flow.WebSocketIfClose == 0 {
-						glog.Infof("the websocket is exist=======>>")
-						var connOfFlow Conn
-						connOfFlow.Conn = conn
-						connOfFlow.Op = op
-						SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId][randId] = connOfFlow
-
-						glog.Infof("SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]=%d,%v\n", len(SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId]), SOCKETS_OF_FLOW_MAPPING_NEW[flow.FlowId])
-						flow.Status = http.StatusOK
-						flow.Flag = 1
-						flow.Message = "success"
-						Retry(flow, connOfFlow)
-						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
-						continue
-					} else if ok && flow.WebSocketIfClose == 2 {
+					//} else if flow.WebSocketIfClose == 1 {
+					//	//释放资源
+					//	glog.Infof("the websocket is closeing=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
+					//	FlowMapping.ClearOrCloseConnect(flow.FlowId, conn)
+					//	glog.Infof("the websocket is closeed=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
+					//	return
+					} else if flow.WebSocketIfClose == 2 {
 						flow.Status = http.StatusOK
 						flow.Flag = 1
 						flow.Message = "ok"
@@ -253,7 +275,6 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						connOfFlow.Conn = conn
 						connOfFlow.Op = op
 						Retry(flow, connOfFlow)
-						SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
 						continue
 					}
 
@@ -357,6 +378,7 @@ func (queue *StageQueueNew) WatchJob(namespace, jobName string) *v1beta1.Job {
 }
 
 func Retry(flow interface{}, conn Conn) {
+
 	for i := 1; i <= 5; i++ {
 		err := SendRetry(flow, conn)
 		if err != nil {
@@ -364,9 +386,7 @@ func Retry(flow interface{}, conn Conn) {
 			if i == 5 {
 				flowInfo, ok := flow.(EnnFlow)
 				if ok {
-					SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-					ClearOrCloseConnect(flowInfo.FlowId, conn.Conn)
-					SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+					FlowMapping.ClearOrCloseConnect(flowInfo.FlowId, conn.Conn)
 				}
 				break
 
@@ -377,6 +397,7 @@ func Retry(flow interface{}, conn Conn) {
 		}
 
 	}
+
 }
 
 func SendLog(flow string, conn Conn) {
@@ -412,9 +433,7 @@ func Send(flow interface{}, conns map[string]Conn) {
 						if j == 5 {
 							flowInfo, ok := flow.(EnnFlow)
 							if ok {
-								SOCKETS_OF_BUILD_MAPPING_MUTEX.Lock()
-								ClearOrCloseConnect(flowInfo.FlowId, conn.Conn)
-								SOCKETS_OF_BUILD_MAPPING_MUTEX.Unlock()
+								FlowMapping.ClearOrCloseConnect(flowInfo.FlowId, conn.Conn)
 							}
 							break
 

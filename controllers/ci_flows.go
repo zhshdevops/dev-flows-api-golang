@@ -1189,7 +1189,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	body := cf.Ctx.Input.RequestBody
 	if string(body) == "" {
 		glog.Warningf("%s %s\n", method, "RequestBody is empty")
-		cf.ResponseErrorAndCode("RequestBody is empty", http.StatusBadRequest)
+		cf.ResponseErrorAndCode("RequestBody is empty", http.StatusConflict)
 		return
 	}
 	//审计
@@ -1212,19 +1212,15 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 	ennFlow.LoginUserName = cf.User.Username
 	ennFlow.Namespace = cf.Namespace
 	ennFlow.UserNamespace = cf.User.Namespace
-	var conn Conn
-	SOCKETS_OF_BUILD_MAPPING_MUTEX.RLock()
-	if _, ok := SOCKETS_OF_FLOW_MAPPING_NEW[flowId]; !ok {
 
-		SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
-		cf.ResponseErrorAndCode("websocket还没有建立链接或者还没连上服务器", http.StatusBadRequest)
+	if ok := FlowMapping.Exist(flowId); !ok {
+		cf.ResponseErrorAndCode("网络异常，请刷新页面", http.StatusBadRequest)
 		return
 	}
-	SOCKETS_OF_BUILD_MAPPING_MUTEX.RUnlock()
 
 	//不传event参数 event 是代码分支
 	imageBuild := models.NewImageBuilder(client.ClusterID)
-	stagequeue := NewStageQueueNew(ennFlow, "", ennFlow.Namespace, ennFlow.LoginUserName, flowId, imageBuild, conn)
+	stagequeue := NewStageQueueNew(ennFlow, "", ennFlow.Namespace, ennFlow.LoginUserName, flowId, imageBuild)
 
 	if stagequeue != nil {
 		//判断是否该EnnFlow当前有执行中
@@ -1232,7 +1228,7 @@ func (cf *CiFlowsController) CreateFlowBuild() {
 		if err != nil {
 			glog.Warningf("%s Too many waiting builds of:  %v\n", method, err)
 			if strings.Contains(fmt.Sprintf("%s", err), "该EnnFlow已有任务在执行,请等待执行完再试") {
-				cf.ResponseErrorAndCode("该EnnFlow ["+stagequeue.CiFlow.Name+"] 已有任务在执行,请等待执行完再试", http.StatusBadRequest)
+				cf.ResponseErrorAndCode("该EnnFlow ["+stagequeue.CiFlow.Name+"] 已有任务在执行,请等待执行完再试", http.StatusConflict)
 				return
 			} else {
 				cf.ResponseErrorAndCode("找不到对应的EnnFlow", http.StatusNotFound)
@@ -1445,7 +1441,7 @@ func (cf *CiFlowsController) StopBuild() {
 		ennFlow.StageBuildId = buildId
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = "停止失败"
-		Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
+		Send(ennFlow, FlowMapping.FlowMap[flowId])
 		_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 		if err != nil {
 			glog.Errorf("%s update flowBuild log failed: %v \n", method, err)
@@ -1502,7 +1498,7 @@ func (cf *CiFlowsController) StopBuild() {
 		ennFlow.StageBuildId = buildId
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = "停止任务成功"
-		Send(ennFlow, SOCKETS_OF_FLOW_MAPPING_NEW[flowId])
+		Send(ennFlow,  FlowMapping.FlowMap[flowId])
 		_, err = models.NewCiStageBuildLogs().UpdateBuildLogById(buildRec, build.BuildId)
 		if err != nil {
 			glog.Errorf("%s update stage build status failed : err:%v \n", method, err)
