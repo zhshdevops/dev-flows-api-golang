@@ -275,7 +275,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 
 				err = json.Unmarshal(msg, &flow)
 				if err != nil {
-					glog.Errorf("request msg:%v========err:%v\n", string(msg), err)
+					glog.Errorf("request msg:%v err:%v\n", string(msg), err)
 					flow.Status = 400
 					flow.Flag = 1
 					flow.Message = "反系列化失败"

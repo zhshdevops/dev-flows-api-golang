@@ -146,7 +146,8 @@ func (ci *CiStageBuildLogs) UpdateStageBuildStatusById(status int, buildId strin
 	}
 	updateResult, err = o.QueryTable(ci.TableName()).
 		Filter("build_id", buildId).Update(orm.Params{
-		"status": status,
+		"status":   status,
+		"end_time": time.Now(),
 	})
 	return
 }

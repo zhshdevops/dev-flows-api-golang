@@ -34,8 +34,6 @@ func (cf *CiFlowsController) GetCIFlows() {
 		namespace = cf.Ctx.Input.Header("usernmae")
 	}
 	isBuildImage, _ := cf.GetInt("isBuildImage", 0)
-	glog.Infof("============userName=%s\n", cf.User.Username)
-	glog.Infof("namespace=%s\n", namespace)
 	listFlowsData, total, err := ciflows.ListFlowsAndLastBuild(namespace, isBuildImage)
 	if err != nil || total == 0 {
 		glog.Errorf("%s not found the list flow %s\n", method, err)
@@ -342,7 +340,6 @@ func (cf *CiFlowsController) SyncCIFlow() {
 				stageLink.SourceDir = stageInfo.Link.SourceDir
 				stageLink.TargetDir = stageInfo.Link.TargetDir
 				stageLink.Enabled = int8(stageInfo.Link.Enabled)
-
 
 				if stageLink.TargetId != "" {
 					err = models.NewCiStageLinks().InsertLink(stageLink, orm)
@@ -1547,7 +1544,6 @@ func (cf *CiFlowsController) ListBuildsOfStage() {
 	return
 }
 
-
 //@router /:flow_id/stages/:stage_id/builds/:stage_build_id/log [GET]
 func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 
@@ -1627,7 +1623,14 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	}
 
 	cf.Ctx.ResponseWriter.Write([]byte(`-----------------------------------------------------------------------------<br/>`))
-	cf.Ctx.ResponseWriter.Write([]byte(`构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志 <br/>`))
+	if build.NodeName != "" {
+		cf.Ctx.ResponseWriter.Write([]byte(`构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志 <br/>`))
+	} else {
+		cf.Ctx.ResponseWriter.Write([]byte(`构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志 <br/>`))
+	}
+
+	cf.Ctx.ResponseWriter.Write([]byte(`搜集日志需要点时间，请耐心等待 <br/>`))
+
 	cf.Ctx.ResponseWriter.Write([]byte(`-----------------------------------------------------------------------------<br/>`))
 
 	//如果创建失败
@@ -1669,7 +1672,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			}
 		}
 
-	} else {
+	} else if time.Now().Sub(endTime) <= 7*24*time.Hour {
 		//get log client
 		logClient, err := log.NewESClient("")
 		if logClient == nil || err != nil {
@@ -1691,6 +1694,9 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 
 		glog.Infof("will get log form ES successfully ")
+
+	} else {
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] 没有更早的日志了 </font>`))
 
 	}
 

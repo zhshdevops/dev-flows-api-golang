@@ -976,7 +976,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 	}
-	
+
 	err = queue.WatchOneJob(job.GetNamespace(), job.GetName())
 	if err != nil {
 		glog.Errorf("%s WatchOneJob from kubernetes failed:%v\n", method, err)
@@ -1011,6 +1011,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	status := queue.WaitForBuildToComplete(job, stage)
+	<-time.After(10 * time.Second)
 	if status >= common.STATUS_FAILED {
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK
