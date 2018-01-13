@@ -306,7 +306,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 			}
 		} else {
 
-			glog.Errorf("%s Failed to get a pod of jobName:%s,podName=%s\n", method, job.ObjectMeta.Name,pod.GetName())
+			glog.Errorf("%s Failed to get a pod of jobName:%s,podName=%s\n", method, job.ObjectMeta.Name, pod.GetName())
 		}
 
 	}
@@ -381,7 +381,6 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		glog.Infof("构建流程被用户手动停止")
 		errMsg = "构建流程被用户手动停止"
 	}
-
 
 	glog.Infof("执行失败 Will Update State build PodName=====%d\n", queue.StageBuildLog.PodName)
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
@@ -884,7 +883,9 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	glog.Infoln("buildCluster===================", buildCluster)
-	queue.ImageBuilder = models.NewImageBuilder(buildCluster)
+	if buildCluster != "" {
+		queue.ImageBuilder = models.NewImageBuilder(buildCluster)
+	}
 
 	//构建job的参数以及执行job命令
 	job, err := queue.ImageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
@@ -951,7 +952,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	status := queue.WaitForBuildToComplete(job, stage)
-	glog.Infof("status=========================status=%d\n",status)
+	glog.Infof("status=========================status=%d\n", status)
 	if status >= common.STATUS_FAILED {
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK
