@@ -936,7 +936,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	//for i := 0; i < 5; i++ {
 	err = queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
 	if err != nil {
-		glog.Errorf(" times WatchPod failed:%s\n", err)
+		glog.Errorf(" WatchPod failed:%s\n", err)
 
 	}
 	//}
@@ -957,25 +957,21 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		return common.STATUS_FAILED
 	}
 
-	for i := 0; i < 5; i++ {
-		err = queue.WatchOneJob(job.GetNamespace(), job.GetName())
-		if err != nil {
-			glog.Errorf("%s,%d times WatchOneJob from kubernetes failed:%v\n", method, i+1, err)
-			if i == 4 {
-				queue.StageBuildLog.Status = common.STATUS_FAILED
-				ennFlow.Status = http.StatusOK
-				ennFlow.BuildStatus = common.STATUS_FAILED
-				ennFlow.Message = fmt.Sprintf("构建任务%s失败\n", stage.StageName)
-				ennFlow.StageId = stage.StageId
-				ennFlow.FlowId = stage.FlowId
-				ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
-				ennFlow.StageBuildId = queue.StageBuildLog.BuildId
-				ennFlow.Flag = 2
-				EnnFlowChan <- ennFlow
-				return common.STATUS_FAILED
-			}
-			continue
-		}
+	err = queue.WatchOneJob(job.GetNamespace(), job.GetName())
+	if err != nil {
+		glog.Errorf("%s WatchOneJob from kubernetes failed:%v\n", method, err)
+		queue.StageBuildLog.Status = common.STATUS_FAILED
+		ennFlow.Status = http.StatusOK
+		ennFlow.BuildStatus = common.STATUS_FAILED
+		ennFlow.Message = fmt.Sprintf("构建任务%s失败\n", stage.StageName)
+		ennFlow.StageId = stage.StageId
+		ennFlow.FlowId = stage.FlowId
+		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
+		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
+		ennFlow.Flag = 2
+		EnnFlowChan <- ennFlow
+		return common.STATUS_FAILED
+
 	}
 
 	status := queue.WaitForBuildToComplete(job, stage)
