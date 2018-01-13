@@ -566,6 +566,16 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 					queue.UpdateStageBuidLogId()
 					EnnFlowChan <- ennFlow
 					return nil
+				} else if pod.Status.Phase == v1.PodRunning {
+					if pod.ObjectMeta.Name != "" {
+						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
+						queue.StageBuildLog.NodeName = pod.Spec.NodeName
+						queue.StageBuildLog.JobName = jobName
+						queue.StageBuildLog.Status = common.STATUS_BUILDING
+					}
+					queue.UpdateStageBuidLogId()
+					EnnFlowChan <- ennFlow
+					return nil
 				} else if pod.Status.Phase == v1.PodUnknown {
 					glog.Infof("The pod PodPhase=%s\n", v1.PodUnknown)
 					return nil
@@ -649,6 +659,9 @@ func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 				//收到deleted事件，job可能被第三方删除
 				glog.Infof("%s %s,status:%v\n", method, "收到ADD事件,开始起job进行构建", dm.Status)
 				GetEnnFlow(dm, common.STATUS_BUILDING)
+				if dm.Status.Failed >= 1 || dm.Status.Succeeded >= 1 {
+					return nil
+				}
 				continue
 			} else if event.Type == watch.Deleted {
 				//收到deleted事件，job可能被第三方删除
