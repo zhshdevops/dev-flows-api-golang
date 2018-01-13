@@ -483,7 +483,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 	glog.Infof("Begin watch Pod \n")
 	ennFlow.Status = http.StatusOK
 	ennFlow.BuildStatus = common.STATUS_BUILDING
-	ennFlow.Message = fmt.Sprintf("构建任务%进行中\n", stage.StageName)
+	ennFlow.Message = fmt.Sprintf("构建任务%s进行中\n", stage.StageName)
 	ennFlow.StageId = stage.StageId
 	ennFlow.FlowId = stage.FlowId
 	ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
@@ -527,7 +527,6 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 
 			if event.Type == watch.Added {
 				if podCount >= 1 {
-					queue.ImageBuilder.StopJob(namespace, jobName, false, 0)
 					return nil
 				}
 				podCount = podCount + 1
@@ -650,7 +649,7 @@ func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 				//收到deleted事件，job可能被第三方删除
 				glog.Infof("%s %s,status:%v\n", method, "收到ADD事件,开始起job进行构建", dm.Status)
 				GetEnnFlow(dm, common.STATUS_BUILDING)
-				return nil
+				continue
 			} else if event.Type == watch.Deleted {
 				//收到deleted事件，job可能被第三方删除
 				glog.Errorf("%s  %s status:%v\n", method, " 收到deleted事件，job可能被第三方删除", dm.Status)

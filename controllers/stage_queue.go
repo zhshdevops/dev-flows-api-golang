@@ -371,10 +371,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		glog.Infof("stop the run failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
 		//不是手动停止
 		errMsg = "构建任务异常,已停止构建，请稍后重试"
-		_, err = queue.ImageBuilder.StopJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name, false, 0)
-		if err != nil {
-			glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
-		}
+
 	}
 
 	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
@@ -923,7 +920,6 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
-		queue.SetFailedStatus()
 		EnnFlowChan <- ennFlow
 
 		detail := &EmailDetail{
@@ -937,10 +933,12 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		return common.STATUS_FAILED
 	}
 
-	err = queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
-	if err != nil {
-		queue.StageBuildLog.Status = common.STATUS_FAILED
-		glog.Errorf("WatchPod failed:%s\n", err)
+	for i := 0; i < 5; i++ {
+		err = queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
+		if err != nil {
+			glog.Errorf(" %d times WatchPod failed:%s\n", i+1, err)
+			continue
+		}
 	}
 
 	job, err = queue.ImageBuilder.GetJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
@@ -959,21 +957,27 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		return common.STATUS_FAILED
 	}
 
-	err = queue.WatchOneJob(job.GetNamespace(), job.GetName())
-	if err != nil {
-		glog.Errorf("%s, WatchOneJob from kubernetes failed:%v\n", method, err)
-		queue.StageBuildLog.Status = common.STATUS_FAILED
-		ennFlow.Status = http.StatusOK
-		ennFlow.BuildStatus = common.STATUS_FAILED
-		ennFlow.Message = fmt.Sprintf("构建任务%s失败\n", stage.StageName)
-		ennFlow.StageId = stage.StageId
-		ennFlow.FlowId = stage.FlowId
-		ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
-		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
-		ennFlow.Flag = 2
-		EnnFlowChan <- ennFlow
-		return common.STATUS_FAILED
+	for i := 0; i < 5; i++ {
+		err = queue.WatchOneJob(job.GetNamespace(), job.GetName())
+		if err != nil {
+			glog.Errorf("%s,%d times WatchOneJob from kubernetes failed:%v\n", method, i+1, err)
+			if i == 4 {
+				queue.StageBuildLog.Status = common.STATUS_FAILED
+				ennFlow.Status = http.StatusOK
+				ennFlow.BuildStatus = common.STATUS_FAILED
+				ennFlow.Message = fmt.Sprintf("构建任务%s失败\n", stage.StageName)
+				ennFlow.StageId = stage.StageId
+				ennFlow.FlowId = stage.FlowId
+				ennFlow.FlowBuildId = queue.FlowbuildLog.BuildId
+				ennFlow.StageBuildId = queue.StageBuildLog.BuildId
+				ennFlow.Flag = 2
+				EnnFlowChan <- ennFlow
+				return common.STATUS_FAILED
+			}
+			continue
+		}
 	}
+
 	status := queue.WaitForBuildToComplete(job, stage)
 	glog.Infof("status=========================status=%d\n", status)
 	if status >= common.STATUS_FAILED {
