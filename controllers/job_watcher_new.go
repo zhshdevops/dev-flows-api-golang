@@ -477,9 +477,10 @@ func Int32Toint32Point(input int32) *int32 {
 
 }
 
-func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiStages) error {
+func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiStages) (bool, error) {
 	method := "WatchPod"
 	var ennFlow EnnFlow
+	var timeOut bool = false
 	glog.Infof("Begin watch Pod \n")
 	ennFlow.Status = http.StatusOK
 	ennFlow.BuildStatus = common.STATUS_BUILDING
@@ -490,11 +491,11 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 	ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 	ennFlow.Flag = 2
 
-	labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)
+	labelsStr := fmt.Sprintf("job-name=%s", jobName)
 	labelSelector, err := labels.Parse(labelsStr)
 	if err != nil {
 		glog.Errorf("%s label parse failed: %v\n", method, err)
-		return err
+		return timeOut, err
 	}
 
 	listOptions := api.ListOptions{
@@ -506,7 +507,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 	if err != nil {
 		glog.Errorf("%s get pod watchInterface failed: %v\n", method, err)
 		EnnFlowChan <- ennFlow
-		return err
+		return timeOut, err
 	}
 	podCount := 0
 	for {
@@ -515,7 +516,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 			if !isOpen {
 				glog.Errorf("the pod watch the chan is closed\n")
 				EnnFlowChan <- ennFlow
-				return fmt.Errorf("%s", "the pod watch the chan is closed")
+				return timeOut, fmt.Errorf("%s", "the pod watch the chan is closed")
 			}
 
 			pod, parseIsOk := event.Object.(*v1.Pod)
@@ -529,7 +530,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 				glog.Infof("EventType ADDED %s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
 
 				if podCount >= 1 {
-					return nil
+					return timeOut, nil
 				}
 				podCount = podCount + 1
 				if pod.ObjectMeta.Name != "" {
@@ -557,7 +558,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 
 					queue.UpdateStageBuidLogId()
 					EnnFlowChan <- ennFlow
-					return nil
+					return timeOut, nil
 				} else if pod.Status.Phase == v1.PodFailed {
 					if pod.ObjectMeta.Name != "" {
 						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
@@ -567,7 +568,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 					}
 					queue.UpdateStageBuidLogId()
 					EnnFlowChan <- ennFlow
-					return nil
+					return timeOut, nil
 				} else if pod.Status.Phase == v1.PodRunning {
 					if pod.ObjectMeta.Name != "" {
 						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
@@ -577,10 +578,10 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 					}
 					queue.UpdateStageBuidLogId()
 					EnnFlowChan <- ennFlow
-					return nil
+					return timeOut, nil
 				} else if pod.Status.Phase == v1.PodUnknown {
 					glog.Infof("The pod PodPhase=%s\n", v1.PodUnknown)
-					return nil
+					return timeOut, nil
 
 				} else if pod.Status.Phase == v1.PodPending {
 					continue
@@ -597,7 +598,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 					queue.StageBuildLog.Status = common.STATUS_BUILDING
 				}
 				queue.UpdateStageBuidLogId()
-				return nil
+				return timeOut, nil
 			} else if event.Type == watch.Error {
 				glog.Warningf("%s %s %v\n", method, "call watch api of pod of "+jobName+" error:", event.Object)
 				//创建失败
@@ -609,13 +610,17 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 				}
 				queue.UpdateStageBuidLogId()
 				EnnFlowChan <- ennFlow
-				return nil
+				return timeOut, nil
 			}
+
+		case <-time.After(3 * time.Minute):
+			timeOut = true
+			return timeOut, nil
 
 		}
 
 	}
-	return nil
+	return timeOut, nil
 
 }
 

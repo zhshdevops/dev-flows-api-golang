@@ -945,10 +945,20 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	//for i := 0; i < 5; i++ {
-	err = queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
-	if err != nil {
+	timeOut, err := queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
+	if err != nil && !timeOut {
 		glog.Errorf(" WatchPod failed:%s\n", err)
 
+	}
+	if timeOut && err == nil {
+		queue.ImageBuilder.StopJob(job.GetNamespace(), job.GetName(), false, 0)
+		detail := &EmailDetail{
+			Type:    "ci",
+			Result:  "failed",
+			Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+			Body:    "任务启动超时",
+		}
+		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
 	}
 	//}
 
