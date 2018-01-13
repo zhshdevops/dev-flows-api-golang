@@ -933,13 +933,13 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		return common.STATUS_FAILED
 	}
 
-	for i := 0; i < 5; i++ {
-		err = queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
-		if err != nil {
-			glog.Errorf(" %d times WatchPod failed:%s\n", i+1, err)
-			continue
-		}
+	//for i := 0; i < 5; i++ {
+	err = queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
+	if err != nil {
+		glog.Errorf(" times WatchPod failed:%s\n", err)
+
 	}
+	//}
 
 	job, err = queue.ImageBuilder.GetJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
 	if err != nil || job == nil {
@@ -993,7 +993,6 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 	} else if status == common.STATUS_SUCCESS {
-		time.Sleep(10 * time.Second)
 		ennFlow.Status = http.StatusOK
 		ennFlow.BuildStatus = common.STATUS_SUCCESS
 		ennFlow.Message = fmt.Sprintf("构建任务%s成功\n", stage.StageName)
