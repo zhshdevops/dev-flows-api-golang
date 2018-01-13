@@ -526,6 +526,8 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 			glog.Infof("%s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
 
 			if event.Type == watch.Added {
+				glog.Infof("EventType ADDED %s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
+
 				if podCount >= 1 {
 					return nil
 				}
