@@ -824,7 +824,7 @@ func (stage *CiStagesController) UpdateStage() {
 		return
 	}
 
-	//检查提交的stage中必须的字段 //_checkRequired  ==========begin
+	//检查提交的stage中必须的字段 //_checkRequired
 	if stageInfo.Metadata.Name == "" {
 		stage.ResponseErrorAndCode(".metadata.name is required", http.StatusBadRequest)
 		return
@@ -843,7 +843,7 @@ func (stage *CiStagesController) UpdateStage() {
 			return
 		}
 	}
-	//_checkRequired  ==========end
+	//_checkRequired
 
 	if !models.NewCiImages().IsValidImages(false, stage.Namespace, stageInfo.Spec.Container.Image) {
 		stage.ResponseErrorAndCode("Unknown build image:"+stageInfo.Spec.Container.Image, http.StatusBadRequest)

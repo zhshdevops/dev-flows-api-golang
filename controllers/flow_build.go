@@ -51,8 +51,6 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder, stageBuil
 		glog.Errorf("%s get %s pod failed:%v\n", method, pod.ObjectMeta.Name, err)
 	}
 
-	glog.Infof("%s - podName=[%s]<<===============>>", method, pod.ObjectMeta.Name)
-
 	for i := 0; i < 5; i++ {
 		time.Sleep(5 * time.Second)
 		if pod.ObjectMeta.Name != "" {
@@ -60,7 +58,7 @@ func HandleWaitTimeout(job *v1.Job, imageBuilder *models.ImageBuilder, stageBuil
 			glog.Infof("%s - Checking if scm container is timeout\n", method)
 			if len(pod.Status.InitContainerStatuses) > 0 &&
 				IsContainerCreated(imageBuilder.ScmName, pod.Status.InitContainerStatuses) {
-				glog.Infof("ContainerStatuses=========imageBuilder.BuilderName=:%s\n", imageBuilder.ScmName)
+
 				timeout = false
 				return
 			}

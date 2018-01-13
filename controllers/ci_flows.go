@@ -210,7 +210,7 @@ func (cf *CiFlowsController) SyncCIFlow() {
 	}
 
 	updateResult := func() bool {
-		//====================>trans begin
+
 		trans := transaction.New()
 		orm := trans.O()
 		trans.Do(func() {
@@ -223,8 +223,6 @@ func (cf *CiFlowsController) SyncCIFlow() {
 			}
 
 			for index, stageInfo := range stageInfos.StageInfo {
-
-				glog.Infof("stageInfo======>>stageInfo.Link.Enabled:%d\n", stageInfo.Link.Enabled)
 
 				stage.StageId = uuid.NewStageID()
 
@@ -323,8 +321,6 @@ func (cf *CiFlowsController) SyncCIFlow() {
 					stage.BuildInfo = ""
 				}
 
-				glog.Infof("stage=============>>%v\n", stage)
-
 				_, err = models.NewCiStage().InsertOneStage(stage, orm)
 				if err != nil {
 					glog.Errorf("%s InsertOneStage to database failed:%v\n", method, err)
@@ -335,8 +331,6 @@ func (cf *CiFlowsController) SyncCIFlow() {
 			}
 
 			for index, stageInfo := range stageInfos.StageInfo {
-
-				glog.Infof("=======================>>stageInfo.Metadata.Id=%d\n", stageInfo.Metadata.Id)
 
 				stageLink.SourceId = stageInfo.Metadata.Id
 				if stageInfoLen != index+1 {
@@ -349,7 +343,6 @@ func (cf *CiFlowsController) SyncCIFlow() {
 				stageLink.TargetDir = stageInfo.Link.TargetDir
 				stageLink.Enabled = int8(stageInfo.Link.Enabled)
 
-				glog.Infof("stageLink===========%v\n", stageLink)
 
 				if stageLink.TargetId != "" {
 					err = models.NewCiStageLinks().InsertLink(stageLink, orm)
@@ -1554,12 +1547,6 @@ func (cf *CiFlowsController) ListBuildsOfStage() {
 	return
 }
 
-var (
-	PluginNamespace          = "kube-system"
-	LoggingService           = "elasticsearch-logging"
-	LoggingServicePort       = 9200
-	LogTimeInterval    int64 = 60 * 60 * 24 * 5
-)
 
 //@router /:flow_id/stages/:stage_id/builds/:stage_build_id/log [GET]
 func (cf *CiFlowsController) GetStageBuildLogsFromES() {
@@ -1575,17 +1562,16 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	//valid the flowdata and stagedata
 	build, err := GetValidStageBuild(flowId, stageId, stageBuildId)
 	if err != nil {
-		glog.Errorf("%s get log from ES failed:===>%v\n", method, err)
+		glog.Errorf("%s get log from ES failed:%v\n", method, err)
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>`))
 		return
 	}
 	namespace := build.Namespace
-	glog.Infof("Build info====%s\n", build)
 
 	if build.PodName == "" {
 		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName, build.BuildId)
 		if err != nil || podName == "" {
-			glog.Errorf("%s get job name=[%s] pod name failed from kubernetes:======>%v\n", method, build.JobName, err)
+			glog.Errorf("%s get job name=[%s] pod name failed from kubernetes:%v\n", method, build.JobName, err)
 		}
 		models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
 		build.PodName = podName
@@ -1640,9 +1626,9 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		return nil
 	}
 
-	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
-	cf.Ctx.ResponseWriter.Write([]byte(`>>>构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志<<< <br/>`))
-	cf.Ctx.ResponseWriter.Write([]byte(`>>>-----------------------------------------------------------------------------<<<<br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`-----------------------------------------------------------------------------<br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志 <br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`-----------------------------------------------------------------------------<br/>`))
 
 	//如果创建失败
 	if build.Status != 0 {
@@ -1666,7 +1652,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			logClient, err := log.NewESClient("")
 			if logClient == nil || err != nil {
 				glog.Errorf("NewESClient failed: %v\n", err)
-				glog.Infoln("will get log form kubernetes=======>>\n")
+				glog.Infoln("will get log form kubernetes \n")
 				getLogFromK8S()
 				cf.Ctx.ResponseWriter.Status = 200
 				return
@@ -1675,7 +1661,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			var containerNames = []string{models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME}
 			err = logClient.SearchTodayLog(indexs, namespace, containerNames, build.PodName, client.ClusterID, cf.Ctx)
 			if err != nil {
-				glog.Errorf("get logs from es failed,will get logs form kubernetes=======>>err:%v\n", err)
+				glog.Errorf("get logs from es failed,will get logs form kubernetes err:%v\n", err)
 				getLogFromK8S()
 				cf.Ctx.ResponseWriter.Status = 200
 				cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
@@ -1688,7 +1674,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		logClient, err := log.NewESClient("")
 		if logClient == nil || err != nil {
 			glog.Errorf("NewESClient failed: %v\n", err)
-			glog.Infoln("will get log form kubernetes=======>>\n")
+			glog.Infoln("will get log form kubernetes \n")
 			getLogFromK8S()
 			cf.Ctx.ResponseWriter.Status = 200
 			return
@@ -1697,14 +1683,14 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		var containerNames = []string{models.SCM_CONTAINER_NAME, models.BUILDER_CONTAINER_NAME}
 		err = logClient.SearchTodayLog(indexs, namespace, containerNames, build.PodName, client.ClusterID, cf.Ctx)
 		if err != nil {
-			glog.Errorf("get logs from es failed,will get logs form kubernetes=======>>err:%v\n", err)
+			glog.Errorf("get logs from es failed,will get logs form kubernetes err:%v\n", err)
 			getLogFromK8S()
 			cf.Ctx.ResponseWriter.Status = 200
 			cf.Ctx.ResponseWriter.Write([]byte(`<font color="#ffc20e">[Enn Flow API] PAAS平台只保留7天之内的日志信息 </font>`))
 			return
 		}
 
-		glog.Infof("will get log form ES successfully=======>>")
+		glog.Infof("will get log form ES successfully ")
 
 	}
 
@@ -1730,7 +1716,7 @@ func (cf *CiFlowsController) GetBuildEvents() {
 	//valid the flowdata and stagedata
 	build, err := GetValidStageBuild(flowId, stageId, stageBuildId)
 	if err != nil {
-		glog.Errorf("%s get log from ES failed:===>%v\n", method, err)
+		glog.Errorf("%s get log from ES failed:%v\n", method, err)
 		cf.ResponseErrorAndCode("stageBuild info not found", http.StatusNotFound)
 		return
 	}
@@ -1738,7 +1724,7 @@ func (cf *CiFlowsController) GetBuildEvents() {
 	if build.PodName == "" {
 		podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName)
 		if err != nil || podName == "" {
-			glog.Errorf("%s get job name=[%s] pod name failed from kubernetes:======>%v\n", method, build.JobName, err)
+			glog.Errorf("%s get job name=[%s] pod name failed from kubernetes:%v\n", method, build.JobName, err)
 			cf.ResponseErrorAndCode(`<font color="#ffc20e">[Enn Flow API] 构建任务不存在或已经被删除</font>`, http.StatusNotFound)
 			return
 		}
@@ -1748,12 +1734,12 @@ func (cf *CiFlowsController) GetBuildEvents() {
 
 	eventListJob, err := imageBuilder.GetJobEvents(namespace, build.JobName, build.PodName)
 	if err != nil {
-		glog.Errorf("%s get job event failed====>%v\n", method, err)
+		glog.Errorf("%s get job event failed:%v\n", method, err)
 		return
 	}
 	eventListPod, err := imageBuilder.GetPodEvents(namespace, build.PodName, "")
 	if err != nil {
-		glog.Errorf("%s get job event failed====>%v\n", method, err)
+		glog.Errorf("%s get job event failed:%v\n", method, err)
 		return
 	}
 	copy(eventListJob.Items, eventListPod.Items)

@@ -887,6 +887,17 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 	//构建job的参数以及执行job命令
 	job, err := queue.ImageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
+	if index == 0 {
+		//开始使用websocket通知前端,开始构建
+		queue.BuildReqbody.Message = "开始构建:" + queue.FlowId
+		queue.BuildReqbody.Status = http.StatusOK
+		queue.BuildReqbody.BuildStatus = common.STATUS_BUILDING
+		queue.BuildReqbody.FlowBuildId = queue.FlowbuildLog.BuildId
+		queue.BuildReqbody.FlowId = queue.CiFlow.FlowId
+		queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
+		queue.BuildReqbody.Flag = 1
+		EnnFlowChan <- queue.BuildReqbody
+	}
 
 	if err != nil || job == nil {
 
@@ -975,7 +986,6 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	status := queue.WaitForBuildToComplete(job, stage)
-	glog.Infof("status=========================status=%d\n", status)
 	if status >= common.STATUS_FAILED {
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK
@@ -1005,15 +1015,6 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 func (queue *StageQueueNew) Run() {
 	method := "StageQueueNew"
-	//开始使用websocket通知前端,开始构建
-	queue.BuildReqbody.Message = "开始构建:" + queue.FlowId
-	queue.BuildReqbody.Status = http.StatusOK
-	queue.BuildReqbody.BuildStatus = common.STATUS_BUILDING
-	queue.BuildReqbody.FlowBuildId = queue.FlowbuildLog.BuildId
-	queue.BuildReqbody.FlowId = queue.CiFlow.FlowId
-	queue.BuildReqbody.StageBuildId = queue.StageBuildLog.BuildId
-	queue.BuildReqbody.Flag = 1
-	EnnFlowChan <- queue.BuildReqbody
 
 	go func() {
 		for index, stage := range queue.StageList {

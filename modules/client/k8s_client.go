@@ -87,13 +87,7 @@ func Initk8sClient() {
 			return
 		}
 		if config.IsBuilder == 1 {
-			fmt.Printf("%s config.IsBuilder=%d", method, config.IsBuilder)
 			ClusterID=clu.ClusterID
-			//ClusterID="CID-f794208bc85f"
-			//ClusterID="CID-d7d3eb44c1db" 			CID-f794208bc85f
-
-			//clientSet, ok := GetClientSetOrRespErr(ClusterID)
-			glog.Infof("ClusterID=============>>:%s\n",clu.ClusterID)
 			clientSet, ok := GetClientSetOrRespErr(clu.ClusterID)
 			KubernetesClientSet = clientSet
 			Token=clu.APIToken

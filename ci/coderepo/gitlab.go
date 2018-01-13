@@ -579,7 +579,7 @@ func (g *GitlabClient) AddDeployKey(projectId, publicKey, repoName string) (AddD
 	if err != nil {
 		return key, err
 	}
-	glog.Infof("gitlab generate AddDeployReq resp body:%#v\n", string(data))
+
 	err = json.Unmarshal(data, &key)
 	if err != nil {
 		return key, err

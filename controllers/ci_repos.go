@@ -101,7 +101,7 @@ func (cirepo *CiReposController) GetRepositories() {
 		//显示激活
 		mamageProjectList, total, err := models.NewCiManagedProjects().ListProjectsByType(cirepo.Namespace, repoType)
 		if err != nil {
-			glog.Errorf(" %s get manageProject list %s failed===>: %v\n", method, cirepo.Namespace, err)
+			glog.Errorf(" %s get manageProject list %s failed: %v\n", method, cirepo.Namespace, err)
 			cirepo.ResponseErrorAndCode(" get manageProject list namespace=["+cirepo.Namespace+"] failed:"+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 			return
 		}
@@ -142,7 +142,7 @@ func (cirepo *CiReposController) GetRepositories() {
 		glog.V(1).Info("%s %s", method, "Do not support repository list for SVN")
 
 	} else {
-		glog.Errorf(" %s not support repo type===>repoType: %s\n", method, repoType)
+		glog.Errorf(" %s not support repo type repoType: %s\n", method, repoType)
 		cirepo.ResponseErrorAndCode("Only support gitlab/github/svn/gogs for now", http.StatusBadRequest)
 		return
 	}
@@ -321,18 +321,18 @@ func (cirepo *CiReposController) AddRepository() {
 
 	userInfo, err := repoApi.GetUserAndOrgs()
 	if err != nil {
-		glog.Errorf("%s get user and orgs failed:===>%v", method, err)
+		glog.Errorf("%s get user and orgs failed:>%v", method, err)
 		cirepo.ResponseErrorAndCode("get user and orgs failed", http.StatusInternalServerError)
 		return
 	}
-	glog.Infof("userInfo========%v\n", userInfo)
+	glog.Infof("userInfo=%v\n", userInfo)
 	repoInfo.AccessUserName = userInfo[0].Login
 	repoInfo.AccessToken = body.PrivateToken
 	repoInfo.AccessTokenSecret = body.AccessTokenSecret
 	repoInfo.GitlabUrl = body.Url
 	userRepoInfos, err := json.Marshal(userInfo)
 	if err != nil {
-		glog.Errorf("%s json marshal userinfo  failed:===>%v", method, err)
+		glog.Errorf("%s json marshal userinfo  failed:>%v", method, err)
 		cirepo.ResponseErrorAndCode("userinfo json marshal failed", http.StatusInternalServerError)
 		return
 	}
@@ -348,7 +348,7 @@ func (cirepo *CiReposController) AddRepository() {
 	if repoType != SVN {
 		repositrys, err := repoApi.GetAllUsersRepos(userInfo)
 		if err != nil {
-			glog.Errorf(" %s get all user repos failed===>: %v\n", method, err)
+			glog.Errorf(" %s get all user repos failed: %v\n", method, err)
 			cirepo.ResponseErrorAndCode(" 同步代码仓库失败:"+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 			return
 		}
@@ -412,7 +412,7 @@ func (cirepo *CiReposController) SyncRepos() {
 	if depot.UserInfo != "" {
 		err = json.Unmarshal([]byte(depot.UserInfo), &userInfos)
 		if err != nil {
-			glog.Errorf(" %s json Unmarshal user info ===>: %v\n", method, err)
+			glog.Errorf(" %s json Unmarshal user info: %v\n", method, err)
 			cirepo.ResponseErrorAndCode("json Unmarshal user info failed", http.StatusInternalServerError)
 			return
 		}
@@ -420,7 +420,7 @@ func (cirepo *CiReposController) SyncRepos() {
 	//同步
 	repoApi := coderepo.NewRepoApier(repoType, depot.GitlabUrl, depot.AccessToken)
 	if repoApi == nil {
-		glog.Errorf(" %s 暂时不支持这个类型 ===>: %v\n", method, err)
+		glog.Errorf(" %s 暂时不支持这个类型 : %v\n", method, err)
 		cirepo.ResponseErrorAndCode("暂时不支持这个类型", http.StatusInternalServerError)
 		return
 	}
@@ -484,7 +484,7 @@ func (cirepo *CiReposController) SyncRepos() {
 		//显示激活
 		mamageProjectList, total, err := models.NewCiManagedProjects().ListProjectsByType(cirepo.Namespace, repoType)
 		if err != nil {
-			glog.Errorf(" %s get manageProject list %s failed===>: %v\n", method, cirepo.Namespace, err)
+			glog.Errorf(" %s get manageProject list %s failed: %v\n", method, cirepo.Namespace, err)
 			cirepo.ResponseErrorAndCode(" get manageProject list namespace=["+cirepo.Namespace+"] failed:"+fmt.Sprintf("%s", err), http.StatusInternalServerError)
 			return
 		}
@@ -522,7 +522,7 @@ func (cirepo *CiReposController) SyncRepos() {
 		}
 
 	} else {
-		glog.Errorf(" %s not support repo type===>repoType: %s\n", method, repoType)
+		glog.Errorf(" %s not support repo type repoType: %s\n", method, repoType)
 		cirepo.ResponseErrorAndCode("Only support gitlab/github/svn/gogs for now", http.StatusBadRequest)
 		return
 	}

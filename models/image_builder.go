@@ -59,6 +59,7 @@ type ImageBuilder struct {
 func NewImageBuilder(clusterID ...string) *ImageBuilder {
 	var Client *client.ClientSet
 	if len(clusterID) != 1 {
+		client.Initk8sClient()
 		Client = client.KubernetesClientSet
 	} else {
 		Client = client.GetK8sConnection(clusterID[0])
@@ -405,7 +406,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 		})
 	}
 
-	//==================用来标识是否是构建镜像,用来清除构建缓存
+	//用来标识是否是构建镜像,用来清除构建缓存
 	if buildInfo.BUILD_INFO_TYPE == 1 && buildInfo.Type == 3 {
 		initContainer.Env = append(initContainer.Env, apiv1.EnvVar{
 			Name:  "BUILD_INFO_TYPE",
@@ -445,10 +446,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 
 	jobContainer.Env = env
 
-	glog.Infof("=========jobContainer.Env:%v\n", jobContainer.Env)
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
-	//dataJob, _ := json.Marshal(jobTemplate)
-	//glog.V(1).Infof("%s ============>>jobTemplate=[%v]\n", method, string(dataJob))
 
 	return builder.Client.BatchClient.Jobs(buildInfo.Namespace).Create(jobTemplate)
 

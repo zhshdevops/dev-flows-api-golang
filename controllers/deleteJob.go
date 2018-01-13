@@ -44,13 +44,13 @@ func deleteCICDJobs() {
 	}
 
 	t := time.NewTicker(time.Duration(intervalTime) * time.Minute)
-	glog.Infof("Delete job server start time ================>> %s \n", time.Now())
+	glog.Infof("Delete job server start time = %s \n", time.Now())
 	for {
 		select {
 		case <-t.C:
-			fmt.Printf("Delete job begin time ================>> %s\n", time.Now())
+			fmt.Printf("Delete job begin time = %s\n", time.Now())
 			BeginDeleteJob()
-			glog.Infof("Delete  job end time ================>> %s\n", time.Now())
+			glog.Infof("Delete  job end time = %s\n", time.Now())
 		}
 
 	}

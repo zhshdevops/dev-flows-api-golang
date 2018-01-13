@@ -196,7 +196,7 @@ type GitlabNamespace struct {
 	Full_path string `json:"full_path"`
 }
 
-//========================>webhook
+
 type SvnHook struct {
 	Name       string `json:"name"`
 	ClearCache int  `json:"clearCache"`

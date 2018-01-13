@@ -78,22 +78,7 @@ func (cimp *CiManagedProjectsController) GetManagedProjects() {
 	cimp.ResponseSuccessDevops(listProject, total)
 }
 
-//"http://10.39.0.53:9999/svnrepos/xinzhiyuntest"
-//is_private
-//:
-//1
-//name
-//:
-//"dddd"
-//password
-//:
-//"qinzhao"
-//repo_type
-//:
-//"svn"
-//username
-//:
-//"root"
+
 //@router / [POST] 激活
 func (cimp *CiManagedProjectsController) CreateManagedProject() {
 
@@ -295,8 +280,7 @@ func (cimp *CiManagedProjectsController) RemoveManagedProject() {
 		err = project.ClearIntegrationParts(namespace)
 		if err != nil {
 			glog.Errorf("%s clear Integration failed: %v\n", method, err)
-			//cimp.ResponseErrorAndCode("clear  Stage "+stage.StageName+" Integration failed ", http.StatusInternalServerError)
-			//return
+
 		}
 
 	} else if project.RepoType == "svn" {

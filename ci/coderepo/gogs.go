@@ -172,64 +172,6 @@ func (gogs *GogsClient) GetAllUsersRepos(userinfos []UserInfo) ([]ReposGitHubAnd
 		repos=append(repos,respRepo)
 	}
 
-	//
-	//for _, userinfo := range userinfos {
-	//	reqUrl := "/user/repos/"
-	//	if userinfo.Type == "orgs" {
-	//		// Don't list repositories under orgs separately for now
-	//		reqUrl = "/orgs/" + userinfo.Login + "/repos"
-	//		continue
-	//	}
-	//	endpoint, err := gogs.GetEndPoint(reqUrl, 1)
-	//	if err != nil {
-	//		return repos, err
-	//	}
-	//	resp, err := HttpClientRequest("GET", endpoint, nil, gogs.Header)
-	//	link := resp.Header.Get("link")
-	//	glog.Infof("get totalpage gogs =%s\n", link)
-	//	data, err := ioutil.ReadAll(resp.Body)
-	//	if err != nil {
-	//		resp.Body.Close()
-	//		return repos, err
-	//	}
-	//	glog.Infof("get gogs resp data:%v\n", string(data))
-	//	err = json.Unmarshal(data, &repos)
-	//	if err != nil {
-	//		resp.Body.Close()
-	//		return repos, err
-	//	}
-	//	if link == "" {
-	//		resp.Body.Close()
-	//		break
-	//	}
-	//	glog.Infof("get gogs repos info :%v\n", repos)
-	//	resp.Body.Close()
-	//	totalPage := GetTotalPage(link)
-	//	currentPage := 1
-	//	for currentPage < totalPage {
-	//		var repo Repository
-	//		currentPage += 1
-	//		endpointFor, err := gogs.GetEndPoint(reqUrl, currentPage)
-	//		if err != nil {
-	//			return repos, err
-	//		}
-	//		respFor, err := HttpClientRequest("GET", endpointFor, nil, gogs.Header)
-	//		dataFor, err := ioutil.ReadAll(respFor.Body)
-	//		if err != nil {
-	//			respFor.Body.Close()
-	//			return repos, err
-	//		}
-	//		err = json.Unmarshal(dataFor, &repo)
-	//		if err != nil {
-	//			respFor.Body.Close()
-	//			return repos, err
-	//		}
-	//		repos = append(repos, repo)
-	//		respFor.Body.Close()
-	//	}
-	//
-	//}
-
 	return repos, nil
 }
 
@@ -288,7 +230,7 @@ func (gogs *GogsClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, erro
 	if err != nil {
 		return tags, err
 	}
-	glog.Info("resp.Body=====================%v\n", resp)
+
 	if string(data) != "" {
 		err = json.Unmarshal(data, &tags)
 		if err != nil {
@@ -303,17 +245,7 @@ func (gogs *GogsClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, erro
 func (gogs *GogsClient) CreateWebhook(projectId string, events Event, repoName string) (WebhookResp, error) {
 	method:="GogsClient/CreateWebhook"
 	var webhook WebhookResp
-	//type Hook struct {
-	//	ID      int64             `json:"id"`
-	//	Type    string            `json:"type"`
-	//	URL     string            `json:"-"`
-	//	Config  map[string]string `json:"config"`
-	//	Events  []string          `json:"events"`
-	//	Active  bool              `json:"active"`
-	//	Updated time.Time         `json:"updated_at"`
-	//	Created time.Time         `json:"created_at"`
-	//}
-	//gogs.Client.CreateRepoHook()
+
 	hookUrl := common.WebHookUrlPrefix + projectId
 	//如果只生成webhook
 	if events.Only_gen_webhook {

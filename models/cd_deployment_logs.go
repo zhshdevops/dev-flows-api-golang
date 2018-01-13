@@ -87,7 +87,7 @@ func (cd *CDDeploymentLogs) ListLogsByFlowId(namespace, flow_id string, limit in
 }
 
 func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTag string, strategy int8) bool {
-	glog.Infof("Upgrade==========>deployment.Name:%s\n", deployment.Name)
+
 	method := "kubernetes Upgrade"
 	matched := false
 	ifUpgrade := false
@@ -116,21 +116,21 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	//		deployment.Spec.Template.Spec.Containers[i] = container
 	//	}
 	//}
-	glog.Infof("deployment==========>>%v\n", deployment)
+
 
 	for index, container := range deployment.Spec.Template.Spec.Containers {
 		glog.Infof("container.Image:%v\n", container.Image)
 		oldImage := parseImageName(container.Image)
-		glog.Infof("oldImage=======%s\n", oldImage)
+
 		// Check the image name
 		if oldImage.Image == imageName {
 			// Check the tag matching rule 匹配 不匹配
 			if (isMatchTag == "2") || (isMatchTag == "1" && newTag == oldImage.Tag) {
-				glog.Infof("======================>>isMatchTag=%s\n", isMatchTag)
+
 				matched = true
 				container.Image = oldImage.Host + "/" + oldImage.Image + ":" + newTag
 				container.ImagePullPolicy = v1.PullAlways
-				glog.Infof("container.Image===============>>%s\n", container.Image)
+
 				//deployment.Spec.Template.Spec.Containers[index] = container
 				deployment.Spec.Template.Spec.Containers[index].Image = container.Image
 				deployment.Spec.Template.Spec.Containers[index].ImagePullPolicy = v1.PullAlways
@@ -155,7 +155,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	//   目前设置spec.strategy时存在缺陷，修改之后自动更新会失效。
 	//   当前采用策略为：灰度升级时重置spec.strategy为rollingupdate，否则删除对应pods
 	//   通过时间戳设置tenxcloud.com/cdTime label从而触发更新
-	glog.Infof("=====================>>strategy:%d\n", strategy)
+
 
 	if strategy == 2 && (deployment.Spec.Strategy.Type != v1beta1.RollingUpdateDeploymentStrategyType ||
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade

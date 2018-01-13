@@ -73,8 +73,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-	glog.Infof("NotificationHandler body := ic.Ctx.Input.RequestBody:%v\n", notification)
-
 	if len(notification.Events) < 1 || string(body) == "" {
 		message = "Invalid request body."
 		glog.Errorf("%s Invalid request body:%s\n", method, notification)
@@ -158,7 +156,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 				}
 			}
 
-			glog.Errorf("Exception occurs when validate each CD rule: %s %v \n", method, err)
+			glog.Warningf("Exception occurs when validate each CD rule: %s %v \n", method, err)
 
 			log.CdRuleId = cdrule.RuleId
 			log.TargetVersion = imageInfo.Tag
@@ -221,9 +219,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-	glog.Infof("len(newDeploymentArray)=%d\n", len(newDeploymentArray))
 
-	glog.Infof("len(newDeploymentArray)=%v\n", newDeploymentArray)
 	//开始升级
 	for index, dep := range newDeploymentArray {
 		glog.Infof("第一次：%d 部署", index+1)
@@ -288,7 +284,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 				continue
 			}
 
-			glog.Infof("============>>kubernetes CD Success, deployment :%v\n", dp.Spec.Template.Spec.Containers)
 			//成功时插入日志
 			log.CdRuleId = dep.Rule_id
 			log.TargetVersion = imageInfo.Tag

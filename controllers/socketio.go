@@ -40,7 +40,7 @@ const GET_LOG_RETRY_MAX_INTERVAL = 30
 //GetStageBuildLogsFromK8S
 func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 
-	glog.Infoln("开始从kubernetes搜集实时日志======================>>")
+	glog.Infoln("begin get log from kubernetes ")
 
 	method := "GetStageBuildLogsFromK8S"
 
@@ -48,12 +48,11 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 
 	build, err := GetValidStageBuild(buildMessage.FlowId, buildMessage.StageId, buildMessage.StageBuildId)
 	if err != nil {
-		glog.Errorf("%s GetValidStageBuild failed===>%v\n", method, err)
+		glog.Errorf("%s GetValidStageBuild failed:%v\n", method, err)
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, err), conn)
 		return
 	}
-	glog.Infof("build info ==========>>podName:%#v\n", build.PodName)
-	glog.Infof("build info ==========>>jobName:%s\n", build)
+
 	//正在等待中
 	if build.Status == common.STATUS_WAITING {
 		buildStatus := struct {
@@ -66,15 +65,13 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 		return
 	}
 
-	glog.Infof("the podName is empty============PodName=%s\n", build.PodName)
 	podName, err := imageBuilder.GetPodName(build.Namespace, build.JobName, build.BuildId)
 	if err != nil || podName == "" {
-		glog.Errorf("%s 获取构建任务信息失败 get job name=[%s] pod name failed:======>%v\n", method, build.JobName, err)
+		glog.Errorf("%s 获取构建任务信息失败 get job name=[%s] pod name failed:%v\n", method, build.JobName, err)
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, "获取构建任务信息失败"), conn)
 		return
 	}
 	build.PodName = podName
-	glog.Infof("the podName is =================PodName=%s\n", build.PodName)
 	models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
 	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn, build.BuildId)
 	return
@@ -99,7 +96,6 @@ func WatchEvent(imageBuild *models.ImageBuilder, namespace, podName string, conn
 		return
 	}
 	method := "WatchEvent"
-	glog.Infoln("Begin watch kubernetes Event=====>>%s\n", namespace)
 
 	fieldSelector, err := fields.ParseSelector(fmt.Sprintf("involvedObject.kind=Pod,involvedObject.name=%s", podName))
 	if nil != err {
@@ -129,7 +125,7 @@ func WatchEvent(imageBuild *models.ImageBuilder, namespace, podName string, conn
 				SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, err), conn)
 				break
 			}
-			glog.Infof("the pod event type======================>>%s\n", event.Type)
+
 			EventInfo, ok := event.Object.(*apiv1.Event)
 			if ok {
 				if strings.Index(EventInfo.Message, "PodInitializing") > 0 {
@@ -184,9 +180,7 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 		}
 
 		if containerName == models.SCM_CONTAINER_NAME {
-			//glog.Infof("==============>> user stop_receive_log user <<===========\n")
-			//Send( fmt.Sprintf(`<font color="#ffc20e">[Enn Flow API] 您停止了接收日志</font>\n`),conn)
-			//return
+
 			SendLog("---------------------------------------------------", conn)
 			SendLog("--- 子任务容器: 仅显示最近 "+fmt.Sprintf("%d", TailLines)+" 条日志 ---", conn)
 			SendLog("---------------------------------------------------", conn)

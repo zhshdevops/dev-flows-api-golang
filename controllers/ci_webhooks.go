@@ -35,7 +35,6 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 
 	body := cimp.Ctx.Input.RequestBody
 
-	//glog.Infof("%s,%s\n", method, string(body))
 
 	project := &models.CiManagedProjects{}
 	err := project.FindProjectByIdNew(projectId)
@@ -52,7 +51,6 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 		return
 	}
 
-	glog.Infof("ciStages============>>:%d\n", len(ciStages))
 
 	userModel := &user.UserModel{}
 	// use cache for better performance
@@ -61,15 +59,6 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 		glog.Errorf(" Gte User '"+project.Owner+" failed:%v\n", err)
 	}
 
-	// Use the user/space info of this project
-	//var userInfo = {
-	//user: project.owner,
-	//	name: project.owner,
-	//	// Use owner namespace to run the build
-	//		namespace: project.namespace,
-	//	// Used for query
-	//		userNamespace: project.owner
-	//}
 
 	if project.RepoType == GOGS || project.RepoType == GITHUB ||
 		project.RepoType == SVN || project.RepoType == GITLAB {
@@ -104,8 +93,6 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 			return
 		}
 
-		glog.V(1).Infof("Validate CI rule of each stage ...")
-
 		//create builds by ci rules
 		err = InvokeCIFlowOfStages(userModel, event, ciStages, project)
 		if err != nil {
@@ -126,7 +113,6 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 
 func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []models.CiStages, project *models.CiManagedProjects) error {
 	method := "CiManagedProjectsController.invokeCIFlowOfStages"
-	glog.V(1).Infof("%s Number of stages in the list %d", method, len(stageList))
 
 	for _, stage := range stageList {
 		// Check if the CI config matched
@@ -241,7 +227,6 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 		}
 
 		if matched {
-			glog.V(1).Infof("%s ---- Add to build queue ----: :%s\n", method, eventType)
 			// 开始构建任务
 			var ennFlow EnnFlow
 			ennFlow.FlowId = stage.FlowId
