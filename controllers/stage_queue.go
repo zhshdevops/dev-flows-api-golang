@@ -18,7 +18,6 @@ import (
 	"k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	apiv1 "k8s.io/client-go/1.4/pkg/api/v1"
 	"strings"
-	"sync"
 )
 
 type StageQueueNew struct {
@@ -72,14 +71,14 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Status = http.StatusNotFound
 			buildReqbody.BuildStatus = common.STATUS_FAILED
 			glog.Errorf("%s %s %v\n", method, "Failed to find flow "+flowId+" Of "+namespace, err)
-			Send(buildReqbody, FlowMapping.FlowMap[flowId])
+			FlowMapping.Send(buildReqbody)
 			return queue
 		} else {
 			buildReqbody.Message = "Flow cannot be found"
 			buildReqbody.Status = http.StatusInternalServerError
 			buildReqbody.BuildStatus = common.STATUS_FAILED
 			glog.Errorf("%s %s %v\n", method, "Failed to find flow "+flowId+" Of "+namespace, err)
-			Send(buildReqbody, FlowMapping.FlowMap[flowId])
+			FlowMapping.Send(buildReqbody)
 			return queue
 		}
 	}
@@ -89,7 +88,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 		buildReqbody.Status = http.StatusNotFound
 		buildReqbody.BuildStatus = common.STATUS_FAILED
 		glog.Errorf("%s %s %v\n", method, "Failed to find flow "+flowId+" Of "+namespace, err)
-		Send(buildReqbody, FlowMapping.FlowMap[flowId])
+		FlowMapping.Send(buildReqbody)
 		return queue
 	}
 
@@ -108,14 +107,14 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 				buildReqbody.Message = "not found the stage!"
 				buildReqbody.Status = http.StatusNotFound
 				buildReqbody.BuildStatus = common.STATUS_FAILED
-				Send(buildReqbody, FlowMapping.FlowMap[flowId])
+				FlowMapping.Send(buildReqbody)
 				glog.Errorf("%s %s %v\n", method, "Failed to find stage "+stageId+" Of "+namespace, err)
 				return queue
 			} else {
 				buildReqbody.Message = "stage cannot be found"
 				buildReqbody.Status = http.StatusInternalServerError
 				buildReqbody.BuildStatus = common.STATUS_FAILED
-				Send(buildReqbody, FlowMapping.FlowMap[flowId])
+				FlowMapping.Send(buildReqbody)
 				glog.Errorf("%s %s %v\n", method, "Failed to find stage "+stageId+" Of "+namespace, err)
 				return queue
 			}
@@ -125,7 +124,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "not found the stage!"
 			buildReqbody.Status = http.StatusNotFound
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, FlowMapping.FlowMap[flowId])
+			FlowMapping.Send(buildReqbody)
 			glog.Errorf("%s %s %v\n", method, "Failed to find stage "+stageId+" Of "+namespace, err)
 			return queue
 		}
@@ -135,7 +134,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "Stage does not belong to Flow!"
 			buildReqbody.Status = http.StatusBadRequest
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, FlowMapping.FlowMap[flowId])
+			FlowMapping.Send(buildReqbody)
 			return queue
 		}
 		stages, _, err := stageServer.FindAllFlowByFlowId(flowId)
@@ -144,7 +143,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "not find the stage of flow " + flowId
 			buildReqbody.Status = http.StatusBadRequest
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, FlowMapping.FlowMap[flowId])
+			FlowMapping.Send(buildReqbody)
 			return queue
 		}
 		stageList = append(stageList, stage)
@@ -163,7 +162,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			buildReqbody.Message = "not find the stage of flow " + flowId
 			buildReqbody.Status = http.StatusBadRequest
 			buildReqbody.BuildStatus = common.STATUS_FAILED
-			Send(buildReqbody, FlowMapping.FlowMap[flowId])
+			FlowMapping.Send(buildReqbody)
 			return queue
 		}
 		queue.TotalStage = total
@@ -240,83 +239,35 @@ func (queue *StageQueueNew) InsertLog() error {
 	return nil
 }
 
-func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiStages, options BuildStageOptions) int {
+func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiStages) int {
 
 	method := "StageQueueNew/WaitForBuildToComplete"
 
-	registryConfig := common.HarborServerUrl
-
-	glog.Infof("%s HarborServerUrl=[%s]\n", method, registryConfig)
-
 	pod := apiv1.Pod{}
-	var timeout bool
 	var err error
 	var errMsg string
 
-	var wg sync.WaitGroup
-	resultChan := make(chan bool, 1)
-	wg.Add(1)
-	go func() {
-		// 设置3分钟超时，如无法创建container则自动停止构建
-		pod, timeout, err = HandleWaitTimeout(job, queue.ImageBuilder, queue.StageBuildLog.BuildId)
-		if err != nil {
-			glog.Errorf("%s HandleWaitTimeout get: %v\n", method, err)
-		}
-		resultChan <- false
-		//检查是否超时
-		select {
-		case <-time.After(2 * time.Minute):
-			wg.Done()
-			glog.Infof("Kubernetes Job start timeout:%v\n", timeout)
-		case <-resultChan:
-			wg.Done()
-			glog.Infof("Kubernetes Job not timeout:%v\n", timeout)
-		}
-
-	}()
-	wg.Wait()
-
-	jobWatch := queue.WatchJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
-
-	if len(jobWatch.Status.Conditions) != 0 {
-		if jobWatch.Status.Conditions[0].Status == apiv1.ConditionUnknown {
-			glog.Warningf("%s Waiting for job failed, try again %#v\n", method, jobWatch)
-			jobWatch = queue.WatchJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
-		}
-	}
-
-	if jobWatch == nil {
-		detail := &EmailDetail{
-			Type:    "ci",
-			Result:  "failed",
-			Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
-			Body:    "发生未知错误，构建失败",
-		}
-		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
-		return common.STATUS_FAILED
-	}
-
 	statusCode := 1
 	//手动停止
-	if jobWatch.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
+	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
 		glog.Infof("用户停止job:Run job forced stop:%v\n", "")
 		statusCode = 1
-	} else if jobWatch.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "0" {
+	} else if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "0" {
 		glog.Infof("程序停止job:Run job forced stop:%v\n", "")
 		statusCode = 1
-	} else if len(jobWatch.Status.Conditions) != 0 {
-		if jobWatch.Status.Failed > 0 {
+	} else if len(job.Status.Conditions) != 0 {
+		if job.Status.Failed > 0 {
 			glog.Infof("Run job failed:%v\n", job.Status)
 			//执行失败
 			statusCode = 1
-		} else if jobWatch.Status.Succeeded > 0 {
+		} else if job.Status.Succeeded > 0 {
 			//执行成功
 			glog.Infof("Run job success:%v\n", job.Status)
 			statusCode = 0
 		}
 	}
 
-	glog.Infof("%s Wait ended normally... and the job status: %#v\n", method, jobWatch.Status)
+	glog.Infof("%s Wait ended normally... and the job status: %#v\n", method, job.Status)
 
 	queue.StageBuildLog.EndTime = time.Now()
 
@@ -355,7 +306,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 			}
 		} else {
 
-			glog.Errorf("%s Failed to get a pod of job:%s\n", method, jobWatch.ObjectMeta.Name)
+			glog.Errorf("%s Failed to get a pod of jobName:%s,podName=%s\n", method, job.ObjectMeta.Name,pod.GetName())
 		}
 
 	}
@@ -398,7 +349,6 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 				glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)
 				return http.StatusInternalServerError
 			}
-			glog.Infof("=======================>>update result:%d\n", res)
 
 		}
 		glog.Infof(errMsg)
@@ -418,7 +368,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 	glog.Warningf("%s 构建失败 Will Stop job: %s\n", method, job.ObjectMeta.Name)
 	//执行失败时，终止job
 
-	if jobWatch.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "0" {
+	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "0" {
 		glog.Infof("stop the run failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
 		//不是手动停止
 		errMsg = "构建任务异常,已停止构建，请稍后重试"
@@ -427,14 +377,12 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 			glog.Errorf("%s Stop the job %s failed: %v\n", method, job.ObjectMeta.Name, err)
 		}
 	}
-	if jobWatch.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
+	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
 		glog.Infof("构建流程被用户手动停止")
 		errMsg = "构建流程被用户手动停止"
 	}
 
-	if timeout {
-		errMsg = fmt.Sprintf("%s构建任务启动超时", stage.StageName)
-	}
+
 	glog.Infof("执行失败 Will Update State build PodName=====%d\n", queue.StageBuildLog.PodName)
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {
@@ -453,9 +401,6 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		Body:    fmt.Sprintf(`%s <br/>请点击<a href="%s?%s">此处</a>查看EnnFlow详情.`, errMsg, common.FlowDetailUrl, stage.FlowId),
 	}
 	detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
-
-	glog.Infof("%s kubernetes run the job failed:%s\n", method, errMsg)
-
 	return common.STATUS_FAILED
 
 }
@@ -508,7 +453,7 @@ func (queue *StageQueueNew) UpdateStageBuidLogId() error {
 	method := "UpdateStageBuidLogId"
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {
-		glog.Infof("%s kubernetes run the job failed:%v,result:%d\n", method, err, res)
+		glog.Infof("%s UpdateStageBuidLogId:%v,result:%d\n", method, err, res)
 		return err
 	}
 	return nil
@@ -829,6 +774,11 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		}
 
 	}
+
+	if buildWithDependency {
+		return common.STATUS_FAILED
+	}
+
 	//仓库类型
 	depot := project.RepoType
 	// For private svn repository
@@ -933,9 +883,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		buildInfo.BUILD_INFO_TYPE = 2 //显示没有下一个stage
 	}
 
-	//buildCluster = "CID-f794208bc85f"
 	glog.Infoln("buildCluster===================", buildCluster)
-	//queue.ImageBuilder = models.NewImageBuilder(buildCluster)
+	queue.ImageBuilder = models.NewImageBuilder(buildCluster)
 
 	//构建job的参数以及执行job命令
 	job, err := queue.ImageBuilder.BuildImage(buildInfo, volumeMapping, common.HarborServerUrl)
@@ -970,6 +919,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		if err != nil {
 			glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
 		}
+
 		ennFlow.Status = http.StatusOK
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = fmt.Sprintf("构建任务%s失败\n", stage.StageName)
@@ -980,51 +930,28 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.Flag = 2
 		queue.SetFailedStatus()
 		EnnFlowChan <- ennFlow
+
+		detail := &EmailDetail{
+			Type:    "ci",
+			Result:  "failed",
+			Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
+			Body:    "发生未知错误，构建失败",
+		}
+		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
+
 		return common.STATUS_FAILED
-
 	}
 
-	queue.StageBuildLog.JobName = job.ObjectMeta.Name
+	queue.WatchPod(job.ObjectMeta.Namespace, job.ObjectMeta.Name, stage)
 
-	pod, err := queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
-		job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
-	if err != nil {
-		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
-		//stageBuildResp.Message = "get pod failed from kubernetes"
+	job, err = queue.ImageBuilder.GetJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
+	if err != nil || job == nil {
+		glog.Errorf("%s, get job from kubernetes failed:%v\n", method, err)
+		return common.STATUS_FAILED
 	}
 
-	queue.StageBuildLog.PodName = pod.ObjectMeta.Name
-	queue.StageBuildLog.NodeName = pod.Spec.NodeName
-
-	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
-	if err != nil {
-		glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
-	}
-
-	//jobdata, _ := json.Marshal(job)
-	//glog.Infof("%s build images job=%v\n", method, string(jobdata))
-	var options BuildStageOptions
-	options.BuildWithDependency = buildWithDependency
-	options.FlowOwner = queue.CiFlow.Owner
-	options.ImageName = buildInfo.TargetImage.Image
-	options.UseCustomRegistry = false //不是客户的镜像仓库
-	queue.StageBuildLog.JobName = job.ObjectMeta.Name
-	queue.StageBuildLog.Namespace = job.ObjectMeta.Namespace
-	//等待构建完成
-	status := queue.WaitForBuildToComplete(job, stage, options)
-	pod, err = queue.ImageBuilder.GetPod(job.ObjectMeta.Namespace,
-		job.ObjectMeta.Name, queue.StageBuildLog.BuildId)
-	if err != nil {
-		glog.Errorf("%s get pod info of %s from kubernetes failed:%v\n", method, job.ObjectMeta.Name, err)
-		//stageBuildResp.Message = "get pod failed from kubernetes"
-	}
-
-	queue.StageBuildLog.PodName = pod.ObjectMeta.Name
-	queue.StageBuildLog.NodeName = pod.Spec.NodeName
-	res, err = models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
-	if err != nil {
-		glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
-	}
+	status := queue.WaitForBuildToComplete(job, stage)
+	glog.Infof("status=========================status=%d\n",status)
 	if status >= common.STATUS_FAILED {
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK
@@ -1107,9 +1034,6 @@ func (queue *StageQueueNew) Run() {
 						glog.Errorf("%s, update result=%d,err:%v\n", method, res, err)
 					}
 				}
-
-				models.NewCiStageBuildLogs().UpdateStageBuildNodeById(queue.StageBuildLog.NodeName,
-					queue.StageBuildLog.BuildId)
 
 				if index == (queue.LengthOfStage() - 1) {
 					//通知EnnFlow 成功构建

@@ -5,7 +5,6 @@ import (
 	"dev-flows-api-golang/modules/client"
 	"github.com/astaxie/beego/context"
 	"github.com/golang/glog"
-	k8sWatch "k8s.io/client-go/1.4/pkg/watch"
 	"io"
 	//"text/template"
 	"fmt"
@@ -556,258 +555,6 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...s
 
 }
 
-func (builder *ImageBuilder) WaitForJob(namespace, jobName string, buildWithDependency bool) StatusMessage {
-	var statusMessage StatusMessage
-	method := "models/ImageBuilder/WaitForJob"
-	job, err := builder.Client.BatchClient.Jobs(namespace).Get(jobName)
-	if err != nil {
-		glog.Errorf("%s get job %s from kubernetes failed:%v\n", method, jobName, err)
-		statusMessage.Phase = PodUnknown
-		statusMessage.JobStatus.Succeeded = 0
-		statusMessage.JobStatus.Failed = 0
-		statusMessage.JobStatus.Active = 0
-		statusMessage.JobStatus.Status = ConditionUnknown
-		statusMessage.JobStatus.JobConditionType = JobFailed
-		statusMessage.JobStatus.Message = "get job failed"
-		statusMessage.JobStatus.Reason = "get job failed"
-		return statusMessage
-	}
-
-	if job == nil {
-		glog.Errorf("%s %s \n", method, "cannot found "+jobName+"job of the namespace="+namespace)
-		statusMessage.Phase = PodFailed
-		statusMessage.JobStatus.Succeeded = 0
-		statusMessage.JobStatus.Failed = 0
-		statusMessage.JobStatus.Active = 0
-		statusMessage.JobStatus.Status = ConditionUnknown
-		statusMessage.JobStatus.JobConditionType = JobFailed
-		statusMessage.JobStatus.Message = "get job failed"
-		statusMessage.JobStatus.Reason = "get job failed"
-		return statusMessage
-	}
-
-	//if buildWithDependency {
-	//	status, err := builder.WatchPod(namespace, jobName)
-	//	if err != nil {
-	//		glog.Errorf("%s %s \n", method, " WatchPod of the "+jobName+" job's namespace="+namespace)
-	//		statusMessage.Unknown = 1
-	//		return statusMessage
-	//	}
-	//
-	//	jobInfo, err := builder.GetJob(namespace, jobName)
-	//	if err != nil {
-	//		glog.Errorf("%s get job %s failed:%v\n", method, jobName, err)
-	//	}
-	//
-	//	if jobInfo.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] != "true" {
-	//		//如果为手动停止，在结果中添加标记
-	//		status.ForcedStop = true
-	//	} else if status.Succeeded > 0 {
-	//		//如果未停止且成功，则自动停止job
-	//		//执行失败时，外层调用会负责停止job
-	//		_, err := builder.StopJob(namespace, jobName, true, status.Succeeded)
-	//		if err != nil {
-	//			glog.Errorf("%s stop job failed:%v\n", method, err)
-	//		}
-	//	}
-	//
-	//	return status
-	//}
-
-	WatchRespData, err := builder.WatchJob(namespace, jobName)
-	if err != nil {
-		glog.Errorf("%s WatchJob failed:%v\n", method, err)
-	}
-
-	glog.Infof("WatchJob result:%#v\n", WatchRespData)
-
-	statusMessage.JobStatus = WatchRespData
-	return statusMessage
-}
-
-// These are the valid statuses of pods.
-const (
-	// PodPending means the pod has been accepted by the system, but one or more of the containers
-	// has not been started. This includes time before being bound to a node, as well as time spent
-	// pulling images onto the host.
-	PodPending string = "Pending"
-	// PodRunning means the pod has been bound to a node and all of the containers have been started.
-	// At least one container is still running or is in the process of being restarted.
-	PodRunning string = "Running"
-	// PodSucceeded means that all containers in the pod have voluntarily terminated
-	// with a container exit code of 0, and the system is not going to restart any of these containers.
-	PodSucceeded string = "Succeeded"
-	// PodFailed means that all containers in the pod have terminated, and at least one container has
-	// terminated in a failure (exited with a non-zero exit code or was stopped by the system).
-	PodFailed string = "Failed"
-	// PodUnknown means that for some reason the state of the pod could not be obtained, typically due
-	// to an error in communicating with the host of the pod.
-	PodUnknown string = "Unknown"
-)
-
-// These are valid conditions of pod.
-const (
-	// PodScheduled represents status of the scheduling process for this pod.
-	PodScheduled string = "PodScheduled"
-	// PodReady means the pod is able to service requests and should be added to the
-	// load balancing pools of all matching services.
-	PodReady string = "Ready"
-	// PodInitialized means that all init containers in the pod have started successfully.
-	PodInitialized string = "Initialized"
-	// PodReasonUnschedulable reason in PodScheduled PodCondition means that the scheduler
-	// can't schedule the pod right now, for example due to insufficient resources in the cluster.
-	PodReasonUnschedulable string = "Unschedulable"
-
-	ConTainerStatusRunning    string = "Running"
-	ConTainerStatusWaiting    string = "Waiting"
-	ConTainerStatusTerminated string = "Terminated"
-	ConTainerStatusError      string = "Error"
-)
-
-type StatusMessage struct {
-	Type string `json:"type" protobuf:"bytes,1,opt,name=type,casttype=PodConditionType"`
-	// Status is the status of the condition.
-	// Can be True, False, Unknown.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
-	Status string `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
-	// Last time we probed the condition. Pending
-	Phase   string
-	Message string `json:"message,omitempty" protobuf:"bytes,3,opt,name=message"`
-	// A brief CamelCase message indicating details about why the pod is in this state.
-	// e.g. 'OutOfDisk'
-	// +optional
-	Reason    string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
-	JobStatus WatchJobRespData //job的状态
-}
-
-type PodStatus struct {
-	//PodScheduled Ready  Initialized Unschedulable
-	Type string `json:"type" protobuf:"bytes,1,opt,name=type,casttype=PodConditionType"`
-	// Status is the status of the condition.
-	// Can be True, False, Unknown.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
-	Status string `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
-	//  Pending Running  Succeeded Failed Unknown
-	Phase   string
-	Message string `json:"message,omitempty" protobuf:"bytes,3,opt,name=message"`
-	// A brief CamelCase message indicating details about why the pod is in this state.
-	// e.g. 'OutOfDisk'
-	// +optional
-	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
-	//容器状态
-	ContainerStatuses     string
-	InitContainerStatuses string
-}
-
-func (builder *ImageBuilder) WatchPod(namespace, jobName string) (PodStatus, error) {
-	method := "WatchPod"
-	var status PodStatus
-	labelsStr := fmt.Sprintf("job-name=%s", jobName)
-	labelSelector, err := labels.Parse(labelsStr)
-	if err != nil {
-		glog.Errorf("%s label parse failed: %v\n", method, err)
-		status.Phase = PodUnknown
-		status.Message = "label Parse failed"
-		status.Reason = "label Parse failed"
-		status.Type = PodReasonUnschedulable
-		status.Status = ConditionUnknown
-		return status, err
-	}
-
-	podName := ""
-	listOptions := api.ListOptions{
-		LabelSelector: labelSelector,
-		Watch:         true,
-	}
-	// 请求watch api监听pod发生的事件
-	watchInterface, err := builder.Client.Pods(namespace).Watch(listOptions)
-	if err != nil {
-		glog.Errorf("%s get pod watchInterface failed: %v\n", method, err)
-		status.Phase = PodUnknown
-		status.Message = "get pod watchInterface failed"
-		status.Reason = "get pod watchInterface failed"
-		status.Type = PodReasonUnschedulable
-		status.Status = ConditionUnknown
-		return status, err
-	}
-
-	for {
-		select {
-		case event, isOpen := <-watchInterface.ResultChan():
-			if !isOpen {
-				glog.Warningf("the pod watch the chan is closed\n")
-				status.Phase = PodUnknown
-				status.Message = "the pod watch the chan is closed"
-				status.Reason = "the pod watch the chan is closed"
-				status.Type = PodReasonUnschedulable
-				status.Status = ConditionUnknown
-				break
-			}
-			glog.Infof("The pod event type=%s\n", event.Type)
-			pod, parseIsOk := event.Object.(*apiv1.Pod)
-			if !parseIsOk {
-				glog.Errorf("get pod event failed:断言失败\n")
-				status.Phase = PodUnknown
-				status.Message = "get pod event failed 断言失败"
-				status.Reason = "get pod event failed 断言失败"
-				status.Type = PodReasonUnschedulable
-				status.Status = ConditionUnknown
-				continue
-			}
-			//保存首次收到的事件所属的pod名称
-			if podName == "" {
-				podName = pod.ObjectMeta.Name
-			} else if pod.ObjectMeta.Name != podName {
-				//收到其他pod事件时不处理
-				continue
-			}
-
-			if event.Type == k8sWatch.Deleted {
-				glog.Errorf("%s pod of job %s is deleted with final status: %#v\n", method, jobName, pod.Status)
-				//收到deleted事件，pod可能被删除
-				ContainerStatus := TranslatePodStatus(pod.Status)
-				status.ContainerStatuses = ContainerStatus.ContainerStatuses
-				status.InitContainerStatuses = ContainerStatus.InitContainerStatuses
-				status.Phase = PodFailed
-				break
-			} else if len(pod.Status.ContainerStatuses) > 0 {
-				glog.Infof("%s get pod failed %v\n", method, pod.Status)
-				//存在containerStatuses时
-				ContainerStatus := TranslatePodStatus(pod.Status)
-				status.ContainerStatuses = ContainerStatus.ContainerStatuses
-				status.InitContainerStatuses = ContainerStatus.InitContainerStatuses
-				status.Phase = string(pod.Status.Phase)
-
-			}
-			if event.Type == k8sWatch.Error {
-				glog.Errorf("%s %s %v\n", method, "call watch api of pod of "+jobName+" error:", event.Object)
-				continue
-			}
-			//成功
-			if pod.Status.Phase == apiv1.PodSucceeded {
-				status.Phase = PodSucceeded
-				status.Message = fmt.Sprintf("pod执行成功:%s", pod.Status.Message)
-				status.Reason = fmt.Sprintf("pod执行成功:%s", pod.Status.Reason)
-				status.Type = fmt.Sprintf("%s", pod.Status.Conditions)
-				status.Status = fmt.Sprintf("%s", pod.Status.Conditions)
-				break
-			} else if pod.Status.Phase == apiv1.PodFailed {
-				//创建失败
-				status.Phase = PodFailed
-				status.Message = fmt.Sprintf("pod执行失败:%s", pod.Status.Message)
-				status.Reason = fmt.Sprintf("pod执行失败:%s", pod.Status.Reason)
-				status.Type = fmt.Sprintf("%s", pod.Status.Conditions)
-				status.Status = fmt.Sprintf("%s", pod.Status.Conditions)
-				break
-			}
-
-		}
-
-	}
-
-	return status, nil
-
-}
 
 func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socketio.Socket) {
 	if podName == "" {
@@ -879,7 +626,7 @@ func (builder *ImageBuilder) EventToLog(event apiv1.Event) string {
 }
 
 // 根据builder container的状态返回job状态 主要是获取容器的状态 scm container status
-func TranslatePodStatus(status apiv1.PodStatus) (statusMess PodStatus) {
+func TranslatePodStatus(status apiv1.PodStatus)  {
 	method := "TranslatePodStatus"
 	//获取SCM 容器的状态
 	if len(status.InitContainerStatuses) != 0 {
@@ -887,16 +634,12 @@ func TranslatePodStatus(status apiv1.PodStatus) (statusMess PodStatus) {
 			if SCM_CONTAINER_NAME == s.Name {
 				if s.State.Running != nil {
 					glog.Infof("method=%s,Message=The scm container is still running [%s]\n", method, s.State.Running)
-					statusMess.InitContainerStatuses = ConTainerStatusRunning
 				}
 				if s.State.Waiting != nil {
 					glog.Infof("method=%s,Message=The scm container is still waiting [%s]\n", method, s.State.Waiting)
-					statusMess.InitContainerStatuses = ConTainerStatusWaiting
 				}
 				if s.State.Terminated != nil {
-					statusMess.InitContainerStatuses = ConTainerStatusTerminated
 					if s.State.Terminated.ExitCode != 0 {
-						statusMess.ContainerStatuses = ConTainerStatusError
 					}
 					glog.Infof("method=%s,Message=The scm container is exit abnormally [%s]\n", method, s.State.Terminated)
 
@@ -911,18 +654,18 @@ func TranslatePodStatus(status apiv1.PodStatus) (statusMess PodStatus) {
 			if BUILDER_CONTAINER_NAME == s.Name {
 				if s.State.Running != nil {
 					glog.Infof("method=%s,Message=The builder container is still running [%s]\n", method, s.State.Running)
-					statusMess.ContainerStatuses = ConTainerStatusRunning
+					//statusMess.ContainerStatuses = ConTainerStatusRunning
 
 				}
 				if s.State.Waiting != nil {
 					glog.Infof("method=%s,Message=The builder container is still waiting [%s]\n", method, s.State.Waiting)
-					statusMess.ContainerStatuses = ConTainerStatusWaiting
+					//statusMess.ContainerStatuses = ConTainerStatusWaiting
 
 				}
 				if s.State.Terminated != nil {
-					statusMess.ContainerStatuses = ConTainerStatusTerminated
+					//statusMess.ContainerStatuses = ConTainerStatusTerminated
 					if s.State.Terminated.ExitCode != 0 {
-						statusMess.ContainerStatuses = ConTainerStatusError
+						//statusMess.ContainerStatuses = ConTainerStatusError
 					}
 					glog.Infof("method=%s,Message=The builder container is exit abnormally [%s]\n", method, s.State.Terminated)
 
@@ -932,30 +675,6 @@ func TranslatePodStatus(status apiv1.PodStatus) (statusMess PodStatus) {
 		}
 	}
 	return
-}
-
-type WatchJobRespData struct {
-	// JobComplete means the job has = "Complete"  has = "Failed" completed its execution.
-	JobConditionType string
-	// Status of the condition, one of True, False, Unknown.
-	Status string
-	// The number of actively running pods.
-	// +optional
-	Active int32 `json:"active,omitempty" protobuf:"varint,4,opt,name=active"`
-	// (brief) reason for the condition's last transition.
-	// +optional
-	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
-	// Human readable message indicating details about last transition.
-	// +optional
-	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
-	// The number of pods which reached phase Succeeded.
-	// +optional
-	Succeeded int32 `json:"succeeded,omitempty" protobuf:"varint,5,opt,name=succeeded"`
-
-	// The number of pods which reached phase Failed.
-	// +optional
-	Failed     int32 `json:"failed,omitempty" protobuf:"varint,6,opt,name=failed"`
-	ForcedStop bool `json:"forcedStop"` //用来标识是否被强制停止
 }
 
 const (
@@ -970,174 +689,6 @@ const (
 	JobFailed string = "Failed"
 )
 
-// WatchJob  watch  the job event
-func (builder *ImageBuilder) WatchJob(namespace, jobName string) (WatchJobRespData, error) {
-	method := "WatchJob"
-	var watchRespData WatchJobRespData
-
-	glog.Infof("%s begin watch job jobName=[%s]  namespace=[%s]\n", method, jobName, namespace)
-	opts := api.ListOptions{
-		Watch: true,
-	}
-
-	watchInterface, err := builder.Client.BatchClient.Jobs(namespace).Watch(opts)
-	if err != nil {
-		glog.Errorf("%s  %s\n", method, ">>>>>>断言失败<<<<<<")
-		watchRespData.Succeeded = 0
-		watchRespData.Failed = 1
-		watchRespData.Active = 0
-		watchRespData.Status = ConditionUnknown
-		watchRespData.JobConditionType = JobFailed
-		watchRespData.Message = "get job watchInterface failed"
-		watchRespData.Reason = "get job watchInterface failed"
-		return watchRespData, err
-	}
-
-	for {
-		select {
-		case event, isOpen := <-watchInterface.ResultChan():
-			if isOpen == false {
-				glog.Errorf("%s the watch job chain is close\n", method)
-				watchRespData.Succeeded = 0
-				watchRespData.Failed = 1
-				watchRespData.Active = 0
-				watchRespData.Status = ConditionUnknown
-				watchRespData.JobConditionType = JobFailed
-				watchRespData.Message = " the watch job chain is close"
-				watchRespData.Reason = " the watch job chain is close"
-				return watchRespData, fmt.Errorf("%s the job watch chain is close", method)
-			}
-			dm, parseIsOk := event.Object.(*v1beta1.Job)
-			if false == parseIsOk {
-				glog.Errorf("%s job %s\n", method, ">>>>>>断言失败<<<<<<")
-				watchRespData.Succeeded = 0
-				watchRespData.Failed = 1
-				watchRespData.Active = 0
-				watchRespData.Status = ConditionUnknown
-				watchRespData.JobConditionType = JobFailed
-				watchRespData.Message = "event job 断言 failed"
-				watchRespData.Reason = "event job 断言 failed"
-				return watchRespData, fmt.Errorf(">>>>>>断言失败<<<<<<")
-			}
-
-			glog.Infof("%s job event.Type=%s\n", method, event.Type)
-			glog.Infof("%s job event.Status=%#v\n", method, dm.Status)
-
-			if dm.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" {
-				watchRespData.ForcedStop = true
-
-			}
-			if event.Type == k8sWatch.Added {
-				//收到deleted事件，job可能被第三方删除
-				glog.Infof("%s  %s\n", method, " 收到Add事件")
-				watchRespData.Succeeded = dm.Status.Succeeded
-				watchRespData.Failed = dm.Status.Failed
-				watchRespData.Active = dm.Status.Active
-				if len(dm.Status.Conditions) != 0 {
-					watchRespData.Status = string(dm.Status.Conditions[0].Status)
-					watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
-					watchRespData.Message = dm.Status.Conditions[0].Message
-					watchRespData.Reason = dm.Status.Conditions[0].Reason
-				} else {
-					watchRespData.Status = ConditionUnknown
-					watchRespData.JobConditionType = JobFailed
-					watchRespData.Message = "收到add事件"
-					watchRespData.Reason = "收到add事件"
-				}
-				//成功时并且已经完成时
-			} else if event.Type == k8sWatch.Deleted {
-				//收到deleted事件，job可能被第三方删除
-				glog.Errorf("%s  %s\n", method, " 收到deleted事件，job可能被第三方删除")
-				watchRespData.Succeeded = dm.Status.Succeeded
-				watchRespData.Failed = dm.Status.Failed
-				watchRespData.Active = dm.Status.Active
-				if len(dm.Status.Conditions) != 0 {
-					watchRespData.Status = string(dm.Status.Conditions[0].Status)
-					watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
-					watchRespData.Message = dm.Status.Conditions[0].Message
-					watchRespData.Reason = dm.Status.Conditions[0].Reason
-				} else {
-					watchRespData.Status = ConditionUnknown
-					watchRespData.JobConditionType = JobFailed
-					watchRespData.Message = "收到deleted事件，job可能被第三方删除"
-					watchRespData.Reason = "收到deleted事件，job可能被第三方删除"
-				}
-				return watchRespData, fmt.Errorf("收到deleted事件，job可能被第三方删除")
-				//成功时并且已经完成时
-			} else if dm.Status.Succeeded >= 1 &&
-				dm.Status.CompletionTime != nil && len(dm.Status.Conditions) != 0 {
-
-				//job执行成功
-				glog.Infof("%s the job [%s] run success\n", method, jobName)
-				watchRespData.Succeeded = dm.Status.Succeeded
-				watchRespData.Failed = dm.Status.Failed
-				watchRespData.Active = dm.Status.Active
-				if len(dm.Status.Conditions) != 0 {
-					watchRespData.Status = string(dm.Status.Conditions[0].Status)
-					watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
-					watchRespData.Message = dm.Status.Conditions[0].Message
-					watchRespData.Reason = dm.Status.Conditions[0].Reason
-				}
-
-				return watchRespData, nil
-				//} else if dm.Status.Failed >=1 && dm.Spec.Completions == Int32Toint32Point(1) &&
-				//	dm.Status.CompletionTime == nil && dm.Status.Succeeded==0{
-			} else if dm.Status.Failed >= 1 {
-				watchRespData.Succeeded = dm.Status.Succeeded
-				watchRespData.Failed = dm.Status.Failed
-				watchRespData.Active = dm.Status.Active
-				//job执行失败
-				glog.Warningf("%s the job [%s] run failed\n", method, jobName)
-				if len(dm.Status.Conditions) != 0 {
-					watchRespData.Status = string(dm.Status.Conditions[0].Status)
-					watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
-					watchRespData.Message = dm.Status.Conditions[0].Message
-					watchRespData.Reason = dm.Status.Conditions[0].Reason
-				}
-				return watchRespData, fmt.Errorf("job run failed")
-				//手动停止job
-			} else if dm.Spec.Parallelism == Int32Toint32Point(0) {
-				watchRespData.ForcedStop = true
-				//有依赖服务，停止job时 不是手动停止 1 表示手动停止
-				if dm.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
-					watchRespData.Succeeded = dm.Status.Succeeded
-					watchRespData.Failed = dm.Status.Failed
-					watchRespData.Active = dm.Status.Active
-					//job停止成功
-					if len(dm.Status.Conditions) != 0 {
-						watchRespData.Status = string(dm.Status.Conditions[0].Status)
-						watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
-						watchRespData.Message = dm.Status.Conditions[0].Message
-						watchRespData.Reason = dm.Status.Conditions[0].Reason
-					} else {
-						watchRespData.Status = ConditionUnknown
-						watchRespData.JobConditionType = JobFailed
-						watchRespData.Message = "停止job成功"
-						watchRespData.Reason = "停止job成功"
-					}
-					return watchRespData, fmt.Errorf("用户停止了构建任务")
-					//没有依赖服务时
-				} else {
-					if len(dm.Status.Conditions) != 0 {
-						watchRespData.Status = string(dm.Status.Conditions[0].Status)
-						watchRespData.JobConditionType = string(dm.Status.Conditions[0].Type)
-						watchRespData.Message = dm.Status.Conditions[0].Message
-						watchRespData.Reason = dm.Status.Conditions[0].Reason
-					} else {
-						watchRespData.Status = ConditionUnknown
-						watchRespData.JobConditionType = JobFailed
-						watchRespData.Message = "停止job成功"
-						watchRespData.Reason = "停止job成功"
-					}
-					return watchRespData, fmt.Errorf("job执行失败程序发送了停止构建任务的命令")
-				}
-			}
-
-		}
-	}
-	return watchRespData, nil
-
-}
 
 func Int64Toint64Point(input int64) *int64 {
 	tmp := new(int64)

@@ -265,7 +265,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						ennFlow.FlowBuildId = stagequeue.FlowbuildLog.BuildId
 						ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 						ennFlow.Flag = 1
-						Send(ennFlow, FlowMapping.FlowMap[stage.FlowId])
+						FlowMapping.Send(ennFlow)
 						continue
 					} else {
 						ennFlow.Message = "找不到对应的EnnFlow"
@@ -274,7 +274,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						ennFlow.FlowBuildId = stagequeue.FlowbuildLog.BuildId
 						ennFlow.StageBuildId = stagequeue.StageBuildLog.BuildId
 						ennFlow.Flag = 1
-						Send(ennFlow, FlowMapping.FlowMap[stage.FlowId])
+						FlowMapping.Send(ennFlow)
 						continue
 					}
 				}

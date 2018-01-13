@@ -1441,7 +1441,7 @@ func (cf *CiFlowsController) StopBuild() {
 		ennFlow.StageBuildId = buildId
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = "停止失败"
-		Send(ennFlow, FlowMapping.FlowMap[flowId])
+		FlowMapping.Send(ennFlow)
 		_, err = models.NewCiFlowBuildLogs().UpdateById(time.Now(), common.STATUS_FAILED, flowBuildId)
 		if err != nil {
 			glog.Errorf("%s update flowBuild log failed: %v \n", method, err)
@@ -1498,7 +1498,7 @@ func (cf *CiFlowsController) StopBuild() {
 		ennFlow.StageBuildId = buildId
 		ennFlow.BuildStatus = common.STATUS_FAILED
 		ennFlow.Message = "停止任务成功"
-		Send(ennFlow,  FlowMapping.FlowMap[flowId])
+		FlowMapping.Send(ennFlow)
 		_, err = models.NewCiStageBuildLogs().UpdateBuildLogById(buildRec, build.BuildId)
 		if err != nil {
 			glog.Errorf("%s update stage build status failed : err:%v \n", method, err)
