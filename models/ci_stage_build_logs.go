@@ -49,7 +49,6 @@ func (ci *CiStageBuildLogs) UpdateById(build CiStageBuildLogs, buildId string, o
 	} else {
 		o = orms[0]
 	}
-	glog.Infof("UpdateById==============>>build nodeName=%s,buildId=%s\n", build.NodeName, buildId)
 
 	updateResult, err = o.QueryTable(ci.TableName()).
 		Filter("build_id", buildId).Update(orm.Params{

@@ -555,6 +555,44 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...s
 
 }
 
+func (builder *ImageBuilder) GetPodByPodName(namespace, jobName, podName string, stageBuildId ...string) (apiv1.Pod, error) {
+	method := "ImageBuilder.GetPod"
+	var podList apiv1.Pod
+	labelsStr := ""
+	if len(stageBuildId) != 0 {
+		labelsStr = fmt.Sprintf("stage-build-id=%s", stageBuildId[0])
+	} else {
+		labelsStr = fmt.Sprintf("job-name=%s", jobName)
+	}
+
+	labelsSel, err := labels.Parse(labelsStr)
+
+	if err != nil {
+		return podList, err
+	}
+	listOptions := api.ListOptions{
+		LabelSelector: labelsSel,
+	}
+	pods, err := builder.Client.Pods(namespace).List(listOptions)
+	if err != nil {
+		glog.Errorf("%s get pod name failed:====> %v\n", method, err)
+		return podList, err
+	}
+
+	if len(pods.Items) == 0 {
+		return podList, fmt.Errorf("not found the pod")
+	}
+
+	for _, pod := range pods.Items {
+		if pod.GetName() == podName {
+			//优先获取失败状态的pod
+			return pod, nil
+		}
+
+	}
+	return pods.Items[0], nil
+
+}
 
 func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socketio.Socket) {
 	if podName == "" {
@@ -626,7 +664,7 @@ func (builder *ImageBuilder) EventToLog(event apiv1.Event) string {
 }
 
 // 根据builder container的状态返回job状态 主要是获取容器的状态 scm container status
-func TranslatePodStatus(status apiv1.PodStatus)  {
+func TranslatePodStatus(status apiv1.PodStatus) {
 	method := "TranslatePodStatus"
 	//获取SCM 容器的状态
 	if len(status.InitContainerStatuses) != 0 {
@@ -688,7 +726,6 @@ const (
 	// JobFailed means the job has failed its execution.
 	JobFailed string = "Failed"
 )
-
 
 func Int64Toint64Point(input int64) *int64 {
 	tmp := new(int64)

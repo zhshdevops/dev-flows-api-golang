@@ -47,7 +47,7 @@ type Conn struct {
 
 func init() {
 	FlowMapping = NewSocketsOfFlowMapping()
-	go WatchJob()
+	//go WatchJob()
 	go func() {
 		for {
 			select {
@@ -477,10 +477,10 @@ func Int32Toint32Point(input int32) *int32 {
 
 }
 
-func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiStages) {
+func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiStages) error {
 	method := "WatchPod"
 	var ennFlow EnnFlow
-	glog.Infof("===================begin watch job \n")
+	glog.Infof("Begin watch Pod \n")
 	ennFlow.Status = http.StatusOK
 	ennFlow.BuildStatus = common.STATUS_BUILDING
 	ennFlow.Message = fmt.Sprintf("构建任务%进行中\n", stage.StageName)
@@ -494,8 +494,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 	labelSelector, err := labels.Parse(labelsStr)
 	if err != nil {
 		glog.Errorf("%s label parse failed: %v\n", method, err)
-
-		return
+		return err
 	}
 
 	listOptions := api.ListOptions{
@@ -507,7 +506,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 	if err != nil {
 		glog.Errorf("%s get pod watchInterface failed: %v\n", method, err)
 		EnnFlowChan <- ennFlow
-		return
+		return err
 	}
 	podCount := 0
 	for {
@@ -516,30 +515,32 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 			if !isOpen {
 				glog.Errorf("the pod watch the chan is closed\n")
 				EnnFlowChan <- ennFlow
-				return
+				return fmt.Errorf("%s", "the pod watch the chan is closed")
 			}
 
-			glog.Infof("The pod event type=%s\n", event.Type)
 			pod, parseIsOk := event.Object.(*v1.Pod)
 			if !parseIsOk {
 				continue
 			}
-			glog.Infof("%s pod of job %s is Modified with final status: %#v\n", method, jobName, pod.GetName())
 
-			//保存首次收到的事件所属的pod名称
+			glog.Infof("%s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
+
 			if event.Type == watch.Added {
 				if podCount >= 1 {
 					queue.ImageBuilder.StopJob(namespace, jobName, false, 0)
-					break
+					return nil
 				}
 				podCount = podCount + 1
 				if pod.ObjectMeta.Name != "" {
 					queue.StageBuildLog.PodName = pod.ObjectMeta.Name
 					queue.StageBuildLog.NodeName = pod.Spec.NodeName
 					queue.StageBuildLog.JobName = jobName
+					queue.StageBuildLog.Status = common.STATUS_BUILDING
 				}
 				queue.UpdateStageBuidLogId()
-				glog.Infof("%s pod of job %s is add with final status: %#v\n", method, jobName, pod.Status)
+				glog.Infof("%s pod of job %s is add with final status podName: %#v\n", method, jobName, pod.Status, pod.GetName())
+				EnnFlowChan <- ennFlow
+
 				continue
 			} else if event.Type == watch.Modified {
 
@@ -550,56 +551,138 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
 						queue.StageBuildLog.NodeName = pod.Spec.NodeName
 						queue.StageBuildLog.JobName = jobName
+						queue.StageBuildLog.Status = common.STATUS_BUILDING
 					}
 
 					queue.UpdateStageBuidLogId()
 					EnnFlowChan <- ennFlow
-					return
+					return nil
 				} else if pod.Status.Phase == v1.PodFailed {
-					//创建失败
 					if pod.ObjectMeta.Name != "" {
 						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
 						queue.StageBuildLog.NodeName = pod.Spec.NodeName
 						queue.StageBuildLog.JobName = jobName
+						queue.StageBuildLog.Status = common.STATUS_BUILDING
 					}
 					queue.UpdateStageBuidLogId()
 					EnnFlowChan <- ennFlow
-					return
+					return nil
 				} else if pod.Status.Phase == v1.PodUnknown {
-					//创建失败
-					break
+					glog.Infof("The pod PodPhase=%s\n", v1.PodUnknown)
+					return nil
+
 				} else if pod.Status.Phase == v1.PodPending {
-					//创建失败
 					continue
 				}
 				glog.Infof("%s pod of job %s is Modified with final status: %#v\n", method, jobName, pod.Status)
 				continue
 			} else if event.Type == watch.Deleted {
-				glog.Errorf("%s pod of job %s is deleted with final status: %#v\n", method, jobName, pod.Status)
+				glog.Warningf("%s pod of job %s is deleted with final status: %#v\n", method, jobName, pod.Status)
 				//收到deleted事件，pod可能被删除
 				if pod.ObjectMeta.Name != "" {
 					queue.StageBuildLog.PodName = pod.ObjectMeta.Name
 					queue.StageBuildLog.NodeName = pod.Spec.NodeName
 					queue.StageBuildLog.JobName = jobName
+					queue.StageBuildLog.Status = common.STATUS_BUILDING
 				}
 				queue.UpdateStageBuidLogId()
-				return
+				return nil
 			} else if event.Type == watch.Error {
-				glog.Errorf("%s %s %v\n", method, "call watch api of pod of "+jobName+" error:", event.Object)
+				glog.Warningf("%s %s %v\n", method, "call watch api of pod of "+jobName+" error:", event.Object)
 				//创建失败
 				if pod.ObjectMeta.Name != "" {
 					queue.StageBuildLog.PodName = pod.ObjectMeta.Name
 					queue.StageBuildLog.NodeName = pod.Spec.NodeName
 					queue.StageBuildLog.JobName = jobName
+					queue.StageBuildLog.Status = common.STATUS_BUILDING
 				}
 				queue.UpdateStageBuidLogId()
 				EnnFlowChan <- ennFlow
-				return
+				return nil
 			}
 
 		}
 
 	}
-	return
+	return nil
+
+}
+
+//WatchJob  watch  the job event fieldSelectorStr := "status.phase!=Succeeded,status.phase!=Failed"
+func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
+	method := "WatchOneJob"
+	labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)
+
+	labelsSel, err := labels.Parse(labelsStr)
+
+	if err != nil {
+		glog.Errorf("%s label parse failed==>:%v\n", method, err)
+		return err
+	}
+
+	listOptions := api.ListOptions{
+		LabelSelector: labelsSel,
+		Watch:         true,
+	}
+	watchInterface, err := queue.ImageBuilder.Client.BatchClient.Jobs(namespace).Watch(listOptions)
+	if err != nil {
+		glog.Errorf("%s,err: %v\n", method, err)
+		return err
+	}
+
+	for {
+		select {
+		case event, isOpen := <-watchInterface.ResultChan():
+			if isOpen == false {
+				glog.Errorf("%s the watch job chain is close\n", method)
+				return fmt.Errorf("%s", "the watch job chain is close")
+			}
+
+			dm, parseIsOk := event.Object.(*v1beta1.Job)
+			if false == parseIsOk {
+				glog.Errorf("%s job %s\n", method, ">>>>>>断言失败<<<<<<")
+				continue
+			}
+			glog.Infof("%s job event.Type=%s, namespace=%s ,jobName=%s\n", method, event.Type, dm.GetNamespace(),
+				dm.GetName())
+			glog.Infof("%s job event.Status=%#v\n", method, dm.Status)
+			if event.Type == watch.Added {
+				//收到deleted事件，job可能被第三方删除
+				glog.Infof("%s %s,status:%v\n", method, "收到ADD事件,开始起job进行构建", dm.Status)
+				GetEnnFlow(dm, common.STATUS_BUILDING)
+				return nil
+			} else if event.Type == watch.Deleted {
+				//收到deleted事件，job可能被第三方删除
+				glog.Errorf("%s  %s status:%v\n", method, " 收到deleted事件，job可能被第三方删除", dm.Status)
+				return nil
+				//成功时并且已经完成时
+			} else if dm.Status.Succeeded >= 1 &&
+				dm.Status.CompletionTime != nil && len(dm.Status.Conditions) != 0 {
+				glog.Infof("%s %s,status:%v\n", method, "构建成功", dm.Status)
+				GetEnnFlow(dm, common.STATUS_BUILDING)
+				return nil
+				//} else if dm.Status.Failed >=1 && dm.Spec.Completions == Int32Toint32Point(1) &&
+				//	dm.Status.CompletionTime == nil && dm.Status.Succeeded==0{
+			} else if dm.Status.Failed >= 1 {
+				glog.Infof("%s %s,status:%v\n", method, "构建失败", dm.GetName())
+				GetEnnFlow(dm, common.STATUS_BUILDING)
+				return nil
+				//手动停止job
+			} else if dm.Spec.Parallelism == Int32Toint32Point(0) {
+				//有依赖服务，停止job时 不是手动停止 1 表示手动停止
+				if dm.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" && dm.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" {
+					glog.Infof("%s %s,status:%v\n", method, "用户停止了构建任务", dm)
+					GetEnnFlow(dm, common.STATUS_BUILDING)
+					return nil
+					//没有依赖服务时
+				} else {
+					GetEnnFlow(dm, common.STATUS_BUILDING)
+					glog.Infof("%s %s,status:%v\n", method, "job执行失败程序发送了停止构建任务的命令", dm)
+					return nil
+				}
+			}
+
+		}
+	}
 
 }
