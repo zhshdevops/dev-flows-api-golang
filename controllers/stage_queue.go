@@ -249,9 +249,9 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 
 	statusCode := 1
 
-	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
+	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] == "1" {
 		statusCode = 1
-	} else if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "0" {
+	} else if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] == "0" {
 		statusCode = 1
 	} else if len(job.Status.Conditions) != 0 {
 		if job.Status.Failed > 0 {
@@ -321,7 +321,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 	//修改状态,并执行其他等待的子任务
 	if queue.StageBuildLog.Status == common.STATUS_SUCCESS {
 		if queue.StageBuildLog.FlowBuildId != "" && queue.StageBuildLog.BuildAlone != 1 {
-			errMsg = "构建成功将会构建下一个子任务"
+			errMsg = "构建成功,如果还有子任务将会构建下一个子任务"
 			flowBuild, err := models.NewCiFlowBuildLogs().FindOneById(queue.StageBuildLog.FlowBuildId)
 			if err != nil {
 				glog.Errorf("%s get flowbuild info failed from database err:%v\n", method, err)
@@ -346,7 +346,6 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 			res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 			if err != nil {
 				glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)
-				return http.StatusInternalServerError
 			}
 
 		}
@@ -367,24 +366,23 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 	glog.Warningf("%s 构建失败 Will Stop job: %s\n", method, job.ObjectMeta.Name)
 	//执行失败时，终止job
 
-	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "0" {
+	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "Timeout-OrRunFailed" && job.ObjectMeta.Labels["enncloud-builder-succeed"] == "0" {
 		glog.Infof("stop the run failed job job.ObjectMeta.Name=%s", job.ObjectMeta.Name)
 		//不是手动停止
 		errMsg = "构建任务异常,已停止构建，请稍后重试"
 
 	}
 
-	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" {
+	if job.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" && job.ObjectMeta.Labels["enncloud-builder-succeed"] == "1" {
 		glog.Infof("构建流程被用户手动停止")
 		errMsg = "构建流程被用户手动停止"
 	}
 
-	glog.Infof("执行失败 Will Update State build PodName=====%d\n", queue.StageBuildLog.PodName)
+	glog.Infof("执行失败 PodName=%s,jobName=%s\n", queue.StageBuildLog.PodName, job.GetName())
 
 	res, err := models.NewCiStageBuildLogs().UpdateById(*queue.StageBuildLog, queue.StageBuildLog.BuildId)
 	if err != nil {
 		glog.Errorf("%s update stage status failed:%d, Err:%v\n", method, res, err)
-		return http.StatusInternalServerError
 	}
 
 	if errMsg == "" {

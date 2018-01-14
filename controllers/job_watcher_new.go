@@ -631,13 +631,13 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 
 //WatchJob  watch  the job event fieldSelectorStr := "status.phase!=Succeeded,status.phase!=Failed"
 func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
+
 	method := "WatchOneJob"
 	//labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)
-	//
 	//labelsSel, err := labels.Parse(labelsStr)
 	fieldSelector, err := fields.ParseSelector(fmt.Sprintf("metadata.name=%s", jobName))
 	if err != nil {
-		glog.Errorf("%s fieldSelector parse failed==>:%v\n", method, err)
+		glog.Errorf("%s fieldSelector parse failed:%v\n", method, err)
 		return err
 	}
 
@@ -646,7 +646,7 @@ func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 		FieldSelector: fieldSelector,
 		Watch:         true,
 	}
-
+GoOnWatch:
 	watchInterface, err := queue.ImageBuilder.Client.BatchClient.Jobs(namespace).Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
@@ -657,8 +657,8 @@ func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 		select {
 		case event, isOpen := <-watchInterface.ResultChan():
 			if isOpen == false {
-				glog.Errorf("%s the watch job chain is close\n", method)
-				return fmt.Errorf("%s", "the watch job chain is close")
+				glog.Warningf("%s the watch job chain is close will watch again\n", method)
+				goto GoOnWatch
 			}
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if false == parseIsOk {
