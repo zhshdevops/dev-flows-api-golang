@@ -342,7 +342,7 @@ func GetEnnFlow(job *v1beta1.Job, buildStatus int) {
 	ennFlow.FlowBuildId = job.GetLabels()["flow-build-id"]
 	ennFlow.StageBuildId = job.GetLabels()["stage-build-id"]
 	if buildStatus == common.STATUS_SUCCESS || buildStatus == common.STATUS_FAILED {
-		models.NewCiStageBuildLogs().UpdateStageBuildStatusById(buildStatus, ennFlow.StageBuildId)
+		//models.NewCiStageBuildLogs().UpdateStageBuildStatusById(buildStatus, ennFlow.StageBuildId)
 	}
 	EnnFlowChan <- ennFlow
 }
