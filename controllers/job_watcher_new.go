@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"github.com/golang/glog"
 	"k8s.io/client-go/1.4/pkg/labels"
+	"k8s.io/client-go/1.4/pkg/fields"
 	"k8s.io/client-go/1.4/pkg/api"
 	"k8s.io/client-go/1.4/pkg/api/v1"
 	"k8s.io/client-go/1.4/pkg/watch"
 	"encoding/json"
 	"fmt"
 	"dev-flows-api-golang/models/common"
-	"dev-flows-api-golang/modules/client"
 	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -47,7 +47,7 @@ type Conn struct {
 
 func init() {
 	FlowMapping = NewSocketsOfFlowMapping()
-	//go WatchJob()
+	go jobWatcher()
 	go func() {
 		for {
 			select {
@@ -348,13 +348,12 @@ func GetEnnFlow(job *v1beta1.Job, buildStatus int) {
 }
 
 //WatchJob  watch  the job event fieldSelectorStr := "status.phase!=Succeeded,status.phase!=Failed"
-func WatchJob() {
-	method := "WatchJob"
+func jobWatcher() {
+	method := "jobWatcher"
 
 	labelsStr := fmt.Sprintf("system/jobType=%s", "devflows")
 
 	labelsSel, err := labels.Parse(labelsStr)
-
 	if err != nil {
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
 		return
@@ -364,7 +363,8 @@ func WatchJob() {
 		LabelSelector: labelsSel,
 		Watch:         true,
 	}
-	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs("").Watch(listOptions)
+
+	watchInterface, err := models.NewImageBuilder().Client.BatchClient.Jobs("").Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
 		return
@@ -375,7 +375,7 @@ func WatchJob() {
 		case event, isOpen := <-watchInterface.ResultChan():
 			if isOpen == false {
 				glog.Errorf("%s the watch job chain is close\n", method)
-				WatchJob()
+				jobWatcher()
 			}
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if false == parseIsOk {
@@ -526,6 +526,23 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 
 			glog.Infof("%s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
 
+			if len(pod.Status.ContainerStatuses) > 0 {
+
+				if IsContainerCreated(queue.ImageBuilder.BuilderName, pod.Status.ContainerStatuses) ||
+					IsContainerCreated(queue.ImageBuilder.ScmName, pod.Status.InitContainerStatuses) {
+					queue.ImageBuilder.StopJob(pod.GetNamespace(), jobName, false, 0)
+					timeOut = true
+					if pod.ObjectMeta.Name != "" {
+						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
+						queue.StageBuildLog.NodeName = pod.Spec.NodeName
+						queue.StageBuildLog.JobName = jobName
+						queue.StageBuildLog.Status = common.STATUS_BUILDING
+					}
+					queue.UpdateStageBuidLogId()
+					return timeOut, nil
+				}
+			}
+
 			if event.Type == watch.Added {
 				glog.Infof("EventType ADDED %s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
 
@@ -547,8 +564,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 			} else if event.Type == watch.Modified {
 
 				if pod.Status.Phase == v1.PodSucceeded {
-					IsContainerCreated(queue.ImageBuilder.ScmName, pod.Status.InitContainerStatuses)
-					IsContainerCreated(queue.ImageBuilder.BuilderName, pod.Status.ContainerStatuses)
+
 					if pod.ObjectMeta.Name != "" {
 						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
 						queue.StageBuildLog.NodeName = pod.Spec.NodeName
@@ -586,6 +602,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 				} else if pod.Status.Phase == v1.PodPending {
 					continue
 				}
+
 				glog.Infof("%s pod of job %s is Modified with final status: %#v\n", method, jobName, pod.Status)
 				continue
 			} else if event.Type == watch.Deleted {
@@ -627,19 +644,21 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 //WatchJob  watch  the job event fieldSelectorStr := "status.phase!=Succeeded,status.phase!=Failed"
 func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 	method := "WatchOneJob"
-	labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)
-
-	labelsSel, err := labels.Parse(labelsStr)
-
+	//labelsStr := fmt.Sprintf("stage-build-id=%s", queue.StageBuildLog.BuildId)
+	//
+	//labelsSel, err := labels.Parse(labelsStr)
+	fieldSelector, err := fields.ParseSelector(fmt.Sprintf("metadata.name=%s", jobName))
 	if err != nil {
-		glog.Errorf("%s label parse failed==>:%v\n", method, err)
+		glog.Errorf("%s fieldSelector parse failed==>:%v\n", method, err)
 		return err
 	}
 
 	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+		//LabelSelector: labelsSel,
+		FieldSelector: fieldSelector,
 		Watch:         true,
 	}
+
 	watchInterface, err := queue.ImageBuilder.Client.BatchClient.Jobs(namespace).Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
@@ -653,7 +672,6 @@ func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 				glog.Errorf("%s the watch job chain is close\n", method)
 				return fmt.Errorf("%s", "the watch job chain is close")
 			}
-
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if false == parseIsOk {
 				glog.Errorf("%s job %s\n", method, ">>>>>>断言失败<<<<<<")

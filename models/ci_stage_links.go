@@ -178,7 +178,7 @@ func GetVolumeSetting(flowId, stageId, flowBuildId, stageBuildId string) ([]Sett
 	var getSettingResp GetSettingResp
 	method := "getVolumeSetting"
 	links, result, err := NewCiStageLinks().GetAllLinksOfStage(flowId, stageId)
-	glog.Infof("links======len==>%d\n", len(links))
+
 	if err != nil || result < 1 {
 		glog.Errorf("%s get volume failed from database:%v\n", method, err)
 		getSettingResp.Message = "No link exists of the stage"
@@ -196,7 +196,6 @@ func GetVolumeSetting(flowId, stageId, flowBuildId, stageBuildId string) ([]Sett
 			settings = append(settings, setting)
 		} else if stageId == link.TargetId && link.Enabled == 1 && link.TargetDir != "" &&
 			link.SourceDir != "" {
-			glog.Info("GetVolumeSetting==========flowBuildId=%s,SourceId=%s\n", flowBuildId, link.SourceId)
 			//获取上一步stage对应的build
 			stagebuildLog, err := NewCiStageBuildLogs().FindOneOfStageByFlowBuildId(flowBuildId,
 				link.SourceId)

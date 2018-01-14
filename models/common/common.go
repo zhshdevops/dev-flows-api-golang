@@ -7,7 +7,7 @@ var (
 	// DatabaseDefault is the default database name
 	DatabaseDefault string
 	HarborServerUrl string
-	CICD_REPO_CLONE_IMAGE string = "qinzhao-harbor/clone-repo:v2.2"
+	CICD_REPO_CLONE_IMAGE string = "paas/clone-repo:v2.2"
 	CLONE_LOCATION = "/app"
 )
 

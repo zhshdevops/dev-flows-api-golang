@@ -549,7 +549,11 @@ func (queue *StageQueueNew) SetFailedStatus() {
 		}
 
 	}
-	queue.ImageBuilder.StopJob(queue.StageBuildLog.Namespace, queue.StageBuildLog.JobName, false, 0)
+
+	if queue.StageBuildLog.JobName != "" {
+		queue.ImageBuilder.StopJob(queue.StageBuildLog.Namespace, queue.StageBuildLog.JobName, false, 0)
+
+	}
 
 }
 
@@ -587,7 +591,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		err := project.FindProjectById(queue.CurrentNamespace, stage.ProjectId)
 		if err != nil || project.Id == "" {
 			//project不存在，更新构建状态为失败
-			glog.Errorf("%s find project failed:==> project:%v  err:%v\n", method, project, err)
+			glog.Errorf("%s find project failed: project:%v  err:%v\n", method, project, err)
 			ennFlow.Status = http.StatusOK
 			ennFlow.BuildStatus = common.STATUS_FAILED
 			ennFlow.StageId = stage.StageId
@@ -601,7 +605,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		}
 	}
 
-	glog.Infof("index======>>%d======>>FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s,podName=%s\n", index, stage.FlowId, stage.StageId,
+	glog.Infof("index=%d,FlowId=%s,StageId=%s,FlowBuildId=%s,BuildId=%s,podName=%s\n", index, stage.FlowId, stage.StageId,
 		queue.StageBuildLog.FlowBuildId, queue.StageBuildLog.BuildId, queue.StageBuildLog.PodName)
 
 	//获取存贮volume
@@ -619,6 +623,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
 		EnnFlowChan <- ennFlow
+		queue.SetFailedStatus()
 		return common.STATUS_FAILED
 	}
 	//get harbor server url
@@ -932,7 +937,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
 		EnnFlowChan <- ennFlow
-
+		queue.SetFailedStatus()
 		detail := &EmailDetail{
 			Type:    "ci",
 			Result:  "failed",
@@ -974,6 +979,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
 		EnnFlowChan <- ennFlow
+		queue.SetStageBuildStatusFailed()
 		return common.STATUS_FAILED
 	}
 
@@ -990,6 +996,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
 		EnnFlowChan <- ennFlow
+		queue.SetStageBuildStatusFailed()
 		return common.STATUS_FAILED
 
 	}
@@ -1007,12 +1014,14 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		ennFlow.StageBuildId = queue.StageBuildLog.BuildId
 		ennFlow.Flag = 2
 		EnnFlowChan <- ennFlow
+		queue.SetStageBuildStatusFailed()
 		return common.STATUS_FAILED
 	}
 
 	status := queue.WaitForBuildToComplete(job, stage)
 	<-time.After(10 * time.Second)
 	if status >= common.STATUS_FAILED {
+		queue.SetStageBuildStatusFailed()
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK
 		ennFlow.BuildStatus = common.STATUS_FAILED
@@ -1025,6 +1034,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 	} else if status == common.STATUS_SUCCESS {
+		queue.SetStageBuildStatusSuccess()
 		ennFlow.Status = http.StatusOK
 		ennFlow.BuildStatus = common.STATUS_SUCCESS
 		ennFlow.Message = fmt.Sprintf("构建任务%s成功\n", stage.StageName)
@@ -1037,6 +1047,20 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		return common.STATUS_SUCCESS
 	}
 	return common.STATUS_FAILED
+}
+
+func (queue *StageQueueNew) SetStageBuildStatusFailed() {
+	res, err := models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_FAILED, queue.StageBuildLog.BuildId)
+	if err != nil {
+		glog.Errorf(" update result=%d,err:%v\n", res, err)
+	}
+}
+
+func (queue *StageQueueNew) SetStageBuildStatusSuccess() {
+	res, err := models.NewCiStageBuildLogs().UpdateStageBuildStatusById(common.STATUS_SUCCESS, queue.StageBuildLog.BuildId)
+	if err != nil {
+		glog.Errorf(" update result=%d,err:%v\n", res, err)
+	}
 }
 
 func (queue *StageQueueNew) Run() {
