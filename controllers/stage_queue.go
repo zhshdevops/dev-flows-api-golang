@@ -1019,8 +1019,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	status := queue.WaitForBuildToComplete(job, stage)
-	<-time.After(10 * time.Second)
 	if status >= common.STATUS_FAILED {
+		queue.SetStageBuildStatusFailed()
 		glog.Infof("%s run failed:%s\n", method, job.ObjectMeta.Name)
 		ennFlow.Status = http.StatusOK
 		ennFlow.BuildStatus = common.STATUS_FAILED
@@ -1033,6 +1033,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		EnnFlowChan <- ennFlow
 		return common.STATUS_FAILED
 	} else if status == common.STATUS_SUCCESS {
+		queue.SetStageBuildStatusSuccess()
 		ennFlow.Status = http.StatusOK
 		ennFlow.BuildStatus = common.STATUS_SUCCESS
 		ennFlow.Message = fmt.Sprintf("构建任务%s成功\n", stage.StageName)
