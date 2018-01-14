@@ -529,20 +529,8 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 			glog.Infof("%s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
 
 			if len(pod.Status.ContainerStatuses) > 0 {
-
-				if IsContainerCreated(queue.ImageBuilder.BuilderName, pod.Status.ContainerStatuses) ||
-					IsContainerCreated(queue.ImageBuilder.ScmName, pod.Status.InitContainerStatuses) {
-					queue.ImageBuilder.StopJob(pod.GetNamespace(), jobName, false, 0)
-					timeOut = true
-					if pod.ObjectMeta.Name != "" {
-						queue.StageBuildLog.PodName = pod.ObjectMeta.Name
-						queue.StageBuildLog.NodeName = pod.Spec.NodeName
-						queue.StageBuildLog.JobName = jobName
-						queue.StageBuildLog.Status = common.STATUS_BUILDING
-					}
-					queue.UpdateStageBuidLogId()
-					return timeOut, nil
-				}
+				IsContainerCreated(queue.ImageBuilder.ScmName, pod.Status.InitContainerStatuses)
+				IsContainerCreated(queue.ImageBuilder.BuilderName, pod.Status.ContainerStatuses)
 			}
 
 			if event.Type == watch.Added {

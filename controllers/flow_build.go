@@ -92,7 +92,7 @@ func IsContainerCreated(ContainerName string, containerStatuses []apiv1.Containe
 		if ContainerName == containerstatus.Name {
 			glog.Infof("The container %s status:%v\n", ContainerName, containerstatus.State)
 			// 判断builder容器是否存在或是否重启过，从而判断是否容器创建成功
-			if containerstatus.ContainerID != "" || containerstatus.RestartCount > 0 || containerstatus.State.Waiting != nil {
+			if containerstatus.ContainerID != "" || containerstatus.RestartCount > 0  {
 				glog.Infof("The container %s status:%v\n", ContainerName, containerstatus.State)
 				return true
 			}
