@@ -331,7 +331,7 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 }
 
 func GetEnnFlow(job *v1beta1.Job, buildStatus int) {
-	glog.Infof("=GetEnnFlow==============buildStatus=%d\n", buildStatus)
+	glog.Infof("GetEnnFlow buildStatus=%d\n", buildStatus)
 	var ennFlow EnnFlow
 	ennFlow.Status = http.StatusOK
 	ennFlow.Flag = 2
@@ -343,6 +343,8 @@ func GetEnnFlow(job *v1beta1.Job, buildStatus int) {
 	ennFlow.StageBuildId = job.GetLabels()["stage-build-id"]
 	if buildStatus == common.STATUS_SUCCESS || buildStatus == common.STATUS_FAILED {
 		models.NewCiStageBuildLogs().UpdateStageBuildStatusById(buildStatus, ennFlow.StageBuildId)
+		models.NewCiFlowBuildLogs().UpdateById(time.Now(), buildStatus, ennFlow.FlowBuildId)
+
 	}
 	EnnFlowChan <- ennFlow
 }
