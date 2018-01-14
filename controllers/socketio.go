@@ -83,9 +83,9 @@ func GetLogsFromK8S(imageBuilder *models.ImageBuilder, namespace, jobName, podNa
 
 	WatchEvent(imageBuilder, namespace, podName, conn)
 
-	WaitForLogs(imageBuilder, namespace, podName, models.SCM_CONTAINER_NAME, conn, buildId)
+	WaitForLogs(imageBuilder, namespace, podName, jobName, models.SCM_CONTAINER_NAME, conn, buildId)
 
-	WaitForLogs(imageBuilder, namespace, podName, models.BUILDER_CONTAINER_NAME, conn, buildId)
+	WaitForLogs(imageBuilder, namespace, podName, jobName, models.BUILDER_CONTAINER_NAME, conn, buildId)
 
 }
 
@@ -153,8 +153,9 @@ func Int64Toint64Point(input int64) *int64 {
 }
 
 //WaitForLogs websocket get logs
-func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerName string, conn Conn, buildId string) {
+func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, containerName string, conn Conn, buildId string) {
 	time.Sleep(3 * time.Second)
+
 	method := "WaitForLogs"
 	follow := false
 	previous := true
@@ -213,6 +214,13 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, containerN
 					return
 				}
 
+			}
+
+			job, _ := imageBuild.GetJob(namespace, jobName)
+			_, ok := job.GetLabels()[common.MANUAL_STOP_LABEL]
+			if job.Status.Failed >= 1 || job.Status.Succeeded >= 1 || ok {
+				SendLog(fmt.Sprintf("%s", `<font  style="display:none;">[Enn Flow API ] 日志读取结束</font>`), conn)
+				return
 			}
 
 			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)

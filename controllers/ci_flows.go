@@ -1633,7 +1633,6 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		return nil
 	}
 
-
 	//如果创建失败
 	if build.Status != 0 {
 		eventlist, err := imageBuilder.GetPodEvents(namespace, build.PodName, "type!=Normal")
@@ -1649,7 +1648,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 	}
 
-	if time.Now().Sub(endTime) < 30*time.Second {
+	if time.Now().Sub(endTime) < 10*time.Second {
 		err = getLogFromK8S()
 		if err != nil {
 			//get log client
@@ -1673,7 +1672,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			}
 		}
 
-	} else if time.Now().Sub(endTime) <= 7*24*time.Hour {
+	} else if time.Now().Sub(endTime) <= 7*24*time.Hour || 10*time.Second < time.Now().Sub(endTime) {
 		//get log client
 		logClient, err := log.NewESClient("")
 		if logClient == nil || err != nil {
