@@ -47,7 +47,6 @@ type Conn struct {
 
 func init() {
 	FlowMapping = NewSocketsOfFlowMapping()
-	//go jobWatcher()
 	go func() {
 		for {
 			select {
@@ -531,6 +530,10 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 				IsContainerCreated(queue.ImageBuilder.BuilderName, pod.Status.ContainerStatuses)
 			}
 
+			if queue.SelectAndUpdateStatus() {
+				return timeOut, nil
+			}
+
 			if event.Type == watch.Added {
 				glog.Infof("EventType ADDED %s jobName=[%s],The pod [%s] event type=%s\n", method, jobName, pod.GetName(), event.Type)
 
@@ -659,6 +662,10 @@ GoOnWatch:
 			if isOpen == false {
 				glog.Warningf("%s the watch job chain is close will watch again\n", method)
 				goto GoOnWatch
+			}
+
+			if queue.SelectAndUpdateStatus() {
+				return fmt.Errorf("%s", "the user stop build")
 			}
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if false == parseIsOk {

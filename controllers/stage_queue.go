@@ -454,6 +454,38 @@ func (queue *StageQueueNew) UpdateStageBuidLogId() error {
 	return nil
 }
 
+func (queue *StageQueueNew) SelectAndUpdateStatus() bool {
+
+	stageBuildObject := models.NewCiStageBuildLogs()
+
+	stageBuild, err := stageBuildObject.FindStageBuild(queue.StageBuildLog.StageId,
+		queue.StageBuildLog.BuildId)
+	if err != nil {
+		glog.Errorf("find stage build failed:%v\n", err)
+		parseCode, _ := sqlstatus.ParseErrorCode(err)
+		if parseCode == sqlstatus.SQLErrNoRowFound {
+			return false
+		} else {
+			return true
+		}
+
+	}
+
+	if stageBuild.Status < common.STATUS_BUILDING {
+
+		if queue.StageBuildLog.JobName != "" {
+
+			queue.ImageBuilder.StopJob(queue.CurrentNamespace, queue.StageBuildLog.JobName, true, 1)
+
+		}
+
+		return true
+
+	}
+
+	return false
+}
+
 func (queue *StageQueueNew) UpdateStageBuildLogStage(buildRec models.CiStageBuildLogs) error {
 
 	updateResult, err := models.NewCiStageBuildLogs().UpdatePodNameAndJobNameByBuildId(buildRec, queue.StageBuildLog.BuildId)
@@ -883,6 +915,13 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		buildInfo.BUILD_INFO_TYPE = 2 //显示没有下一个stage
 	}
 
+	if queue.SelectAndUpdateStatus() {
+
+		glog.Infof("%s user stop build ", queue.User.Username)
+		return common.STATUS_FAILED
+
+	}
+
 	glog.Infoln("buildCluster=", buildCluster)
 	if buildCluster != "" {
 		queue.ImageBuilder = models.NewImageBuilder(buildCluster)
@@ -962,6 +1001,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 			Body:    "任务启动超时",
 		}
 		detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
+
+		return common.STATUS_FAILED
 	}
 	//}
 	job, err = queue.ImageBuilder.GetJob(job.ObjectMeta.Namespace, job.ObjectMeta.Name)
