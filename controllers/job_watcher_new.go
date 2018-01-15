@@ -622,6 +622,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 			}
 
 		case <-time.After(6 * time.Minute):
+			queue.ImageBuilder.StopJob(namespace, jobName, false, 0)
 			timeOut = true
 			return timeOut, nil
 

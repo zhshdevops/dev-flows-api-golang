@@ -994,7 +994,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	}
 
 	if timeOut && err == nil {
-		queue.ImageBuilder.StopJob(job.GetNamespace(), job.GetName(), false, 0)
+		//queue.ImageBuilder.StopJob(job.GetNamespace(), job.GetName(), false, 0)
 		detail := &EmailDetail{
 			Type:    "ci",
 			Result:  "failed",
