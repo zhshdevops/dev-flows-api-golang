@@ -1587,7 +1587,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write([]byte(`构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志 <br/>`))
 	}
 
-	cf.Ctx.ResponseWriter.Write([]byte(`搜集日志需要时间，请耐心等待,请多点击几次 <br/>`))
+	cf.Ctx.ResponseWriter.Write([]byte(`搜集日志需要时间，请耐心等待... <br/>`))
 
 	cf.Ctx.ResponseWriter.Write([]byte(`-----------------------------------------------------------------------------<br/>`))
 
@@ -1648,7 +1648,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 	}
 
-	if time.Now().Sub(endTime) < 10*time.Second {
+	if time.Now().Sub(endTime) < 20*time.Second {
 		err = getLogFromK8S()
 		if err != nil {
 			//get log client
@@ -1672,7 +1672,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 			}
 		}
 
-	} else if time.Now().Sub(endTime) <= 7*24*time.Hour || 10*time.Second < time.Now().Sub(endTime) {
+	} else if time.Now().Sub(endTime) <= 7*24*time.Hour || 20*time.Second < time.Now().Sub(endTime) {
 		//get log client
 		logClient, err := log.NewESClient("")
 		if logClient == nil || err != nil {

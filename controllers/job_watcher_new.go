@@ -47,7 +47,7 @@ type Conn struct {
 
 func init() {
 	FlowMapping = NewSocketsOfFlowMapping()
-	go jobWatcher()
+	//go jobWatcher()
 	go func() {
 		for {
 			select {
