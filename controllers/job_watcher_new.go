@@ -621,7 +621,7 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 				return timeOut, nil
 			}
 
-		case <-time.After(3 * time.Minute):
+		case <-time.After(6 * time.Minute):
 			timeOut = true
 			return timeOut, nil
 

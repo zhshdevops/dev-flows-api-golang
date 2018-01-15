@@ -393,7 +393,7 @@ func (queue *StageQueueNew) WaitForBuildToComplete(job *v1.Job, stage models.CiS
 		Type:    "ci",
 		Result:  "failed",
 		Subject: fmt.Sprintf(`'%s'构建失败`, stage.StageName),
-		Body:    fmt.Sprintf(`%s <br/>请点击<a href="%s?%s">此处</a>查看EnnFlow详情.`, errMsg, common.FlowDetailUrl, stage.FlowId),
+		Body:    fmt.Sprintf(`%s`, `构建发生未知错误`),
 	}
 	detail.SendEmailUsingFlowConfig(queue.CurrentNamespace, stage.FlowId)
 	return common.STATUS_FAILED
@@ -992,6 +992,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 		glog.Errorf(" WatchPod failed:%s\n", err)
 
 	}
+
 	if timeOut && err == nil {
 		queue.ImageBuilder.StopJob(job.GetNamespace(), job.GetName(), false, 0)
 		detail := &EmailDetail{
