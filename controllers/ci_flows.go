@@ -1586,9 +1586,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 	} else {
 		cf.Ctx.ResponseWriter.Write([]byte(`构建节点名称:` + build.NodeName + `, 子任务容器: 仅显示最近  200  条日志 <br/>`))
 	}
-
-	cf.Ctx.ResponseWriter.Write([]byte(`搜集日志需要时间，请耐心等待... <br/>`))
-
+	//cf.Ctx.ResponseWriter.Write([]byte(`搜集日志需要时间，请耐心等待... <br/>`))
 	cf.Ctx.ResponseWriter.Write([]byte(`-----------------------------------------------------------------------------<br/>`))
 
 	var indexs []string

@@ -664,9 +664,6 @@ GoOnWatch:
 				goto GoOnWatch
 			}
 
-			if queue.SelectAndUpdateStatus() {
-				return fmt.Errorf("%s", "the user stop build")
-			}
 			dm, parseIsOk := event.Object.(*v1beta1.Job)
 			if false == parseIsOk {
 				glog.Errorf("%s job %s\n", method, ">>>>>>断言失败<<<<<<")
@@ -676,6 +673,9 @@ GoOnWatch:
 				dm.GetName())
 			glog.Infof("%s job event.Status=%#v\n", method, dm.Status)
 			if event.Type == watch.Added {
+				if queue.SelectAndUpdateStatus() {
+					return fmt.Errorf("%s", "the user stop build")
+				}
 				//收到deleted事件，job可能被第三方删除
 				glog.Infof("%s %s,status:%v\n", method, "收到ADD事件,开始起job进行构建", dm.Status)
 				GetEnnFlow(dm, common.STATUS_BUILDING)
@@ -684,23 +684,35 @@ GoOnWatch:
 				}
 				continue
 			} else if event.Type == watch.Deleted {
+				if queue.SelectAndUpdateStatus() {
+					return fmt.Errorf("%s", "the user stop build")
+				}
 				//收到deleted事件，job可能被第三方删除
 				glog.Errorf("%s  %s status:%v\n", method, " 收到deleted事件，job可能被第三方删除", dm.Status)
 				return nil
 				//成功时并且已经完成时
 			} else if dm.Status.Succeeded >= 1 &&
 				dm.Status.CompletionTime != nil && len(dm.Status.Conditions) != 0 {
+				if queue.SelectAndUpdateStatus() {
+					return fmt.Errorf("%s", "the user stop build")
+				}
 				glog.Infof("%s %s,status:%v\n", method, "构建成功", dm.Status)
 				GetEnnFlow(dm, common.STATUS_BUILDING)
 				return nil
 				//} else if dm.Status.Failed >=1 && dm.Spec.Completions == Int32Toint32Point(1) &&
 				//	dm.Status.CompletionTime == nil && dm.Status.Succeeded==0{
 			} else if dm.Status.Failed >= 1 {
+				if queue.SelectAndUpdateStatus() {
+					return fmt.Errorf("%s", "the user stop build")
+				}
 				glog.Infof("%s %s,status:%v\n", method, "构建失败", dm.GetName())
 				GetEnnFlow(dm, common.STATUS_BUILDING)
 				return nil
 				//手动停止job
 			} else if dm.Spec.Parallelism == Int32Toint32Point(0) {
+				if queue.SelectAndUpdateStatus() {
+					return fmt.Errorf("%s", "the user stop build")
+				}
 				//有依赖服务，停止job时 不是手动停止 1 表示手动停止
 				if dm.ObjectMeta.Labels["enncloud-builder-succeed"] != "1" && dm.ObjectMeta.Labels[common.MANUAL_STOP_LABEL] == "true" {
 					glog.Infof("%s %s,status:%v\n", method, "用户停止了构建任务", dm)
