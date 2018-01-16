@@ -993,7 +993,8 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 	}
 
-	if timeOut && err == nil {
+	if timeOut && err == nil ||
+		strings.Contains(fmt.Sprintf("%s", err), "the pod watch the chan is closed") {
 		//queue.ImageBuilder.StopJob(job.GetNamespace(), job.GetName(), false, 0)
 		detail := &EmailDetail{
 			Type:    "ci",
