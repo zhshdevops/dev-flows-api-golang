@@ -18,9 +18,11 @@ build: clean
 gorun:  
 	CGO_ENABLED=0 bee run
 
-image:
+image: build
 	docker build -t $(IMAGE) -f Dockerfile .
 	echo "docker build  $(IMAGE) success"
+	docker push $(IMAGE)
+	echo "docker push  $(IMAGE) success"
 
 run:
 	docker run  --name cicd \
