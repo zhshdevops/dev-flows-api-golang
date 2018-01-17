@@ -1,5 +1,5 @@
 #/bin/bash 
-tce_url=10.39.0.119
+tce_url=10.39.0.217
 vip_url=paasdev.enncloud.cn
 regip=harbor.enncloud.cn   
 db_url=10.39.0.251   
