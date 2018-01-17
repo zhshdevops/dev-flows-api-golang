@@ -116,7 +116,7 @@ func (soc *SocketsOfFlowMapping) Exist(flowId string) bool {
 	if ok {
 		if connsLen != 0 {
 			for key, conn := range conns {
-				if time.Now().Sub(conn.ConnTime) > 2*time.Hour {
+				if time.Now().Sub(conn.ConnTime) > 4*time.Hour {
 					conn.Conn.Close()
 					delete(conns, key)
 				}
