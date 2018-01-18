@@ -22,6 +22,7 @@ type CiStageBuildLogs struct {
 	BuildAlone   int8 `orm:"column(build_alone)"`
 	IsFirst      int8 `orm:"column(is_first)"`
 	BranchName   string `orm:"column(branch_name)"`
+	TimeOut      int8 `orm:"column(time_out)"`
 	IsFetching   bool `orm:"-" json:"isFetching"`
 	LogInfo      interface{}  `orm:"-" json:"logInfo"`
 }
@@ -63,6 +64,21 @@ func (ci *CiStageBuildLogs) UpdateById(build CiStageBuildLogs, buildId string, o
 		//"build_alone": build.BuildAlone,
 		//"is_first": build.IsFirst,
 		"job_name": build.JobName,
+	})
+	return
+}
+
+func (ci *CiStageBuildLogs) UpdateTimeOutById(timeOut int, buildId string, orms ...orm.Ormer) (updateResult int64, err error) {
+	var o orm.Ormer
+	if len(orms) != 1 {
+		o = orm.NewOrm()
+	} else {
+		o = orms[0]
+	}
+
+	updateResult, err = o.QueryTable(ci.TableName()).
+		Filter("build_id", buildId).Update(orm.Params{
+		"time_out": timeOut,
 	})
 	return
 }

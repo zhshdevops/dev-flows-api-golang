@@ -665,10 +665,17 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	buildInfo.RepoUrl = project.Address
 	buildInfo.IsCodeRepo = 1
 	if queue.StageBuildLog.BranchName != "" {
+
 		buildInfo.Branch = queue.StageBuildLog.BranchName
+
+		if stage.Type == 2 && stage.DefaultBranch != "" && index != 0 {
+			buildInfo.Branch = stage.DefaultBranch
+		}
+
 	} else {
 		buildInfo.Branch = stage.DefaultBranch
 	}
+
 	//代码仓库类型
 	buildInfo.RepoType = models.DepotToRepoType(project.RepoType)
 	//获取代码仓库的镜像地址
@@ -996,6 +1003,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 	if timeOut && err == nil ||
 		strings.Contains(fmt.Sprintf("%s", err), "the pod watch the chan is closed") {
 		//queue.ImageBuilder.StopJob(job.GetNamespace(), job.GetName(), false, 0)
+		models.NewCiStageBuildLogs().UpdateTimeOutById(1, queue.StageBuildLog.BuildId)
 		detail := &EmailDetail{
 			Type:    "ci",
 			Result:  "failed",

@@ -1562,6 +1562,13 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 找不到相关日志，请稍后重试!</font>`))
 		return
 	}
+
+	if build.TimeOut == 1 {
+		cf.Ctx.ResponseWriter.Write([]byte(`<font color="red">[Enn Flow API Error] 构建任务启动超时或者启动失败，没有相关的日志!</font>`))
+		cf.Ctx.ResponseWriter.Status = 200
+		return
+	}
+
 	namespace := build.Namespace
 
 	if build.PodName == "" {
