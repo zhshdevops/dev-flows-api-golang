@@ -670,6 +670,7 @@ func (queue *StageQueueNew) StartStageBuild(stage models.CiStages, index int) in
 
 		if stage.Type == 2 && stage.DefaultBranch != "" && index != 0 {
 			buildInfo.Branch = stage.DefaultBranch
+			queue.StageBuildLog.BranchName = stage.DefaultBranch
 		}
 
 	} else {
