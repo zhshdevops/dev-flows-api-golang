@@ -750,7 +750,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 	if err != nil {
 		glog.Errorf("%s socket get pods log readCloser faile from kubernetes:==>%v\n", method, err)
 		if containerName == BUILDER_CONTAINER_NAME {
-			ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
+			//ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 		}
 		return err
 	}
