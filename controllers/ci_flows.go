@@ -951,7 +951,7 @@ func (cf *CiFlowsController) CreateCDRule() {
 		return
 	}
 
-	cdRules, total, err := models.NewCdRules().ListRulesByFlowIdAndImageName(cdRuleReq.Image_name)
+	cdRules, total, err := models.NewCdRules().ListRulesByFlowIdAndImageName(cdRuleReq.Image_name,namespace)
 	if err != nil {
 		parseResult, _ := sqlstatus.ParseErrorCode(err)
 		if parseResult != sqlstatus.SQLErrNoRowFound || total != 0 {

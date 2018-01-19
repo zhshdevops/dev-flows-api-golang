@@ -128,15 +128,18 @@ func (cd *CDRules) ListRulesByFlowId(namespace, flow_id string, orms ...orm.Orme
 	return
 }
 
-func (cd *CDRules) ListRulesByFlowIdAndImageName(image_name string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
+func (cd *CDRules) ListRulesByFlowIdAndImageName(image_name,namespace string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
 	} else {
 		o = orms[0]
 	}
-	total, err = o.QueryTable(cd.TableName()).
-		Filter("image_name", image_name).Filter("enabled", 1).All(&cdRules)
+	sql := fmt.Sprintf("select * from %s where image_name=? and enabled=? and namespace!=?", cd.TableName())
+
+	total, err = o.Raw(sql, image_name, 1,namespace).QueryRows(&cdRules)
+	//total, err = o.QueryTable(cd.TableName()).
+	//	Filter("image_name", image_name).Filter("enabled", 1).All(&cdRules)
 	return
 }
 
