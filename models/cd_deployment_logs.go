@@ -101,7 +101,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		if (time.Now().Unix() - cdTs) < int64(cooldownSec) {
 			glog.Warningf("%s %s\n", method, "Upgrade is rejected because the"+
 				" deployment was updated too frequently")
-			return ifUpgrade
+			//return ifUpgradex
 		}
 	}
 
