@@ -97,7 +97,9 @@ func (link *CiStageLinksController) UpdateLinkDirs() {
 	linkRec.TargetId = targetId
 
 	for _, s := range oldStageLinks {
+		glog.Infof("stageId=%s,s.SourceId=%s\n", stageId, s.SourceId)
 		if stageId == s.SourceId {
+
 			exist = true
 			if targetId != s.TargetId {
 				link.ResponseErrorAndCode("Stage does not link to the target", http.StatusNotFound)

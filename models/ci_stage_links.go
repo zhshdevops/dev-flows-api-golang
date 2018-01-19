@@ -137,10 +137,12 @@ func (ci *CiStageLinks) UpdateOneByTargetId(targetId, srcId string, orms ...orm.
 }
 func (ci *CiStageLinks) GetAllLinksOfStage(flowId, stageId string) (link []CiStageLinks, reult int64, err error) {
 	o := orm.NewOrm()
-	cond := orm.NewCondition()
-	cond.Or("source_id", stageId).Or("target_id", stageId)
-	reult, err = o.QueryTable(ci.TableName()).
-		Filter("flow_id", flowId).SetCond(cond).All(&link)
+	sql := fmt.Sprintf("SELECT * FROM %s where flow_id=? and (source_id=? or target_id=? )", ci.TableName())
+	reult, err= o.Raw(sql, flowId, stageId,stageId).QueryRows(&link)
+	//cond := orm.NewCondition()
+	//cond.Or("source_id", stageId).Or("target_id", stageId)
+	//reult, err = o.QueryTable(ci.TableName()).
+	//	Filter("flow_id", flowId).SetCond(cond).All(&link)
 	return
 }
 

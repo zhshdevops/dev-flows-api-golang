@@ -336,7 +336,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 				Type:    "cd",
 				Result:  "failed",
 				Subject: fmt.Sprintf(`镜像%s持续集成执行失败`, imageInfo.Fullname),
-				Body: fmt.Sprintf(`已将服务%s使用更新版本时间太短`,
+				Body: fmt.Sprintf(`服务[%s]更新版本间隔时间太短`,
 					dep.Deployment.ObjectMeta.Name),
 			}
 			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)

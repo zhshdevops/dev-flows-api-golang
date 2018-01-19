@@ -137,8 +137,9 @@ func (cf *CiFlowsController) CreateCIFlow() {
 }
 
 type SyncCiFlowRequest struct {
-	StageInfo  []models.Stage_info `json:"stage_info"`
-	Namespaces []string `json:"namespaces"`
+	StageInfo   []models.Stage_info `json:"stage_info"`
+	Namespaces  []string `json:"namespaces"`
+	EnnFlowName string `json:"flowName"`
 }
 
 //@router /:flow_id/sync [POST]

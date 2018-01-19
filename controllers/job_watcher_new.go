@@ -166,7 +166,6 @@ func (soc *SocketsOfFlowMapping) Send(flow interface{}) {
 					if err != nil {
 						glog.Errorf("key=%s retry  %d times send msg to client:%v\n", key, j, err)
 						if j == 5 {
-							delete(soc.FlowMap[flowInfo.FlowId], key)
 							break
 
 						}
