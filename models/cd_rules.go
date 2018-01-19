@@ -128,6 +128,18 @@ func (cd *CDRules) ListRulesByFlowId(namespace, flow_id string, orms ...orm.Orme
 	return
 }
 
+func (cd *CDRules) ListRulesByFlowIdAndImageName(image_name string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
+	var o orm.Ormer
+	if len(orms) != 1 {
+		o = orm.NewOrm()
+	} else {
+		o = orms[0]
+	}
+	total, err = o.QueryTable(cd.TableName()).
+		Filter("image_name", image_name).Filter("enabled", 1).All(&cdRules)
+	return
+}
+
 func IsValidRule(rule CdRuleReq) bool {
 	method := "IsValidRule"
 	if rule.FlowId == "" || rule.Image_name == "" || rule.Match_tag == "" || (rule.Upgrade_strategy != 1 && rule.Upgrade_strategy != 2) {

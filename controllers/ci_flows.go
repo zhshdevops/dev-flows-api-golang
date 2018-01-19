@@ -950,6 +950,45 @@ func (cf *CiFlowsController) CreateCDRule() {
 		cf.ResponseErrorAndCode("json 解析失败", http.StatusBadRequest)
 		return
 	}
+
+	cdRules, total, err := models.NewCdRules().ListRulesByFlowIdAndImageName(cdRuleReq.Image_name)
+	if err != nil {
+		parseResult, _ := sqlstatus.ParseErrorCode(err)
+		if parseResult != sqlstatus.SQLErrNoRowFound || total != 0 {
+			glog.Errorf("%s Binding_service.Deployment_id=%v deployment.ObjectMeta.UID=%s Err:%v\n", cdRules, cdRuleReq.Binding_service.Deployment_id, err)
+			var namespaces []string
+			namespaces = make([]string, 0)
+			for _, cdrule := range cdRules {
+
+				if cdrule.Namespace != namespace {
+					namespaces = append(namespaces, cdrule.Namespace)
+				}
+
+			}
+
+			cf.ResponseErrorAndCode(fmt.Sprintf("该镜像[%s]的规则已经在空间[%s]存在,不能再添加该镜像[%s]的自动部署规则了",
+				cdRuleReq.Image_name, strings.Join(namespaces, ","), cdRuleReq.Image_name), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if total != 0 {
+		glog.Warningf("%s Binding_service.Deployment_id=%v deployment.ObjectMeta.UID=%s Err:%v\n", cdRules, cdRuleReq.Binding_service.Deployment_id, err)
+		var namespaces []string
+		namespaces = make([]string, 0)
+		for _, cdrule := range cdRules {
+
+			if cdrule.Namespace != namespace {
+				namespaces = append(namespaces, cdrule.Namespace)
+			}
+
+		}
+
+		cf.ResponseErrorAndCode(fmt.Sprintf("该镜像[%s]的规则已经在空间[%s]存在,不能再添加该镜像[%s]的自动部署规则了",
+			cdRuleReq.Image_name, strings.Join(namespaces, ","), cdRuleReq.Image_name), http.StatusBadRequest)
+		return
+	}
+
 	//校验rule
 	if !models.IsValidRule(cdRuleReq) {
 		glog.Errorf("%s Missing required fields of this rule: %v \n", method, cdRuleReq)
