@@ -315,7 +315,9 @@ func (cf *CiFlowsController) SyncCIFlow() {
 					}
 
 					buildInfo = *stageInfo.Spec.Build
-
+					buildInfo.Image = ""
+					buildInfo.ProjectId = 0
+					buildInfo.Project = ""
 					buildInfoData, err := json.Marshal(buildInfo)
 					if err != nil {
 						glog.Errorf("%s buildInfo json unmarsh failed:%v\n", method, err)
