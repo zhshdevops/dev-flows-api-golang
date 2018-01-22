@@ -173,12 +173,19 @@ func (cf *CiFlowsController) SyncCIFlow() {
 		return
 	}
 
+	if stageInfos.EnnFlowName == "" {
+		cf.ResponseErrorAndCode("flowName is required:", http.StatusBadRequest)
+		return
+	}
+
 	if len(stageInfos.Namespaces) != 0 {
 		ciFlow.Namespace = stageInfos.Namespaces[0]
 	} else {
 		cf.ResponseErrorAndCode("namespaces is required:", http.StatusBadRequest)
 		return
 	}
+
+	ciFlow.Name = stageInfos.EnnFlowName
 
 	flowInfo, err := models.NewCiFlows().FindFlowByName(stageInfos.Namespaces[0], ciFlow.Name)
 	if err != nil || flowInfo.FlowId != "" {
@@ -951,7 +958,7 @@ func (cf *CiFlowsController) CreateCDRule() {
 		return
 	}
 
-	cdRules, total, err := models.NewCdRules().ListRulesByFlowIdAndImageName(cdRuleReq.Image_name,namespace)
+	cdRules, total, err := models.NewCdRules().ListRulesByFlowIdAndImageName(cdRuleReq.Image_name, namespace)
 	if err != nil {
 		parseResult, _ := sqlstatus.ParseErrorCode(err)
 		if parseResult != sqlstatus.SQLErrNoRowFound || total != 0 {
