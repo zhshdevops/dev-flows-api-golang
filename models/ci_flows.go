@@ -355,6 +355,7 @@ func (cf *CiFlows) UpdateFlowById(namespace, flowId string, flow UpdateFlowReqBo
 			Filter("namespace", namespace).Update(orm.Params{
 			"name":                flow.Name,
 			"notification_config": flow.Notification_config,
+			"update_time":         time.Now(),
 		})
 
 		return
@@ -363,6 +364,7 @@ func (cf *CiFlows) UpdateFlowById(namespace, flowId string, flow UpdateFlowReqBo
 	updateRes, err = o.QueryTable(cf.TableName()).Filter("flow_id", flowId).
 		Filter("namespace", namespace).Update(orm.Params{
 		"notification_config": flow.Notification_config,
+		"update_time":         time.Now(),
 	})
 
 	if err != nil {
@@ -381,6 +383,7 @@ func (cf *CiFlows) Update(namespace, flowId string, uniformRepo int8, orms ...or
 	updateRes, err = o.QueryTable(cf.TableName()).Filter("flow_id", flowId).
 		Filter("Namespace", namespace).Update(orm.Params{
 		"uniform_repo": uniformRepo,
+		"update_time":  time.Now(),
 	})
 	if err != nil {
 		glog.Errorf("Update flowId =%s of uniform_repo failed err=[%v] \n", flowId, err)
