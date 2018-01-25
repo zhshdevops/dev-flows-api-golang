@@ -123,6 +123,8 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 				continue
 			}
 		}
+
+		glog.Infof("ciConfig=====%v\n", ciConfig)
 		if event.Type != "" {
 			eventType = strings.ToLower(event.Type)
 		}
@@ -242,7 +244,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 			imageBuild := models.NewImageBuilder(client.ClusterID)
 			stagequeue := NewStageQueueNew(ennFlow, event.Name, ennFlow.Namespace, ennFlow.LoginUserName, stage.FlowId, imageBuild)
 
-			if stagequeue != nil {
+			if stagequeue != nil && stagequeue.CiFlow != nil {
 				//判断是否该EnnFlow当前有执行中
 				err := stagequeue.CheckIfBuiding(stage.FlowId)
 				if err != nil {
