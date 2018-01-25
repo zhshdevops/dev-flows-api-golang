@@ -146,10 +146,10 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 						if ciConfig.Branch.Name == event.Name {
 							matched = true
 						}
-						glog.Infof("1111==Branch=%s,=========event.Name=%s,==========>>>\n", ciConfig.Tag.Name, event.Name)
+						glog.Infof("1111==Branch=%s,=========event.Name=%s,==========>>>\n", ciConfig.Branch.Name, event.Name)
 
 					} else {
-						glog.Infof("222==Branch=%s,=========event.Name=%s,==========>>>\n", ciConfig.Tag.Name, event.Name)
+						glog.Infof("222==Branch=%s,=========event.Name=%s,==========>>>\n", ciConfig.Branch.Name, event.Name)
 
 						//检查是否是合法的regexp
 						matchWayReg, err := regexp.Compile(ciConfig.Branch.Name)

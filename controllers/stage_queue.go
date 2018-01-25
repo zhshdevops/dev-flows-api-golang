@@ -120,6 +120,7 @@ func NewStageQueueNew(buildReqbody EnnFlow, event, namespace, loginUserName, flo
 			}
 
 		}
+
 		if stage.StageName == "" {
 			buildReqbody.Message = "not found the stage!"
 			buildReqbody.Status = http.StatusNotFound
@@ -186,7 +187,7 @@ func (queue *StageQueueNew) LengthOfStage() int {
 //第一次构建插入数据库
 func (queue *StageQueueNew) InsertLog() error {
 
-	if len(queue.StageList) != 0 {
+	if len(queue.StageList) == 0 {
 
 		return fmt.Errorf("%s", "stage list is null")
 	}
