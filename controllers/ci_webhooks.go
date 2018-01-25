@@ -138,7 +138,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 				//branch tag
 			} else if strings.Contains(stage.CiConfig, eventType) {
 				glog.Infof("%s : [%v] vs [%s]\n", method, ciConfig, event.Name)
-				if eventType == "branch" {
+				if eventType == "branch" && ciConfig.Branch.Name != "" {
 					if _, ok := ciConfig.Branch.MatchWay.(bool); ok {
 						//the branch same
 						if ciConfig.Branch.Name == event.Name {
@@ -176,7 +176,7 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 							continue
 						}
 					}
-				} else if eventType == "tag" {
+				} else if eventType == "tag" && ciConfig.Tag.Name != "" {
 					if _, ok := ciConfig.Tag.MatchWay.(bool); ok {
 						//the tag same
 						if ciConfig.Tag.Name == event.Name {

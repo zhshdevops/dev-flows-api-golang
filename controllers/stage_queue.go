@@ -185,6 +185,12 @@ func (queue *StageQueueNew) LengthOfStage() int {
 
 //第一次构建插入数据库
 func (queue *StageQueueNew) InsertLog() error {
+
+	if len(queue.StageList) != 0 {
+
+		return fmt.Errorf("%s", "stage list is null")
+	}
+
 	//开始执行 把执行日志插入到数据库
 	flowBuildId := uuid.NewFlowBuildID()
 	stageBuildId := uuid.NewStageBuildID()
@@ -197,16 +203,20 @@ func (queue *StageQueueNew) InsertLog() error {
 	var stageBuildRec models.CiStageBuildLogs
 	now := time.Now()
 	stageBuildRec.FlowBuildId = flowBuildId
-	stageBuildRec.StageId = queue.StageList[0].StageId
+	if len(queue.StageList) != 0 {
+		stageBuildRec.StageId = queue.StageList[0].StageId
+		stageBuildRec.StageName = queue.StageList[0].StageName
+	}
+
 	stageBuildRec.BuildId = stageBuildId
-	stageBuildRec.StageName = queue.StageList[0].StageName
+
 	stageBuildRec.Status = common.STATUS_WAITING
 	stageBuildRec.StartTime = now
 	stageBuildRec.Namespace = queue.User.Namespace
 	stageBuildRec.IsFirst = 1
 	stageBuildRec.BranchName = codeBranch
 	//如果不是事件推送,就执行DefaultBranch
-	if codeBranch == "" {
+	if codeBranch == "" && len(queue.StageList) != 0 {
 		stageBuildRec.BranchName = queue.StageList[0].DefaultBranch
 	}
 
