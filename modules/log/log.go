@@ -10,6 +10,7 @@ import (
 	beegoCtx "github.com/astaxie/beego/context"
 	"fmt"
 	"time"
+	"github.com/golang/glog"
 )
 
 type ESClient struct {
@@ -59,6 +60,8 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 	}
 
 	query.Should(shouldQuery...)
+
+	glog.Infof("indexs====[%v]\n",indexs)
 
 	svc := c.client.Scroll(indexs...).Query(query).Sort("time_nano", true).Size(200)
 

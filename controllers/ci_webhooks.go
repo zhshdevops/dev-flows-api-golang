@@ -35,7 +35,6 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 
 	body := cimp.Ctx.Input.RequestBody
 
-
 	project := &models.CiManagedProjects{}
 	err := project.FindProjectByIdNew(projectId)
 	if err != nil || project.Owner == "" {
@@ -51,14 +50,12 @@ func (cimp *CiWebhooksController) InvokeBuildsByWebhook() {
 		return
 	}
 
-
 	userModel := &user.UserModel{}
 	// use cache for better performance
 	_, err = userModel.GetByName(project.Owner)
 	if err != nil {
 		glog.Errorf(" Gte User '"+project.Owner+" failed:%v\n", err)
 	}
-
 
 	if project.RepoType == GOGS || project.RepoType == GITHUB ||
 		project.RepoType == SVN || project.RepoType == GITLAB {
@@ -134,20 +131,24 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 		if project.RepoType == SVN {
 			matched = true
 		} else if stage.CiConfig != "" {
-			glog.V(1).Infof("%s Event type: :%s\n", method, eventType)
+			glog.Infof("%s Event type: :%s\n", method, eventType)
 			//merge request
 			if ciConfig.MergeRequest && eventType == HOOK_EVENT_MERGE_REQUEST {
 				matched = true
 				//branch tag
 			} else if strings.Contains(stage.CiConfig, eventType) {
-				glog.V(1).Infof("%s : [%v] vs [%s]\n", method, ciConfig, event.Name)
+				glog.Infof("%s : [%v] vs [%s]\n", method, ciConfig, event.Name)
 				if eventType == "branch" {
 					if _, ok := ciConfig.Branch.MatchWay.(bool); ok {
 						//the branch same
 						if ciConfig.Branch.Name == event.Name {
 							matched = true
 						}
+						glog.Infof("1111==Branch=%s,=========event.Name=%s,==========>>>\n", ciConfig.Tag.Name, event.Name)
+
 					} else {
+						glog.Infof("222==Branch=%s,=========event.Name=%s,==========>>>\n", ciConfig.Tag.Name, event.Name)
+
 						//检查是否是合法的regexp
 						matchWayReg, err := regexp.Compile(ciConfig.Branch.Name)
 						if err != nil {
@@ -177,11 +178,14 @@ func InvokeCIFlowOfStages(user *user.UserModel, event EventHook, stageList []mod
 					}
 				} else if eventType == "tag" {
 					if _, ok := ciConfig.Tag.MatchWay.(bool); ok {
-						//the branch same
+						//the tag same
 						if ciConfig.Tag.Name == event.Name {
 							matched = true
 						}
+						glog.Infof("1111==tag=%s,=========event.Name=%s,==========>>>\n", ciConfig.Tag.Name, event.Name)
 					} else {
+						glog.Infof("2222==tag=%s,=========event.Name=%s,==========>>>\n", ciConfig.Tag.Name, event.Name)
+
 						//检查是否是合法的regexp
 						matchWayReg, err := regexp.Compile(ciConfig.Tag.Name)
 						if err != nil {
