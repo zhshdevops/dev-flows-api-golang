@@ -12,7 +12,7 @@ import (
 	//"encoding/json"
 	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
 	"github.com/googollee/go-socket.io"
-	"html/template"
+	"text/template"
 	//"dev-flows-api-golang/util/rand"
 
 	//v1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
@@ -768,13 +768,11 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 				}
 				return nil
 			}
-			//if containerName == BUILDER_CONTAINER_NAME {
-				//ctx.ResponseWriter.Write([]byte(fmt.Sprintf("%s", `<font color="#ffc20e">[Enn Flow API] 日志服务暂时不能提供日志查询，请稍后再试</font><br/>`)))
 
-			//}
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
 			return nil
 		}
+		glog.Infof("string(data[:n])[%s]", string(data[:n]))
 		logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
 		logTime, _ := time.Parse(time.RFC3339, logInfo[0])
 		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
