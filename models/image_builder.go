@@ -772,11 +772,18 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			glog.Errorf("get log from kubernetes failed: err:%v,", err)
 			return nil
 		}
-		glog.Infof("string(data[:n])[%s]", string(data[:n]))
-		logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
-		logTime, _ := time.Parse(time.RFC3339, logInfo[0])
-		log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
-		ctx.ResponseWriter.Write([]byte(log))
+
+		if !strings.Contains(string(data[:n]), ":") {
+
+			log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, time.Now().Format("2006/01/02 15:04:05"), template.HTMLEscapeString(string(data[:n])))
+			ctx.ResponseWriter.Write([]byte(log))
+
+		} else {
+			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
+			logTime, _ := time.Parse(time.RFC3339, logInfo[0])
+			log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
+			ctx.ResponseWriter.Write([]byte(log))
+		}
 
 	}
 
