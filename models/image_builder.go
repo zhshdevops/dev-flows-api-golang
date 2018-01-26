@@ -774,7 +774,7 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 		}
 
 		glog.Infof("string(data[:n]===[%s]\n", string(data[:n]))
-		if !strings.Contains(string(data[:n]), ":") {
+		if !strings.Contains(string(data[:n]), "rpc error:") {
 
 			log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, time.Now().Format("2006/01/02 15:04:05"), string(data[:n]))
 			ctx.ResponseWriter.Write([]byte(log))
