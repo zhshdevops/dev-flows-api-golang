@@ -219,7 +219,6 @@ func (ic *InvokeCDController) NotificationHandler() {
 		return
 	}
 
-
 	//开始升级
 	for index, dep := range newDeploymentArray {
 		glog.Infof("第一次：%d 部署", index+1)
@@ -243,7 +242,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			return
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
-
+			glog.Infof("dep.Deployment.Spec.Strategy=%v\n", dep.Deployment.Spec.Strategy)
 			dp, err := k8sClient.ExtensionsClient.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
 			if err != nil {
 				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp.Spec.Strategy, err)
