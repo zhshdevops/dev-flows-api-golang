@@ -143,11 +143,11 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	//   当前采用策略为：灰度升级时重置spec.strategy为rollingupdate，否则删除对应pods
 	//   通过时间戳设置tenxcloud.com/cdTime label从而触发更新
 
-	if strategy == 2 && (deployment.Spec.Strategy.Type != v1beta1.RollingUpdateDeploymentStrategyType ||
-		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade
-		// reset strategy to rollingupdate which is default value
-		//var rollingUpdateDeployment v1beta1.RollingUpdateDeployment
-
+	//if strategy == 2 && (deployment.Spec.Strategy.Type != v1beta1.RollingUpdateDeploymentStrategyType ||
+	//	deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade
+	// reset strategy to rollingupdate which is default value
+	//var rollingUpdateDeployment v1beta1.RollingUpdateDeployment
+	if strategy == 2 {
 		deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 		maxSurge := intstr.FromInt(1)
 		maxUnavailable := intstr.FromInt(0)
