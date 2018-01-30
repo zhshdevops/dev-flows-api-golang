@@ -105,19 +105,6 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		}
 	}
 
-	//for i, container := range deployment.Spec.Template.Spec.Containers {
-	//	if targetImage, ok := upgrader.Targets[container.Name]; true == ok && container.Image != targetImage {
-	//		results = append(results, Accepted{
-	//			Name: container.Name,
-	//			From: container.Image,
-	//			To:   targetImage,
-	//		})
-	//		container.Image = targetImage
-	//		deployment.Spec.Template.Spec.Containers[i] = container
-	//	}
-	//}
-
-
 	for index, container := range deployment.Spec.Template.Spec.Containers {
 		glog.Infof("container.Image:%v\n", container.Image)
 		oldImage := parseImageName(container.Image)
@@ -156,7 +143,6 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 	//   当前采用策略为：灰度升级时重置spec.strategy为rollingupdate，否则删除对应pods
 	//   通过时间戳设置tenxcloud.com/cdTime label从而触发更新
 
-
 	if strategy == 2 && (deployment.Spec.Strategy.Type != v1beta1.RollingUpdateDeploymentStrategyType ||
 		deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntVal != 0) { //Rollingupgrade
 		// reset strategy to rollingupdate which is default value
@@ -182,7 +168,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		deployment.Spec.Strategy.RollingUpdate = nil                           //重新创建 Recreate
 
 	}
-
+	glog.Infof("===========>>strategy=%d\n", strategy)
 	if matched {
 		deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"] = fmt.Sprintf("%d", now.Unix())
 		ifUpgrade = true
