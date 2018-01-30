@@ -1695,7 +1695,7 @@ func (cf *CiFlowsController) GetStageBuildLogsFromES() {
 		}
 		if len(eventlist.Items) != 0 {
 			for _, event := range eventlist.Items {
-				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s <br/>`, event.CreationTimestamp.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), event.Type, event.Message)))
+				cf.Ctx.ResponseWriter.Write([]byte(fmt.Sprintf(`<font color="#ffc20e">[%s][%s]</font> %s <br/>`, event.CreationTimestamp.Format("2006/01/02 15:04:05"), event.Type, event.Message)))
 
 			}
 
