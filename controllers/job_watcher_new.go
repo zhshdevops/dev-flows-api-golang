@@ -3,15 +3,16 @@ package controllers
 import (
 	"net/http"
 	"github.com/golang/glog"
-	"k8s.io/client-go/1.4/pkg/labels"
-	"k8s.io/client-go/1.4/pkg/fields"
-	"k8s.io/client-go/1.4/pkg/api"
-	"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/watch"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/fields"
+	//"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"encoding/json"
 	"fmt"
 	"dev-flows-api-golang/models/common"
-	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
+	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"net"
@@ -357,12 +358,12 @@ func jobWatcher() {
 		return
 	}
 
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelsSel.String(),
 		Watch:         true,
 	}
 
-	watchInterface, err := models.NewImageBuilder().Client.BatchClient.Jobs("").Watch(listOptions)
+	watchInterface, err := models.NewImageBuilder().Client.BatchV1Client.Jobs("").Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
 		return
@@ -496,8 +497,8 @@ func (queue *StageQueueNew) WatchPod(namespace, jobName string, stage models.CiS
 		return timeOut, err
 	}
 
-	listOptions := api.ListOptions{
-		LabelSelector: labelSelector,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
 		Watch:         true,
 	}
 	// 请求watch api监听pod发生的事件
@@ -644,13 +645,13 @@ func (queue *StageQueueNew) WatchOneJob(namespace, jobName string) error {
 		return err
 	}
 
-	listOptions := api.ListOptions{
+	listOptions := metav1.ListOptions{
 		//LabelSelector: labelsSel,
-		FieldSelector: fieldSelector,
+		FieldSelector: fieldSelector.String(),
 		Watch:         true,
 	}
 GoOnWatch:
-	watchInterface, err := queue.ImageBuilder.Client.BatchClient.Jobs(namespace).Watch(listOptions)
+	watchInterface, err := queue.ImageBuilder.Client.BatchV1Client.Jobs(namespace).Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
 		return err

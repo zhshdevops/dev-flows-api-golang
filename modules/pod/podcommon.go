@@ -8,10 +8,9 @@ package pod
 
 import (
 	"github.com/golang/glog"
-	v1core "k8s.io/client-go/1.4/kubernetes/typed/core/v1" // v1core.CoreInterface
-	resource "k8s.io/client-go/1.4/pkg/api/resource"       // resource.Quantity
-	v1api "k8s.io/client-go/1.4/pkg/api/v1"                // v1v1api.Namespace, v1v1api.Pod
-
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1" // v1core.CoreInterface
+	resource "k8s.io/apimachinery/pkg/api/resource"       // resource.Quantity
+	v1api "k8s.io/client-go/pkg/api/v1"                // v1v1api.Namespace, v1v1api.Pod
 	"dev-flows-api-golang/modules/common"
 	"dev-flows-api-golang/modules/dataselect"
 )
@@ -50,7 +49,7 @@ func GetContainerImages(podTemplate *v1api.PodSpec) []string {
 }
 
 // SetAnnotation set pod annotation
-func SetAnnotation(client v1core.CoreClient, pod *v1api.Pod, key, value string) error {
+func SetAnnotation(client v1core.CoreV1Client, pod *v1api.Pod, key, value string) error {
 	pod.Annotations[key] = value
 	_, err := client.Pods(pod.GetNamespace()).Update(pod)
 	return err

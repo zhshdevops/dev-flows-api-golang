@@ -15,8 +15,8 @@
 package common
 
 import (
-	unversioned "k8s.io/client-go/1.4/pkg/api/unversioned"
-	v1api "k8s.io/client-go/1.4/pkg/api/v1"
+	unversioned "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1api "k8s.io/client-go/pkg/api/v1"
 )
 
 // FilterNamespacedPodsBySelector returns pods targeted by given resource label selector in given

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	//"k8s.io/client-go/1.4/pkg/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sync"
 	"net/http"
 	"dev-flows-api-golang/util/uuid"
@@ -140,7 +141,8 @@ func (ic *InvokeCDController) NotificationHandler() {
 			}
 			continue
 		}
-		deployment, err := k8sClient.ExtensionsClient.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName)
+
+		deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName, metav1.GetOptions{})
 		if err != nil || deployment.Status.Replicas == 0 {
 
 			if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
@@ -243,7 +245,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		}
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 			glog.Infof("dep.Deployment.Spec.Strategy=%v\n", dep.Deployment.Spec.Strategy)
-			dp, err := k8sClient.ExtensionsClient.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
+			dp, err := k8sClient.ExtensionsV1beta1Client.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
 			if err != nil {
 				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp.Spec.Strategy, err)
 				//失败时插入日志

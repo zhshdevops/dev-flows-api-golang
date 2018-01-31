@@ -15,7 +15,7 @@
 package common
 
 import (
-	unversioned "k8s.io/client-go/1.4/pkg/api/unversioned"
+	unversioned "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EventList is an events response structure.

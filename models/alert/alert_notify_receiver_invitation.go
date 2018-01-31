@@ -10,9 +10,9 @@ import (
 
 	"fmt"
 
-	"api-server/util/misc"
+	"dev-flows-api-golang/util/misc"
 
-	"api-server/models/sql/util"
+	"dev-flows-api-golang/models/sql/util"
 
 	"github.com/astaxie/beego/orm"
 )

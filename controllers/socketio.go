@@ -5,13 +5,14 @@ import (
 	"dev-flows-api-golang/models"
 	"fmt"
 	"dev-flows-api-golang/models/common"
-	"k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/pkg/api/v1"
 	"text/template"
 	"io"
-	"k8s.io/client-go/1.4/pkg/fields"
-	"k8s.io/client-go/1.4/pkg/api"
+	"k8s.io/apimachinery/pkg/fields"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//"k8s.io/client-go/pkg/api"
 	"strings"
-	apiv1 "k8s.io/client-go/1.4/pkg/api/v1"
+	apiv1 "k8s.io/client-go/pkg/api/v1"
 	"time"
 )
 
@@ -103,8 +104,8 @@ func WatchEvent(imageBuild *models.ImageBuilder, namespace, podName string, conn
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, err), conn)
 		return
 	}
-	options := api.ListOptions{
-		FieldSelector: fieldSelector,
+	options := metav1.ListOptions{
+		FieldSelector: fieldSelector.String(),
 		Watch:         true,
 	}
 

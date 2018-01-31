@@ -12,23 +12,24 @@ import (
 
 	"fmt"
 
-	"k8s.io/client-go/1.4/pkg/api"
-	"k8s.io/client-go/1.4/pkg/fields"
+	//"k8s.io/client-go/pkg/api"
+	"k8s.io/apimachinery/pkg/fields"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // if fsel is str, should follow this form:
 // <field><operator><value>,<filed><operator><value>,....
 // demo:
 // status.phase!=Succeeded,status.phase!=Failed
-func NewOption(lsel []*label.Requirement, fsel interface{}) (*api.ListOptions, error) {
+func NewOption(lsel []*label.Requirement, fsel interface{}) (*metav1.ListOptions, error) {
 	labelSelector, err := label.NewLabelSelector(lsel)
 	if err != nil {
 		return nil, err
 	}
 	if fsel == nil {
-		return &api.ListOptions{
-			LabelSelector: labelSelector,
-			FieldSelector: fields.Everything(),
+		return &metav1.ListOptions{
+			LabelSelector: labelSelector.String(),
+			FieldSelector: fields.Everything().String(),
 		}, nil
 	}
 	var fieldSelector fields.Selector
@@ -49,9 +50,9 @@ func NewOption(lsel []*label.Requirement, fsel interface{}) (*api.ListOptions, e
 		return nil, fmt.Errorf("unsupport type %T", v)
 	}
 
-	opt := &api.ListOptions{
-		LabelSelector: labelSelector,
-		FieldSelector: fieldSelector,
+	opt := &metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+		FieldSelector: fieldSelector.String(),
 	}
 	return opt, nil
 }

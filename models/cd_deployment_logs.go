@@ -2,11 +2,11 @@ package models
 
 import (
 	"github.com/astaxie/beego/orm"
-	v1beta1 "k8s.io/client-go/1.4/pkg/apis/extensions/v1beta1"
+	v1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"time"
 	"github.com/golang/glog"
-	"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/util/intstr"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
 	"fmt"
 	"strings"

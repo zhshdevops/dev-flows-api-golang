@@ -13,6 +13,7 @@ import (
 	"time"
 	clustermodel "dev-flows-api-golang/models/cluster"
 	sqlstatus "dev-flows-api-golang/models/sql/status"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"dev-flows-api-golang/modules/log"
 	"net/http"
 	"github.com/ghodss/yaml"
@@ -1013,8 +1014,8 @@ func (cf *CiFlowsController) CreateCDRule() {
 		return
 	}
 
-	deployment, err := k8sClient.ExtensionsClient.Deployments(namespace).
-		Get(cdRuleReq.Binding_service.Deployment_name)
+	deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(namespace).
+		Get(cdRuleReq.Binding_service.Deployment_name, v1.GetOptions{})
 	//if err != nil || deployment.Status.Replicas <= 0 {
 	if err != nil {
 		glog.Errorf("k8sClient get deployment failed or Failed to validate service information %s %v \n", method, err)

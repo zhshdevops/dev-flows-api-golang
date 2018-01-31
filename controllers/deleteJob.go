@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	//"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/api"
-	v1batch "k8s.io/client-go/1.4/pkg/apis/batch/v1"
-	"k8s.io/client-go/1.4/pkg/labels"
+	//"k8s.io/client-go/pkg/api"
+	v1batch "k8s.io/client-go/pkg/apis/batch/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"dev-flows-api-golang/modules/client"
 	"github.com/golang/glog"
 	"fmt"
@@ -61,7 +61,7 @@ func BeginDeleteJob() {
 	//get all job
 	jobList, err := getAllJobsInAllNamespaces()
 	if err != nil {
-	glog.Errorf("Get jobList failed:Err:%v\n", err)
+		glog.Errorf("Get jobList failed:Err:%v\n", err)
 		return
 	}
 
@@ -139,11 +139,11 @@ func getAllJobsInAllNamespaces() (*v1batch.JobList, error) {
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
 		return list, err
 	}
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelsSel.String(),
 	}
 
-	return client.KubernetesClientSet.BatchClient.Jobs("").List(listOptions)
+	return client.KubernetesClientSet.BatchV1Client.Jobs("").List(listOptions)
 
 }
 
@@ -163,8 +163,8 @@ func deleteJobRelatedPods(namespace, label string) error {
 		glog.Errorf("%s label parse failed==>:%v\n", method, err)
 		return err
 	}
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelsSel.String(),
 	}
 	return client.KubernetesClientSet.Pods(namespace).DeleteCollection(nil, listOptions)
 }
@@ -184,18 +184,18 @@ func tooOld(job v1batch.Job) bool {
 func deleteOneJobInNamespace(namespace, jobName string) error {
 	var OrphanDependents bool
 	OrphanDependents = true
-	options := &api.DeleteOptions{
+	options := &metav1.DeleteOptions{
 		//GracePeriodSeconds: Int64Toint64Point(1),
 		OrphanDependents: &OrphanDependents,
 	}
 	labelsStr := fmt.Sprintf("job-name=%s", jobName)
 
-	err:=deleteJobRelatedPods(namespace, labelsStr)
-	if err!=nil{
-		glog.Errorf("deleteJobRelatedPods failed:%v\n",err)
+	err := deleteJobRelatedPods(namespace, labelsStr)
+	if err != nil {
+		glog.Errorf("deleteJobRelatedPods failed:%v\n", err)
 		return err
 	}
-	return client.KubernetesClientSet.BatchClient.Jobs(namespace).Delete(jobName, options)
+	return client.KubernetesClientSet.BatchV1Client.Jobs(namespace).Delete(jobName, options)
 
 	//labelsStr := fmt.Sprintf("job-name=%s", jobName)
 	//return client.KubernetesClientSet.BatchClient.Delete().Namespace(namespace).Resource("jobs").Name(jobName).Do().Error()
@@ -235,12 +235,12 @@ func Watch(namespace, jobName string) (*v1batch.Job, int) {
 		return nil, unknownStatus
 	}
 
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelsSel.String(),
 		Watch:         true,
 	}
 
-	watchInterface, err := client.KubernetesClientSet.BatchClient.Jobs(namespace).Watch(listOptions)
+	watchInterface, err := client.KubernetesClientSet.BatchV1Client.Jobs(namespace).Watch(listOptions)
 	if err != nil {
 		glog.Errorf("%s,err: %v\n", method, err)
 		return nil, unknownStatus

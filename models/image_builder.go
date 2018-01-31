@@ -10,19 +10,20 @@ import (
 	"fmt"
 	"time"
 	//"encoding/json"
-	v1beta1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
+	v1beta1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"github.com/googollee/go-socket.io"
 	"text/template"
 	//"dev-flows-api-golang/util/rand"
 
-	//v1 "k8s.io/client-go/1.4/pkg/apis/batch/v1"
-	apiv1 "k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/api"
-	"k8s.io/client-go/1.4/pkg/labels"
-	"k8s.io/client-go/1.4/pkg/fields"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiv1 "k8s.io/client-go/pkg/api/v1"
+	//"k8s.io/client-go/pkg/api"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/fields"
 	"strings"
 	"dev-flows-api-golang/models/common"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -311,12 +312,20 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 
 	}
 
+	jobTemplate.Spec.Template.Spec.Tolerations = []apiv1.Toleration{
+		apiv1.Toleration{
+			Key:      "system-jobType",
+			Operator: apiv1.TolerationOpEqual,
+			Value:    "devflows",
+			Effect:   apiv1.TaintEffectNoSchedule,
+		},
+	}
+
 	//构造init container
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
 		Name:  SCM_CONTAINER_NAME,
 		Image: buildInfo.ScmImage,
-		//Image:           "harbor.enncloud.cn/qinzhao-harbor/clone-repo:v2.2",
 		ImagePullPolicy: "Always",
 	}
 	initContainer.Env = []apiv1.EnvVar{
@@ -448,7 +457,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 
 	jobTemplate.Spec.Template.Spec.Containers = append(jobTemplate.Spec.Template.Spec.Containers, jobContainer)
 
-	return builder.Client.BatchClient.Jobs(buildInfo.Namespace).Create(jobTemplate)
+	return builder.Client.BatchV1Client.Jobs(buildInfo.Namespace).Create(jobTemplate)
 
 }
 
@@ -529,8 +538,8 @@ func (builder *ImageBuilder) GetPod(namespace, jobName string, stageBuildId ...s
 	if err != nil {
 		return podList, err
 	}
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelsSel.String(),
 	}
 	pods, err := builder.Client.Pods(namespace).List(listOptions)
 	if err != nil {
@@ -568,8 +577,8 @@ func (builder *ImageBuilder) GetPodByPodName(namespace, jobName, podName string,
 	if err != nil {
 		return podList, err
 	}
-	listOptions := api.ListOptions{
-		LabelSelector: labelsSel,
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelsSel.String(),
 	}
 	pods, err := builder.Client.Pods(namespace).List(listOptions)
 	if err != nil {
@@ -603,8 +612,8 @@ func (builder *ImageBuilder) WatchEvent(namespace, podName string, socket socket
 		glog.Errorf("%s: Failed to parse field selector: %v\n", method, err)
 		return
 	}
-	options := api.ListOptions{
-		FieldSelector: fieldSelector,
+	options := metav1.ListOptions{
+		FieldSelector: fieldSelector.String(),
 		Watch:         true,
 	}
 
@@ -799,8 +808,8 @@ func (builder *ImageBuilder) GetJobEvents(namespace, jobName, podName string) (*
 		glog.Errorf("%s: Failed to parse field selector: %v\n", method, err)
 		return eventList, err
 	}
-	options := api.ListOptions{
-		FieldSelector: fieldSelector,
+	options := metav1.ListOptions{
+		FieldSelector: fieldSelector.String(),
 	}
 	return builder.Client.Events(namespace).List(options)
 
@@ -819,8 +828,8 @@ func (builder *ImageBuilder) GetPodEvents(namespace, podName, typeSelector strin
 		return eventList, err
 	}
 
-	options := api.ListOptions{
-		FieldSelector: fieldSelector,
+	options := metav1.ListOptions{
+		FieldSelector: fieldSelector.String(),
 	}
 	return builder.Client.Events(namespace).List(options)
 
@@ -828,7 +837,7 @@ func (builder *ImageBuilder) GetPodEvents(namespace, podName, typeSelector strin
 
 func (builder *ImageBuilder) GetJob(namespace, jobName string) (*v1beta1.Job, error) {
 
-	return builder.Client.BatchClient.Jobs(namespace).Get(jobName)
+	return builder.Client.BatchV1Client.Jobs(namespace).Get(jobName, v1.GetOptions{})
 
 }
 
@@ -851,7 +860,7 @@ func (builder *ImageBuilder) StopJob(namespace, jobName string, forced bool, suc
 	//job watcher用来获取运行结果 失败的时候 会加个label 标识失败 1表示手动停止 0 表示由于某种原因自动执行失败
 	job.ObjectMeta.Labels["enncloud-builder-succeed"] = fmt.Sprintf("%d", succeeded)
 
-	return builder.Client.BatchClient.Jobs(namespace).Update(job)
+	return builder.Client.BatchV1Client.Jobs(namespace).Update(job)
 
 }
 

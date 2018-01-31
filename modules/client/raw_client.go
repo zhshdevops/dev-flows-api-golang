@@ -3,13 +3,13 @@ package client
 import (
 	"fmt"
 	"io"
-	"k8s.io/client-go/1.4/kubernetes"
-	"k8s.io/client-go/1.4/pkg/api"
-	"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/watch"
-	"k8s.io/client-go/1.4/rest"
-	"k8s.io/client-go/1.4/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/1.4/tools/clientcmd/api"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
+	watch "k8s.io/apimachinery/pkg/watch"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 )
 
@@ -36,7 +36,7 @@ func NewK8sClientSet(clusterName, apiserverProtocol, apiserverHost, apiserverTok
 
 func NewConfig(clusterName, apiserverProtocol, apiserverHost, apiserverToken, apiVersion string) (*rest.Config, error) {
 	config := clientcmdapi.NewConfig()
-	config.Clusters[clusterName] = &clientcmdapi.Cluster{Server: fmt.Sprintf("%s://%s", apiserverProtocol, apiserverHost), InsecureSkipTLSVerify: true,APIVersion:apiVersion}
+	config.Clusters[clusterName] = &clientcmdapi.Cluster{Server: fmt.Sprintf("%s://%s", apiserverProtocol, apiserverHost), InsecureSkipTLSVerify: true}
 	config.AuthInfos[clusterName] = &clientcmdapi.AuthInfo{Token: apiserverToken}
 	config.Contexts[clusterName] = &clientcmdapi.Context{
 		Cluster:  clusterName,
@@ -80,23 +80,26 @@ func GetStreamApi(cs *ClientSet, namespace string) *Stream {
 
 //WatchResource
 func (s *Stream) WatchResource(resourceType string) (watch.Interface, error) {
-	options := api.ListOptions{
+	options := metav1.ListOptions{
 		Watch:          true,
 		TimeoutSeconds: &timeout,
 	}
 	var result watch.Interface
 	var werr error
 	if resourceType == "pod" {
-		result, werr = s.cs.CoreClient.Get().Prefix("watch").Resource("pods").VersionedParams(&options, api.ParameterCodec).Watch()
+		result, werr = s.cs.CoreV1Client.Pods("").Watch(options)
+		// result, werr = s.cs.RESTClient().Get().Prefix("watch").Resource("pods").VersionedParams(&options, scheme.ParameterCodec).Watch()
 	}
-	if resourceType == "job" || resourceType == "app" {
-		result, werr = s.cs.ExtensionsClient.Get().Prefix("watch").Resource("job").VersionedParams(&options, api.ParameterCodec).Watch()
+	if resourceType == "deployment" || resourceType == "app" {
+		result, werr = s.cs.ExtensionsV1beta1().Deployments("").Watch(options)
+		// result, werr = s.cs.RESTClient().Get().Prefix("watch").Resource("deployments").VersionedParams(&options, scheme.ParameterCodec).Watch()
 	}
 	if werr != nil {
 		return nil, werr
 	}
 	return result, nil
 }
+
 
 func (s *Stream) FollowLog(podName, containerName string, tail int64) (io.ReadCloser, error) {
 	logOption := &v1.PodLogOptions{
@@ -111,6 +114,6 @@ func (s *Stream) FollowLog(podName, containerName string, tail int64) (io.ReadCl
 		tail = 100
 	}
 	logOption.TailLines = &tail
-	reader, err := s.cs.CoreClient.Pods(s.k8sNs).GetLogs(podName, logOption).Stream()
+	reader, err := s.cs.CoreV1Client.Pods(s.k8sNs).GetLogs(podName, logOption).Stream()
 	return reader, err
 }
