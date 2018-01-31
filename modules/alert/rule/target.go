@@ -6,7 +6,7 @@
 package rule
 
 import (
-	"api-server/models/alert"
+	"dev-flows-api-golang/models/alert"
 	"fmt"
 )
 
