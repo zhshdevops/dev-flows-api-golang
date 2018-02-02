@@ -193,7 +193,7 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	}
 
 	jobTemplate.Spec.Template.Spec.Volumes = make([]apiv1.Volume, 0)
-
+	jobTemplate.Spec.Template.Spec.HostNetwork = true
 	volumes := []apiv1.Volume{
 		{
 			Name: "localtime",
@@ -324,8 +324,8 @@ func (builder *ImageBuilder) BuildImage(buildInfo BuildInfo, volumeMapping []Set
 	//构造init container
 	jobTemplate.Spec.Template.Spec.InitContainers = make([]apiv1.Container, 0)
 	initContainer := apiv1.Container{
-		Name:  SCM_CONTAINER_NAME,
-		Image: buildInfo.ScmImage,
+		Name:            SCM_CONTAINER_NAME,
+		Image:           buildInfo.ScmImage,
 		ImagePullPolicy: "Always",
 	}
 	initContainer.Env = []apiv1.EnvVar{
