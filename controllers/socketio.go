@@ -221,7 +221,6 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, c
 				SendLog(fmt.Sprintf("%s", `<font  style="display:none;">[Enn Flow API ] 日志读取结束</font>`), conn)
 				return
 			}
-			glog.Infof("=======socket==%s\n", string(data[:n]))
 			if strings.Contains(string(data[:n]), "rpc error:") {
 
 				log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, time.Now().Format("2006/01/02 15:04:05"), string(data[:n]))
@@ -229,11 +228,16 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, c
 
 			} else {
 				logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), "\n", -1)
+
 				for _, logline := range logInfo {
 					loglineArr := strings.SplitN(template.HTMLEscapeString(logline), " ", 2)
-					logTime, _ := time.Parse(time.RFC3339, loglineArr[0])
-					log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), loglineArr[1])
-					SendLog(log, conn)
+					glog.Infof("loglineArr==;%s\n", loglineArr)
+					if len(loglineArr) == 2 {
+						logTime, _ := time.Parse(time.RFC3339, loglineArr[0])
+						log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), loglineArr[1])
+						SendLog(log, conn)
+					}
+
 				}
 			}
 
