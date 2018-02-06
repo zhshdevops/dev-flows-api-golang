@@ -72,6 +72,7 @@ func GetStageBuildLogsFromK8S(buildMessage EnnFlow, conn Conn) {
 		SendLog(fmt.Sprintf(`<font color="red">[Enn Flow API Error]%s</font>`, "构建任务不存在或者日志信息已过期!"), conn)
 		return
 	}
+
 	build.PodName = podName
 	models.NewCiStageBuildLogs().UpdatePodNameById(podName, build.BuildId)
 	GetLogsFromK8S(imageBuilder, build.Namespace, build.JobName, podName, conn, build.BuildId)
@@ -155,7 +156,7 @@ func Int64Toint64Point(input int64) *int64 {
 
 //WaitForLogs websocket get logs
 func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, containerName string, conn Conn, buildId string) {
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	method := "WaitForLogs"
 	follow := false
@@ -182,7 +183,6 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, c
 		}
 
 		if containerName == models.SCM_CONTAINER_NAME {
-
 			SendLog("---------------------------------------------------", conn)
 			SendLog("--- 子任务容器: 仅显示最近 "+fmt.Sprintf("%d", TailLines)+" 条日志 ---", conn)
 			SendLog("---------------------------------------------------", conn)
@@ -224,10 +224,22 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, c
 				return
 			}
 
-			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
+			if strings.Contains(string(data[:n]), "rpc error:") {
 
-			log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, logInfo[0], logInfo[1])
-			SendLog(log, conn)
+				log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, time.Now().Format("2006/01/02 15:04:05"), string(data[:n]))
+				SendLog(log, conn)
+
+			} else {
+				logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
+				logTime, _ := time.Parse(time.RFC3339, logInfo[0])
+				log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
+				SendLog(log, conn)
+			}
+			
+			//logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
+			//
+			//log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, logInfo[0], logInfo[1])
+			//SendLog(log, conn)
 
 		}
 	} else {
