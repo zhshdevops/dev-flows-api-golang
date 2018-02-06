@@ -156,8 +156,6 @@ func Int64Toint64Point(input int64) *int64 {
 
 //WaitForLogs websocket get logs
 func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, containerName string, conn Conn, buildId string) {
-	time.Sleep(2 * time.Second)
-
 	method := "WaitForLogs"
 	follow := false
 	previous := true
@@ -223,7 +221,7 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, c
 				SendLog(fmt.Sprintf("%s", `<font  style="display:none;">[Enn Flow API ] 日志读取结束</font>`), conn)
 				return
 			}
-
+			glog.Infof("=======socket==%s\n", string(data[:n]))
 			if strings.Contains(string(data[:n]), "rpc error:") {
 
 				log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, time.Now().Format("2006/01/02 15:04:05"), string(data[:n]))
@@ -235,7 +233,7 @@ func WaitForLogs(imageBuild *models.ImageBuilder, namespace, podName, jobName, c
 				log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
 				SendLog(log, conn)
 			}
-			
+
 			//logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
 			//
 			//log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s`, logInfo[0], logInfo[1])
