@@ -788,10 +788,22 @@ func (builder *ImageBuilder) ESgetLogFromK8S(namespace, podName, containerName s
 			ctx.ResponseWriter.Write([]byte(log))
 
 		} else {
-			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
-			logTime, _ := time.Parse(time.RFC3339, logInfo[0])
-			log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
-			ctx.ResponseWriter.Write([]byte(log))
+
+			logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), "\n", -1)
+			for _, logline := range logInfo {
+				loglineArr := strings.SplitN(template.HTMLEscapeString(logline), " ", 2)
+				if len(loglineArr) == 2 {
+					logTime, _ := time.Parse(time.RFC3339, loglineArr[0])
+					log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), loglineArr[1])
+					ctx.ResponseWriter.Write([]byte(log))
+				}
+
+			}
+
+			//logInfo := strings.SplitN(template.HTMLEscapeString(string(data[:n])), " ", 2)
+			//logTime, _ := time.Parse(time.RFC3339, logInfo[0])
+			//log := fmt.Sprintf(`<font color="#ffc20e">[%s]</font> %s <br/>`, logTime.Add(8 * time.Hour).Format("2006/01/02 15:04:05"), logInfo[1])
+			//ctx.ResponseWriter.Write([]byte(log))
 		}
 
 	}
