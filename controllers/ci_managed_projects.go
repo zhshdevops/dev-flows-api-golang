@@ -78,7 +78,6 @@ func (cimp *CiManagedProjectsController) GetManagedProjects() {
 	cimp.ResponseSuccessDevops(listProject, total)
 }
 
-
 //@router / [POST] 激活
 func (cimp *CiManagedProjectsController) CreateManagedProject() {
 
@@ -142,8 +141,8 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 
 	// Check if the project url alreay exists for svn repo
 	if project.RepoType == "svn" {
-		project.Username=body.Username
-		project.Password=body.Password
+		project.Username = body.Username
+		project.Password = body.Password
 		err = results.FindProjectByAddressType(cimp.Namespace, project.Address, project.RepoType)
 		if err != nil {
 			parResultNUmber, _ := sqlstatus.ParseErrorCode(err)
@@ -165,13 +164,13 @@ func (cimp *CiManagedProjectsController) CreateManagedProject() {
 		err := models.CreateIntegrationParts(cimp.Namespace, verified, &project)
 		if err != nil {
 			glog.Errorf("%s failed:%v\n", method, err)
-			cimp.ResponseErrorAndCode("CreateIntegrationParts failed"+fmt.Sprintf("%s", err), http.StatusInternalServerError)
+			cimp.ResponseErrorAndCode("请检查代码仓库是否变更:协议或者url不正确", http.StatusInternalServerError)
 			return
 		}
 		scmResult = err
 	} else if project.RepoType == "svn" {
 
-		glog.Infof("%s Adding a new SVN repository:body\n", method,)
+		glog.Infof("%s Adding a new SVN repository:body\n", method, )
 		// Update user/password if found for each add action
 		project.SourceFullName = project.Address
 		project.IsPrivate = 0 //公有
@@ -312,7 +311,7 @@ func (cimp *CiManagedProjectsController) GetManagedProjectDetail() {
 	method := "GetManagedProjectDetail"
 
 	project_id := cimp.Ctx.Input.Param(":project_id")
-	glog.Infof("project_id=%s\n",project_id)
+	glog.Infof("project_id=%s\n", project_id)
 	namespace := cimp.Namespace
 	project := &models.CiManagedProjects{}
 	err := project.FindProjectById(namespace, project_id)
