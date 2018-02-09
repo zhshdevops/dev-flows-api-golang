@@ -37,7 +37,7 @@ func init() {
 
 		for {
 			select {
-			case <-time.After(10 * time.Minute):
+			case <-time.After(3 * time.Minute):
 				imageMaps.ImageMapRWMutex.RLock()
 				for key, value := range imageMaps.ImageMap {
 					if (time.Now().Sub(value) / time.Second) > 180 {
