@@ -26,7 +26,7 @@ const (
 type GogsClient struct {
 	Gogs_url     string `json:"gogs_url"`
 	Access_token string `json:"access_token"`
-	Client   *client.Client
+	Client       *client.Client
 
 	Header map[string]string
 }
@@ -49,7 +49,7 @@ func NewGogsClient(Gogs_url, Access_token string) *GogsClient {
 	return &GogsClient{
 		Gogs_url:     Gogs_url,
 		Access_token: Access_token,
-		Client:   gogsClient,
+		Client:       gogsClient,
 		Header:       map[string]string{"Authorization": "token " + Access_token},
 		//Header: map[string]string{"Authorization": "token 5f6b8a97fcd9da50e2581c5648cd09fa9d33fe3e"},
 	}
@@ -80,12 +80,12 @@ func (gogs *GogsClient) GetUserInfo() (UserInfo, error) {
 	if err != nil {
 		return userInfo, err
 	}
+
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return userInfo, err
 	}
-
 	err = json.Unmarshal(data, &userInfo)
 	if err != nil {
 		return userInfo, err
@@ -112,6 +112,7 @@ func (gogs *GogsClient) GetUserOrgs() ([]UserInfo, error) {
 	if err != nil {
 		return userorgses, err
 	}
+
 	err = json.Unmarshal(data, &userorgses)
 	if err != nil {
 		return userorgses, err
@@ -131,10 +132,12 @@ func (gogs *GogsClient) GetUserAndOrgs() ([]UserInfo, error) {
 	if err != nil {
 		return userorgses, err
 	}
+
 	userinfo, err := gogs.GetUserInfo()
 	if err != nil {
 		return userorgses, err
 	}
+
 	userorgses = append(userorgses, userinfo)
 	if err != nil {
 		return userorgses, err
@@ -145,31 +148,31 @@ func (gogs *GogsClient) GetUserAndOrgs() ([]UserInfo, error) {
 
 //获取某个用户的所有的仓库
 func (gogs *GogsClient) GetAllUsersRepos(userinfos []UserInfo) ([]ReposGitHubAndGogs, error) {
-	method:="GogsClient.GetAllUsersRepos"
+	method := "GogsClient.GetAllUsersRepos"
 	var respRepo ReposGitHubAndGogs
 	repos := make([]ReposGitHubAndGogs, 0)
-	 reposGogs,err:=gogs.Client.ListMyRepos()
-	if err!=nil{
-		glog.Errorf("%s get all user repos failed:%v\n",method,err)
+	reposGogs, err := gogs.Client.ListMyRepos()
+	if err != nil {
+		glog.Errorf("%s get all user repos failed:%v\n", method, err)
 
 	}
 
-	for _,repo :=range reposGogs{
-		respRepo.Name=repo.FullName
-		respRepo.Private=repo.Private
-		respRepo.Url=repo.HTMLURL
-		respRepo.SshUrl=repo.SSHURL
-		respRepo.CloneUrl=repo.CloneURL
-		respRepo.Description=repo.Description
-		respRepo.ProjectId=int(repo.ID)
-		respRepo.Owner.Name=repo.Owner.UserName
-		respRepo.Owner.Username=repo.Owner.UserName
-		respRepo.Owner.Id=int(repo.Owner.ID)
-		respRepo.Owner.State="active"
-		respRepo.Owner.Avatar_url=repo.Owner.AvatarUrl
-		respRepo.Owner.WebUrl=repo.Owner.AvatarUrl
+	for _, repo := range reposGogs {
+		respRepo.Name = repo.FullName
+		respRepo.Private = repo.Private
+		respRepo.Url = repo.HTMLURL
+		respRepo.SshUrl = repo.SSHURL
+		respRepo.CloneUrl = repo.CloneURL
+		respRepo.Description = repo.Description
+		respRepo.ProjectId = int(repo.ID)
+		respRepo.Owner.Name = repo.Owner.UserName
+		respRepo.Owner.Username = repo.Owner.UserName
+		respRepo.Owner.Id = int(repo.Owner.ID)
+		respRepo.Owner.State = "active"
+		respRepo.Owner.Avatar_url = repo.Owner.AvatarUrl
+		respRepo.Owner.WebUrl = repo.Owner.AvatarUrl
 
-		repos=append(repos,respRepo)
+		repos = append(repos, respRepo)
 	}
 
 	return repos, nil
@@ -243,7 +246,7 @@ func (gogs *GogsClient) GetRepoAllTags(repoName string, repoId int) ([]Tag, erro
 }
 
 func (gogs *GogsClient) CreateWebhook(projectId string, events Event, repoName string) (WebhookResp, error) {
-	method:="GogsClient/CreateWebhook"
+	method := "GogsClient/CreateWebhook"
 	var webhook WebhookResp
 
 	hookUrl := common.WebHookUrlPrefix + projectId
@@ -300,7 +303,7 @@ func (gogs *GogsClient) CreateWebhook(projectId string, events Event, repoName s
 	if err != nil {
 		return webhook, err
 	}
-	glog.Infof("%s webhook info:%s\n",method,string(data))
+	glog.Infof("%s webhook info:%s\n", method, string(data))
 	err = json.Unmarshal(data, &webhook)
 	if err != nil {
 		return webhook, err
@@ -393,7 +396,7 @@ func (gogs *GogsClient) RemoveWebhook(projectId string, hook_id int, repoName st
 		return err
 	}
 	defer resp.Body.Close()
-	glog.Infof("RemoveWebhook resp.Status:%s\n",resp.Status)
+	glog.Infof("RemoveWebhook resp.Status:%s\n", resp.Status)
 	if strings.Contains(resp.Status, "Status: 204 No Content") {
 		return nil
 	}
@@ -409,12 +412,17 @@ func (gogs *GogsClient) AddDeployKey(projectId, publicKey, repoName string) (Add
 	//gogs.Client.CreateDeployKey()
 	reqUrl := "/repos/" + repoName + "/keys"
 
+	//glog.Infof("reqUrl===>>>:%s;%s\n", reqUrl, gogs.Header)
+
 	endpoint, err := gogs.GetEndPoint(reqUrl, 0)
 	if err != nil {
 		return deployResp, err
 	}
+
+	//glog.Infof("reqUrl endpoint===>>>:%s;%s\n", endpoint)
+
 	deployReqData := AddDeployReq{
-		Title:     fmt.Sprintf("qinzhao@ennew.cn-%s",rand.RandString(5)),
+		Title:     fmt.Sprintf("qinzhao@ennew.cn-%s", rand.RandString(5)),
 		Key:       publicKey,
 		Read_only: true,
 	}
@@ -435,7 +443,9 @@ func (gogs *GogsClient) AddDeployKey(projectId, publicKey, repoName string) (Add
 	if err != nil {
 		return deployResp, err
 	}
-	glog.Infof("generate AddDeployReq resp body:%#v\n",string(data))
+
+	glog.Infof("generate AddDeployReq resp body:%#v\n", string(data))
+
 	err = json.Unmarshal(data, &deployResp)
 	if err != nil {
 		return deployResp, err
@@ -462,7 +472,7 @@ func (gogs *GogsClient) RemoveDeployKey(project_id, key_id int, repoName string)
 	}
 
 	defer resp.Body.Close()
-	glog.Infof("RemoveDeployKey response Status info:[%s]",resp.Status)
+	glog.Infof("RemoveDeployKey response Status info:[%s]", resp.Status)
 	if strings.Contains(resp.Status, "204") {
 		return nil
 	}

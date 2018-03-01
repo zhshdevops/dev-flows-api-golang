@@ -308,6 +308,15 @@ func NewJobWatcherSocket() *JobWatcherSocket {
 						FlowMapping.ClearOrCloseConnect(flow.FlowId, conn)
 						glog.Infof("the websocket is closeed=======>>%v\n", FlowMapping.FlowMap[flow.FlowId])
 						return
+					} else if flow.WebSocketIfClose == 2 {
+						flow.Status = 200
+						flow.Message = "success"
+						data, _ := json.Marshal(flow)
+						err := wsutil.WriteServerMessage(conn, op, data)
+						if err != nil {
+							glog.Errorf("=======err:%v\n", err)
+						}
+						continue
 					}
 
 				} else {

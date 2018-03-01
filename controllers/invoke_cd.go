@@ -243,6 +243,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 			imageMaps.ImageMapRWMutex.RUnlock()
 			return
 		}
+
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 			glog.Infof("dep.Deployment.Spec.Strategy=%v\n", dep.Deployment.Spec.Strategy)
 			dp, err := k8sClient.ExtensionsV1beta1Client.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
@@ -332,15 +333,23 @@ func (ic *InvokeCDController) NotificationHandler() {
 			if err != nil {
 				glog.Errorf("%s insert deployment log failed: inertRes=%d, err:%v\n", method, inertRes, err)
 			}
-
-			detail := &EmailDetail{
-				Type:    "cd",
-				Result:  "failed",
-				Subject: fmt.Sprintf(`镜像%s持续集成执行失败`, imageInfo.Fullname),
-				Body: fmt.Sprintf(`服务[%s]更新版本间隔时间太短`,
-					dep.Deployment.ObjectMeta.Name),
+			detail := &EmailDetail{}
+			if dep.Match_tag == "1" { //1匹配版本 2不匹配版本
+				detail.Type = "cd"
+				detail.Result = "failed"
+				detail.Subject = fmt.Sprintf(`镜像%s持续集成执行失败`, imageInfo.Fullname)
+				detail.Body = fmt.Sprintf(`服务[%s]自动部署规则是匹配版本,推送的镜像版本跟部署的镜像版本不一致`,
+					dep.Deployment.ObjectMeta.Name)
+			} else {
+				detail.Type = "cd"
+				detail.Result = "failed"
+				detail.Subject = fmt.Sprintf(`镜像%s持续集成执行失败`, imageInfo.Fullname)
+				detail.Body = fmt.Sprintf(`服务[%s]部署发生未知错误,请稍后再试`,
+					dep.Deployment.ObjectMeta.Name)
 			}
+
 			detail.SendEmailUsingFlowConfig(dep.Namespace, dep.Flow_id)
+
 			continue
 		}
 
