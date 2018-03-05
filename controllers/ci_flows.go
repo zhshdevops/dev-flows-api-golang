@@ -1005,6 +1005,7 @@ func (cf *CiFlowsController) CreateCDRule() {
 		cf.ResponseErrorAndCode("Missing required fields of this rule", http.StatusBadRequest)
 		return
 	}
+
 	//get kubernetes clientset
 	k8sClient := client.GetK8sConnection(cdRuleReq.Binding_service.Cluster_id)
 	// Check if the cluster/deployment exists
@@ -1041,7 +1042,7 @@ func (cf *CiFlowsController) CreateCDRule() {
 		parseResult, _ := sqlstatus.ParseErrorCode(err)
 		if parseResult != sqlstatus.SQLErrNoRowFound {
 			glog.Errorf("%s Binding_service.Deployment_id=%s deployment.ObjectMeta.UID=%s %v\n", rule, cdRuleReq.Binding_service.Deployment_id, deployment.ObjectMeta.UID, err)
-			cf.ResponseErrorAndCode("CD rule matching the same conditions already exists", http.StatusInternalServerError)
+			cf.ResponseErrorAndCode("Service is abnormal, please try again later.", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1066,6 +1067,7 @@ func (cf *CiFlowsController) CreateCDRule() {
 	newRuleInfo.UpgradeStrategy = cdRuleReq.Upgrade_strategy
 	newRuleInfo.MatchTag = cdRuleReq.Match_tag
 	newRuleInfo.Enabled = 1
+	newRuleInfo.MinReadySeconds = cdRuleReq.MinReadySeconds
 
 	glog.Infof("%s newRuleInfo.RuleId=%s \n", method, newRuleInfo.RuleId)
 	res, err := cdRule.CreateOneRule(newRuleInfo)
@@ -1143,6 +1145,7 @@ func (cf *CiFlowsController) UpdateCDRule() {
 		cf.ResponseErrorAndCode("request body is illicit", http.StatusBadRequest)
 		return
 	}
+
 	cdRule.UpdateTime = time.Now()
 	cdRule.BindingClusterId = cdRuleReq.Binding_service.Cluster_id
 	cdRule.BindingDeploymentId = cdRuleReq.Binding_service.Deployment_id
@@ -1152,6 +1155,7 @@ func (cf *CiFlowsController) UpdateCDRule() {
 	cdRule.FlowId = cdRuleReq.FlowId
 	cdRule.MatchTag = cdRuleReq.Match_tag
 	cdRule.UpgradeStrategy = cdRuleReq.Upgrade_strategy
+	cdRule.MinReadySeconds = cdRuleReq.MinReadySeconds
 
 	updateResult, err := models.NewCdRules().UpdateCDRule(namespace, flowId, ruleId, cdRule)
 	if err != nil {

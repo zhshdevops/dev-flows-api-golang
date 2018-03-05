@@ -21,6 +21,7 @@ type CDRules struct {
 	CreateTime            time.Time `orm:"column(create_time)" json:"create_time"`
 	UpdateTime            time.Time `orm:"column(update_time)" json:"update_time"`
 	Tag                   string `orm:"column(tag)" json:"tag,omitempty"`
+	MinReadySeconds       int8 `orm:"column(min_ready_seconds)" json:"min_ready_seconds"`
 }
 
 type CdRuleReq struct {
@@ -28,6 +29,7 @@ type CdRuleReq struct {
 	Image_name       string `json:"image_name"`
 	Match_tag        string `json:"match_tag"`
 	Upgrade_strategy int8 `json:"upgrade_strategy"`
+	MinReadySeconds  int8 `json:"min_ready_seconds"`
 	Binding_service  Binding_service `json:"binding_service"`
 }
 
@@ -113,7 +115,7 @@ func (cd *CDRules) UpdateCDRule(namespace, flow_id, rule_id string, rule CDRules
 	}
 
 	return o.Update(&rule, "update_time", "binding_cluster_id", "binding_deployment_id", "binding_deployment_name",
-		"image_name", "flow_id", "upgrade_strategy", "match_tag")
+		"image_name", "flow_id", "upgrade_strategy", "match_tag", "min_ready_seconds")
 }
 
 func (cd *CDRules) ListRulesByFlowId(namespace, flow_id string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
@@ -128,7 +130,7 @@ func (cd *CDRules) ListRulesByFlowId(namespace, flow_id string, orms ...orm.Orme
 	return
 }
 
-func (cd *CDRules) ListRulesByFlowIdAndImageName(image_name,namespace string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
+func (cd *CDRules) ListRulesByFlowIdAndImageName(image_name, namespace string, orms ...orm.Ormer) (cdRules []CDRules, total int64, err error) {
 	var o orm.Ormer
 	if len(orms) != 1 {
 		o = orm.NewOrm()
@@ -137,7 +139,7 @@ func (cd *CDRules) ListRulesByFlowIdAndImageName(image_name,namespace string, or
 	}
 	sql := fmt.Sprintf("select * from %s where image_name=? and enabled=? and namespace!=?", cd.TableName())
 
-	total, err = o.Raw(sql, image_name, 1,namespace).QueryRows(&cdRules)
+	total, err = o.Raw(sql, image_name, 1, namespace).QueryRows(&cdRules)
 	//total, err = o.QueryTable(cd.TableName()).
 	//	Filter("image_name", image_name).Filter("enabled", 1).All(&cdRules)
 	return
@@ -156,6 +158,7 @@ func IsValidRule(rule CdRuleReq) bool {
 	}
 	return true
 }
+
 func (cd *CDRules) FindMatchingRule(namespace, flow_id, image_name, match_tag, clusterId, deploymentName string) (cdRules CDRules, err error) {
 	o := orm.NewOrm()
 	err = o.QueryTable(cd.TableName()).Filter("namespace", namespace).

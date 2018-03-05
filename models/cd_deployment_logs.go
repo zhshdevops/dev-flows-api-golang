@@ -47,6 +47,7 @@ type NewDeploymentArray struct {
 	Namespace           string
 	Match_tag           string //是否匹配规则
 	Start_time          time.Time
+	MinReadySeconds     int8
 }
 
 func (cd *CDDeploymentLogs) TableName() string {

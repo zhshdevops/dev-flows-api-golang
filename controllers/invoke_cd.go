@@ -209,6 +209,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 		newDeployment.Match_tag = cdrule.MatchTag
 		newDeployment.BindingDeploymentId = cdrule.BindingDeploymentId
 		newDeployment.Start_time = start_time
+		newDeployment.MinReadySeconds = cdrule.MinReadySeconds
 		newDeploymentArray = append(newDeploymentArray, newDeployment)
 
 	}
@@ -223,7 +224,7 @@ func (ic *InvokeCDController) NotificationHandler() {
 
 	//开始升级
 	for index, dep := range newDeploymentArray {
-		glog.Infof("第一次：%d 部署", index+1)
+		glog.Infof("第 %d 次部署", index+1)
 		if dep.Deployment.Status.Replicas == 0 ||
 			fmt.Sprintf("%s", dep.Deployment.ObjectMeta.UID) !=
 				dep.BindingDeploymentId {
@@ -246,6 +247,11 @@ func (ic *InvokeCDController) NotificationHandler() {
 
 		if models.Upgrade(dep.Deployment, imageInfo.Fullname, dep.NewTag, dep.Match_tag, dep.Strategy) {
 			glog.Infof("dep.Deployment.Spec.Strategy=%v\n", dep.Deployment.Spec.Strategy)
+
+			if dep.Strategy == 2 {
+				dep.Deployment.Spec.MinReadySeconds = int32(dep.MinReadySeconds)
+			}
+
 			dp, err := k8sClient.ExtensionsV1beta1Client.Deployments(dep.Deployment.ObjectMeta.Namespace).Update(dep.Deployment)
 			if err != nil {
 				glog.Errorf("%s deployment=[%v], err:%v \n", method, dp.Spec.Strategy, err)
