@@ -111,7 +111,7 @@ func Upgrade(deployment *v1beta1.Deployment, imageName, newTag string, isMatchTa
 		oldImage := parseImageName(container.Image)
 
 		// Check the image name
-		if oldImage.Image == imageName {
+		if oldImage.Image == imageName || oldImage.Image == fmt.Sprintf("%s%s", "enncloud", imageName) {
 			// Check the tag matching rule 匹配 不匹配
 			if (isMatchTag == "2") || (isMatchTag == "1" && newTag == oldImage.Tag) {
 
@@ -188,13 +188,20 @@ type Image struct {
 }
 
 //gcr.io/google_containers/example-dns-backend:v1
+//10.39.0.119:8090/google_containers/example-dns-backend:v1
 //ubuntu:v1
 func parseImageName(imageFullName string) (image Image) {
 	//var host,image,tag,letter string
 	//var separatorNumber int
 	count := strings.Count(imageFullName, "/")
 	exist := strings.Count(imageFullName, ":")
-	if count == 2 && exist == 1 {
+
+	if count == 2 && exist == 2 {
+		res := strings.Split(imageFullName, "/")
+		image.Host = res[0]
+		image.Image = res[1] + "/" + strings.Split(res[2], ":")[0]
+		image.Tag = strings.Split(res[2], ":")[1]
+	} else if count == 2 && exist == 1 {
 		res := strings.Split(imageFullName, "/")
 		image.Host = res[0]
 		image.Image = res[1] + "/" + strings.Split(res[2], ":")[0]
