@@ -30,18 +30,18 @@ type InvokeCDController struct {
 func init() {
 
 	imageMaps = ImageMaps{
-		ImageMap: make(map[string]time.Time, 2048),
+		ImageMap: make(map[string]time.Time, 10240),
 	}
 
 	go func() {
 
 		for {
 			select {
-			case <-time.After(3 * time.Minute):
+			case <-time.NewTicker(5 * time.Second).C:
 				imageMaps.ImageMapRWMutex.RLock()
 				for key, value := range imageMaps.ImageMap {
 					if (time.Now().Sub(value) / time.Second) > 180 {
-
+						glog.Infof("coming the NewTicker")
 						delete(imageMaps.ImageMap, key)
 					}
 				}
@@ -131,12 +131,14 @@ func (ic *InvokeCDController) NotificationHandler() {
 		glog.Infof("%s  New image tag =[%s] \n", method, imageInfo.Tag)
 		k8sClient := client.GetK8sConnection(cdrule.BindingClusterId)
 		if k8sClient == nil {
+
+			imageMaps.ImageMapRWMutex.RLock()
+			delete(imageMaps.ImageMap, ImageMapKey)
+			imageMaps.ImageMapRWMutex.RUnlock()
+
 			glog.Errorf(" The specified cluster %s does not exist %s %v \n", cdrule.BindingClusterId, method, err)
 			if (len(cdrules) - 1) == index {
 				ic.ResponseErrorAndCode("The specified cluster"+cdrule.BindingClusterId+" does not exist", http.StatusNotFound)
-				imageMaps.ImageMapRWMutex.RLock()
-				delete(imageMaps.ImageMap, ImageMapKey)
-				imageMaps.ImageMapRWMutex.RUnlock()
 				return
 			}
 			continue
@@ -144,6 +146,10 @@ func (ic *InvokeCDController) NotificationHandler() {
 
 		deployment, err := k8sClient.ExtensionsV1beta1Client.Deployments(cdrule.Namespace).Get(cdrule.BindingDeploymentName, metav1.GetOptions{})
 		if err != nil || deployment.Status.Replicas == 0 {
+
+			imageMaps.ImageMapRWMutex.RLock()
+			delete(imageMaps.ImageMap, ImageMapKey)
+			imageMaps.ImageMapRWMutex.RUnlock()
 
 			if _, ok := deployment.Spec.Template.ObjectMeta.Labels["tenxcloud.com/cdTimestamp"]; ok {
 				cooldownSec := 30
