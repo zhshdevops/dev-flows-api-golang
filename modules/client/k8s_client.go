@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"dev-flows-api-golang/models/common"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/kubernetes"
 )
 
 var (
 	KubernetesClientSet *ClientSet
-	ClusterID string
-	Token string
+	ClusterID           string
+	Token               string
 )
 //get cluster configuration from database
 //automatically response to client if error happens
@@ -29,12 +33,47 @@ func GetClusterOrRespErr(clusterId string) (*clustermodel.ClusterModel, bool) {
 	return cluster, true
 }
 
+func homeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
+}
+
 func GetClientSetOrRespErr(clusterId string) (*ClientSet, bool) {
 	// 获取cluster配置
 	cluster, ok := GetClusterOrRespErr(clusterId)
 	if false == ok {
 		glog.Errorf("Failed to get cluster configuration: %s\n", clusterId)
 		return nil, false
+	}
+
+	config := filepath.Join(homeDir(), "config")
+	file, err := os.Create(config)
+	if err != nil {
+		glog.Errorf("create k8s config file err: %v", err)
+		return nil, false
+	}
+
+	if cluster.APIToken == "" {
+
+		if err = file.Truncate(0); err != nil {
+			glog.Errorf("clean k8s tmp config file err: %v", err)
+			return nil, false
+		}
+		if _, err = file.Write([]byte(cluster.Content)); err != nil {
+			glog.Errorf("write k8s tmp config file err: %v", err)
+			return nil, false
+		}
+
+		cs, err := newClientsetByConfile(config)
+		if err != nil {
+			glog.Errorf("create k8s client err: %v, who's clusterID is %q", err, cluster.ClusterID)
+		}
+
+		c := &ClientSet{Clientset: cs}
+		return c, true
+
 	}
 
 	//初始化client
@@ -46,6 +85,18 @@ func GetClientSetOrRespErr(clusterId string) (*ClientSet, bool) {
 
 	glog.Infof("get k8s client %s://%s APIVersion=%s \n", cluster.APIProtocol, cluster.APIHost, cluster.APIVersion)
 	return cs, true
+}
+
+func newClientsetByConfile(config string) (*kubernetes.Clientset, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags("", config)
+	if err != nil {
+		return nil, err
+	}
+	cs, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return cs, nil
 }
 
 // GetK8sConnection get k8s client and cluster info
@@ -87,10 +138,10 @@ func Initk8sClient() {
 			return
 		}
 		if config.IsBuilder == 1 {
-			ClusterID=clu.ClusterID
+			ClusterID = clu.ClusterID
 			clientSet, ok := GetClientSetOrRespErr(clu.ClusterID)
 			KubernetesClientSet = clientSet
-			Token=clu.APIToken
+			Token = clu.APIToken
 			if !ok {
 				fmt.Errorf("get kubernetes client failed %s %v\n", method, err)
 			}

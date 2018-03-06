@@ -36,6 +36,8 @@ type ClusterModel struct {
 	QingcloudURL    string    `orm:"column(qingcloud_url)" json:"qingcloud_url"`
 	AccessKeyID     string    `orm:"column(access_key_id)" json:"access_key_id"`
 	SecretAccessKey string    `orm:"column(secret_access_key)" json:"secret_access_key"`
+	Content         string    `orm:"column(content)" json:"-"`
+	Type            int8      `orm:"column(type)" json:"type"` // 0 enncloud 1 huawei 2 aws ,default is 0
 }
 
 const (
@@ -318,6 +320,7 @@ func (t *ClusterModel) GetClusterByTeamID(teamID string) ([]ClusterModel, error)
 	}
 	return result, nil
 }
+
 //GetAllCluster
 func (t *ClusterModel) GetAllCluster() ([]ClusterModel, error) {
 	method := "GetAllCluster"
