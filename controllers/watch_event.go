@@ -14,6 +14,7 @@ import (
 	"dev-flows-api-golang/modules/log"
 	"dev-flows-api-golang/models"
 	"dev-flows-api-golang/modules/client"
+	"strings"
 )
 
 func init() {
@@ -21,7 +22,7 @@ func init() {
 	client.Initk8sClient()
 	stopCh := make(chan struct{})
 
-	NewController(client.KubernetesClientSet.Clientset).Run(5, stopCh)
+	go NewController(client.KubernetesClientSet.Clientset).Run(5, stopCh)
 
 }
 
@@ -37,11 +38,11 @@ func NewController(clientset *kubernetes.Clientset) *Controller {
 	podListWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "events", v1.NamespaceAll, fields.Everything())
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	indexer, informer := cache.NewIndexerInformer(podListWatcher, &v1.Event{}, 0, cache.ResourceEventHandlerFuncs{
-
 		AddFunc: func(obj interface{}) {
+
 			eventInfo, ok := obj.(*v1.Event)
 			if ok {
-				if eventInfo.GetLabels()["system/jobType"] == "devflows" {
+				if eventInfo.GetLabels()["system/jobType"] == "devflows" || strings.Contains(eventInfo.GetName(), "cifid") {
 
 					var indexLog log.IndexLogData
 					logClient, err := log.NewESClient("")
@@ -99,7 +100,7 @@ func (c *Controller) syncToStdout(key string) error {
 		return err
 	}
 	if !exists {
-		glog.Infof("Pod %v was deleted  %v ", key)
+		glog.Infof("Event %v was deleted  %v ", key)
 	}
 	return nil
 }
@@ -113,7 +114,6 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	// This controller retries 5 times if something goes wrong. After that, it stops trying.
 	if c.queue.NumRequeues(key) < 5 {
-		glog.Infof("Error syncing pod %v: %v", key, err)
 		c.queue.AddRateLimited(key)
 		return
 	}
@@ -121,7 +121,6 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	c.queue.Forget(key)
 	// Report to an external entity that, even after several retries, we could not successfully process this key
 	runtime.HandleError(err)
-	glog.Infof("Dropping pod %q out of the queue: %v", key, err)
 }
 
 // Run start sync pod to local from k8s cache
