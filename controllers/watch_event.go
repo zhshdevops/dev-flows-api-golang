@@ -58,9 +58,6 @@ func NewController(clientset *kubernetes.Clientset) *Controller {
 					indexLog.Kubernetes.ContainerName = models.SCM_CONTAINER_NAME
 					indexLog.Kubernetes.NamespaceName = eventInfo.InvolvedObject.Namespace
 					indexLog.Kubernetes.PodId = fmt.Sprintf("%s", eventInfo.InvolvedObject.UID)
-
-					glog.Infof("eventInfo.InvolvedObject:%v\n", eventInfo.InvolvedObject)
-
 					indexEs := fmt.Sprintf("logstash-%s", time.Now().Format("2006.01.02"))
 
 					esType := "fluentd"
