@@ -61,7 +61,7 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 
 	query.Should(shouldQuery...)
 
-	glog.Infof("indexs====[%v]\n",indexs)
+	glog.Infof("indexs====[%v]\n", indexs)
 
 	svc := c.client.Scroll(indexs...).Query(query).Sort("time_nano", true).Size(200)
 
@@ -107,6 +107,24 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 
 		docs = docs + 200
 
+	}
+
+	return nil
+
+}
+
+func (c *ESClient) IndexLogToES(index string, esType string, indexLogData IndexLogData) error {
+
+	glog.Infof("indexLogData====[%v]\n", indexLogData)
+	glog.Infof("index====[%v]\n", index)
+
+	indexResult, err := c.client.Index().Index(index).Type(esType).BodyJson(&indexLogData).Do(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	if indexResult == nil {
+		return fmt.Errorf("index to ElasticSearch failed")
 	}
 
 	return nil
