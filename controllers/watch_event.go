@@ -42,7 +42,7 @@ func NewController(clientset *kubernetes.Clientset) *Controller {
 
 			eventInfo, ok := obj.(*v1.Event)
 			if ok {
-				if eventInfo.GetLabels()["system/jobType"] == "devflows" || strings.Contains(eventInfo.GetName(), "cifid") {
+				if strings.Contains(eventInfo.GetName(), "cifid-") && strings.Contains(eventInfo.GetName(), "-cisid-") {
 
 					var indexLog log.IndexLogData
 					logClient, err := log.NewESClient("")
@@ -51,15 +51,14 @@ func NewController(clientset *kubernetes.Clientset) *Controller {
 						return
 					}
 					indexLog.Log = eventInfo.Message
-					indexLog.TimeNano = time.Now().UnixNano()
+					indexLog.TimeNano = fmt.Sprintf("%d", time.Now().UnixNano())
 					indexLog.Timestamp = eventInfo.FirstTimestamp.Time
 					indexLog.Kubernetes.PodName = eventInfo.InvolvedObject.Name
-					indexLog.Kubernetes.Labels.ClusterID = ""
+					indexLog.Kubernetes.Labels.ClusterID = client.ClusterID
 					indexLog.Kubernetes.ContainerName = models.SCM_CONTAINER_NAME
 					indexLog.Kubernetes.NamespaceName = eventInfo.InvolvedObject.Namespace
 					indexLog.Kubernetes.PodId = fmt.Sprintf("%s", eventInfo.InvolvedObject.UID)
 					indexEs := fmt.Sprintf("logstash-%s", time.Now().Format("2006.01.02"))
-
 					esType := "fluentd"
 
 					err = logClient.IndexLogToES(indexEs, esType, indexLog)

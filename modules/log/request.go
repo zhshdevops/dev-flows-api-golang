@@ -78,7 +78,7 @@ type IndexLogData struct {
 	Kubernetes Kubernetes             `json:"kubernetes,omitempty"` // corresponding to variable requiredFields
 	Stream     string                 `json:"stream,omitempty"`
 	Docker     Docker                 `json:"docker,omitempty"`
-	TimeNano   int64                 `json:"time_nano,omitempty"`
+	TimeNano   string                 `json:"time_nano,omitempty"`
 	Tag        string                 `json:"tag,omitempty"`
 	Timestamp  time.Time              `json:"@timestamp,omitempty"`
 }

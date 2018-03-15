@@ -10,7 +10,6 @@ import (
 	beegoCtx "github.com/astaxie/beego/context"
 	"fmt"
 	"time"
-	"github.com/golang/glog"
 )
 
 type ESClient struct {
@@ -60,8 +59,6 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 	}
 
 	query.Should(shouldQuery...)
-
-	glog.Infof("indexs====[%v]\n", indexs)
 
 	svc := c.client.Scroll(indexs...).Query(query).Sort("time_nano", true).Size(200)
 
@@ -114,9 +111,6 @@ func (c *ESClient) SearchTodayLog(indexs []string, namespace string, containerNa
 }
 
 func (c *ESClient) IndexLogToES(index string, esType string, indexLogData IndexLogData) error {
-
-	glog.Infof("indexLogData====[%v]\n", indexLogData)
-	glog.Infof("index====[%v]\n", index)
 
 	indexResult, err := c.client.Index().Index(index).Type(esType).BodyJson(&indexLogData).Do(context.TODO())
 	if err != nil {
