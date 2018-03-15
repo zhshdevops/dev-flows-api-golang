@@ -52,7 +52,7 @@ func NewController(clientset *kubernetes.Clientset) *Controller {
 					}
 					indexLog.Log = eventInfo.Message
 					indexLog.TimeNano = fmt.Sprintf("%d", time.Now().UnixNano())
-					indexLog.Timestamp = eventInfo.FirstTimestamp.Time
+					indexLog.Timestamp = eventInfo.FirstTimestamp.Add(-8 * time.Hour)
 					indexLog.Kubernetes.PodName = eventInfo.InvolvedObject.Name
 					indexLog.Kubernetes.Labels.ClusterID = client.ClusterID
 					indexLog.Kubernetes.ContainerName = models.SCM_CONTAINER_NAME
@@ -60,7 +60,6 @@ func NewController(clientset *kubernetes.Clientset) *Controller {
 					indexLog.Kubernetes.PodId = fmt.Sprintf("%s", eventInfo.InvolvedObject.UID)
 					indexEs := fmt.Sprintf("logstash-%s", time.Now().Format("2006.01.02"))
 					esType := "fluentd"
-
 					err = logClient.IndexLogToES(indexEs, esType, indexLog)
 					if err != nil {
 						glog.Errorf("IndexLogToES failed: %v\n", err)
