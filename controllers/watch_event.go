@@ -19,10 +19,10 @@ import (
 
 func init() {
 
-	//client.Initk8sClient()
-	//stopCh := make(chan struct{})
-	//
-	//go NewController(client.KubernetesClientSet.Clientset).Run(5, stopCh)
+	client.Initk8sClient()
+	stopCh := make(chan struct{})
+
+	go NewController(client.KubernetesClientSet.Clientset).Run(5, stopCh)
 
 }
 
